@@ -130,6 +130,15 @@ class BilingualSEOOptimizer:
 - If the original title has some English (like brand names or technical terms), you may keep them mixed in naturally
 
 **2. DESCRIPTION (Bilingual)**
+IMPORTANT: Preserve all existing useful information:
+- Music credits and attributions
+- Timestamps and chapters
+- Links and resources
+- Social media handles
+- Location details
+- Equipment/gear used
+- Any other valuable metadata
+
 Structure:
 ```
 [Chinese Section - 250+ words]
@@ -137,6 +146,7 @@ Structure:
 - Include detailed information, tips, and value
 - Natural keyword integration (2-4 times)
 - Engaging and informative
+- KEEP all music credits, timestamps, links from original
 
 ---
 
@@ -145,6 +155,14 @@ Structure:
 - Include English keywords naturally
 - Appeal to international audience
 - SEO-optimized for English search
+
+---
+
+[Original Metadata - if present]
+- Music credits
+- Timestamps/chapters
+- Links and resources
+- Other attributions
 ```"""
             example_hashtags = "#中国旅行 #TravelChina #旅行Vlog"
         else:  # english
@@ -157,6 +175,15 @@ Structure:
 - Natural and appealing to English viewers
 
 **2. DESCRIPTION (Bilingual)**
+IMPORTANT: Preserve all existing useful information:
+- Music credits and attributions
+- Timestamps and chapters
+- Links and resources
+- Social media handles
+- Location details
+- Equipment/gear used
+- Any other valuable metadata
+
 Structure:
 ```
 [English Section - 250+ words]
@@ -164,6 +191,7 @@ Structure:
 - Include detailed information, tips, and value
 - Natural keyword integration (2-4 times)
 - Engaging and informative
+- KEEP all music credits, timestamps, links from original
 
 ---
 
@@ -172,6 +200,14 @@ Structure:
 - Include Chinese keywords naturally
 - Appeal to Chinese-speaking audience
 - SEO-optimized for Chinese search
+
+---
+
+[Original Metadata - if present]
+- Music credits
+- Timestamps/chapters
+- Links and resources
+- Other attributions
 ```"""
             example_hashtags = "#PersonalGrowth #读书 #Productivity"
 
@@ -182,6 +218,17 @@ Structure:
 - Description: {current_description}
 - Current Tags: {current_tags_str}
 {f"- Additional Context: {video_context}" if video_context else ""}
+
+**CRITICAL: Content Preservation**
+The current description may contain important information such as:
+- Music credits and attributions (e.g., "Music: [song name] by [artist]")
+- Timestamps and chapter markers (e.g., "0:00 Intro", "2:30 Main content")
+- Social media links and handles
+- Equipment/gear information
+- Location details
+- External links and resources
+
+YOU MUST PRESERVE ALL OF THIS INFORMATION in the optimized description. Do not remove or omit any credits, timestamps, links, or metadata that exists in the current description.
 
 **Your Task:**
 Generate SEO-optimized metadata following these requirements:
