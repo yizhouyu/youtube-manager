@@ -99,6 +99,8 @@ class YouTubeClient:
                         'tags': item['snippet'].get('tags', []),
                         'categoryId': item['snippet']['categoryId'],
                         'publishedAt': item['snippet']['publishedAt'],
+                        'defaultLanguage': item['snippet'].get('defaultLanguage'),
+                        'defaultAudioLanguage': item['snippet'].get('defaultAudioLanguage'),
                         'viewCount': item['statistics'].get('viewCount', '0'),
                         'likeCount': item['statistics'].get('likeCount', '0'),
                     }
@@ -136,6 +138,8 @@ class YouTubeClient:
                     'tags': item['snippet'].get('tags', []),
                     'categoryId': item['snippet']['categoryId'],
                     'publishedAt': item['snippet']['publishedAt'],
+                    'defaultLanguage': item['snippet'].get('defaultLanguage'),
+                    'defaultAudioLanguage': item['snippet'].get('defaultAudioLanguage'),
                     'viewCount': item['statistics'].get('viewCount', '0'),
                     'likeCount': item['statistics'].get('likeCount', '0'),
                 }

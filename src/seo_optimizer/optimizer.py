@@ -24,23 +24,58 @@ class BilingualSEOOptimizer:
             )
         self.client = Anthropic(api_key=self.api_key)
 
-    def _detect_primary_language(self, title: str, description: str) -> str:
+    def _detect_primary_language(
+        self,
+        title: str,
+        description: str,
+        default_language: Optional[str] = None,
+        default_audio_language: Optional[str] = None
+    ) -> str:
         """
         Detect the primary language of the video content.
+
+        Uses multiple signals in priority order:
+        1. YouTube API language fields (defaultLanguage, defaultAudioLanguage)
+        2. Character analysis of title (Chinese vs English characters)
+        3. Character analysis of description as fallback
 
         Args:
             title: Video title
             description: Video description
+            default_language: YouTube's defaultLanguage field
+            default_audio_language: YouTube's defaultAudioLanguage field
 
         Returns:
             'chinese' or 'english'
         """
+        # Priority 1: Use YouTube API language fields
+        language_hints = [default_language, default_audio_language]
+        for lang in language_hints:
+            if lang:
+                lang_lower = lang.lower()
+                # Chinese language codes: zh, zh-CN, zh-TW, zh-Hans, zh-Hant, etc.
+                if lang_lower.startswith('zh'):
+                    return 'chinese'
+                # English language codes: en, en-US, en-GB, etc.
+                elif lang_lower.startswith('en'):
+                    return 'english'
+
+        # Priority 2: Analyze title characters (title is most indicative)
+        title_chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', title))
+        title_english_chars = len(re.findall(r'[a-zA-Z]', title))
+
+        # If title has substantial Chinese content, it's a Chinese video
+        if title_chinese_chars > 5:  # At least 5 Chinese characters
+            return 'chinese'
+
+        # If title is predominantly English (>70% English characters)
+        title_total = title_chinese_chars + title_english_chars
+        if title_total > 0 and title_english_chars / title_total > 0.7:
+            return 'english'
+
+        # Priority 3: Fallback to description analysis
         combined_text = title + " " + description
-
-        # Count Chinese characters (CJK Unified Ideographs)
         chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', combined_text))
-
-        # Count English letters
         english_chars = len(re.findall(r'[a-zA-Z]', combined_text))
 
         # Primary language is the one with more characters
@@ -51,7 +86,9 @@ class BilingualSEOOptimizer:
         current_title: str,
         current_description: str,
         current_tags: list = None,
-        video_context: Optional[str] = None
+        video_context: Optional[str] = None,
+        default_language: Optional[str] = None,
+        default_audio_language: Optional[str] = None
     ) -> Dict[str, any]:
         """
         Generate SEO-optimized bilingual metadata for a travel video.
@@ -73,17 +110,24 @@ class BilingualSEOOptimizer:
         """
         current_tags_str = ', '.join(current_tags) if current_tags else 'None'
 
-        # Detect primary language
-        primary_lang = self._detect_primary_language(current_title, current_description)
+        # Detect primary language using all available signals
+        primary_lang = self._detect_primary_language(
+            current_title,
+            current_description,
+            default_language,
+            default_audio_language
+        )
 
         # Build language-specific prompt
         if primary_lang == 'chinese':
-            lang_instruction = """**1. TITLE (Chinese)**
+            lang_instruction = """**1. TITLE (MUST be in Chinese)**
+- CRITICAL: The title MUST be in Chinese. DO NOT translate to English.
 - Keep it in Chinese (60 characters optimal, max 70)
 - Include the most important keywords FIRST
 - Use engaging words like: 必看, 攻略, 完整版, 深度, 实拍, 最新
 - Make it clickable but not clickbait
 - Natural and appealing to Chinese viewers
+- If the original title has some English (like brand names or technical terms), you may keep them mixed in naturally
 
 **2. DESCRIPTION (Bilingual)**
 Structure:
@@ -104,7 +148,8 @@ Structure:
 ```"""
             example_hashtags = "#中国旅行 #TravelChina #旅行Vlog"
         else:  # english
-            lang_instruction = """**1. TITLE (English)**
+            lang_instruction = """**1. TITLE (MUST be in English)**
+- CRITICAL: The title MUST be in English. DO NOT translate to Chinese.
 - Keep it in English (60 characters optimal, max 70)
 - Include the most important keywords FIRST
 - Use engaging words like: Ultimate, Complete Guide, Best, Essential, Must-See

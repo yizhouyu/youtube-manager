@@ -106,7 +106,9 @@ def batch_update(limit, video_id, auto_apply, force):
                 optimized = optimizer.generate_metadata(
                     current_title=video['title'],
                     current_description=video['description'],
-                    current_tags=video.get('tags', [])
+                    current_tags=video.get('tags', []),
+                    default_language=video.get('defaultLanguage'),
+                    default_audio_language=video.get('defaultAudioLanguage')
                 )
 
                 # Display comparison
