@@ -391,12 +391,118 @@ Return ONLY the JSON output."""
         except Exception as e:
             raise Exception(f"Error generating metadata with Claude API: {e}")
 
+    def generate_single_option(
+        self,
+        topic: str,
+        locations: Optional[str] = None,
+        key_points: Optional[str] = None,
+        style: str = "engaging"
+    ) -> Dict[str, any]:
+        """
+        Generate a single metadata option with a specific style.
+
+        Args:
+            topic: Main topic/title of the video
+            locations: Locations covered
+            key_points: Key highlights
+            style: Style of metadata - "engaging", "informative", or "curiosity"
+
+        Returns:
+            Dictionary with metadata for one option
+        """
+        style_instructions = {
+            "engaging": "Click-worthy and engaging (use words like 必看, 攻略, 完整版)",
+            "informative": "Descriptive and informative (focus on detailed info)",
+            "curiosity": "Question/curiosity-based (use questions or curiosity gaps)"
+        }
+
+        prompt = f"""You are an expert in YouTube SEO for content. Generate SEO-optimized metadata for a NEW video.
+
+**Video Information:**
+- Topic: {topic}
+{f"- Locations: {locations}" if locations else ""}
+{f"- Key Points: {key_points}" if key_points else ""}
+
+**Style:** {style_instructions.get(style, style_instructions["engaging"])}
+
+**Your Task:**
+Create compelling, SEO-optimized metadata from scratch.
+
+**1. TITLE (Chinese)**
+- 60 characters optimal, max 70
+- Primary keywords FIRST
+- Match the {style} style
+- IMPORTANT: Use Simplified Chinese (简体中文), NOT Traditional Chinese
+
+**2. DESCRIPTION (Bilingual)**
+- Chinese section (250+ words, Simplified Chinese 简体中文) + English section (150+ words)
+- Keywords in first 25 words
+- Match the {style} style
+
+**3. TAGS (8-12 tags)**
+- Mix of Chinese and English
+- Location-specific
+- Broad + niche keywords
+
+**4. HASHTAGS (3-5)**
+- First 3 appear above video
+- Mix broad reach + niche specificity
+
+**Output Format (JSON only):**
+```json
+{{
+  "title": "optimized title",
+  "description": "Chinese section\\n\\n---\\n\\nEnglish section",
+  "tags": ["tag1", "tag2", ...],
+  "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5"]
+}}
+```
+
+Return ONLY the JSON output."""
+
+        try:
+            response = self.client.messages.create(
+                model="claude-sonnet-4-5-20250929",
+                max_tokens=2048,
+                messages=[{
+                    "role": "user",
+                    "content": prompt
+                }]
+            )
+
+            response_text = response.content[0].text.strip()
+
+            # Clean up markdown code blocks
+            if response_text.startswith('```'):
+                lines = response_text.split('\n')
+                response_text = '\n'.join(lines[1:-1]) if len(lines) > 2 else response_text
+                if response_text.startswith('json'):
+                    response_text = response_text[4:].strip()
+
+            import json
+            import re
+
+            # Additional cleaning
+            response_text = re.sub(r',(\s*[}\]])', r'\1', response_text)
+            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            if json_match:
+                response_text = json_match.group(0)
+
+            metadata = json.loads(response_text)
+            return metadata
+
+        except json.JSONDecodeError as e:
+            raise Exception(f"Error parsing JSON from Claude API (line {e.lineno}, col {e.colno}): {e.msg}")
+        except Exception as e:
+            raise Exception(f"Error generating metadata with Claude API: {e}")
+
     def generate_multiple_options(
         self,
         topic: str,
         locations: Optional[str] = None,
         key_points: Optional[str] = None,
-        num_options: int = 3
+        num_options: int = 3,
+        parallel: bool = True
     ) -> Dict[str, any]:
         """
         Generate multiple metadata options for a new video.
@@ -406,11 +512,30 @@ Return ONLY the JSON output."""
             locations: Locations covered
             key_points: Key highlights
             num_options: Number of options to generate (default 3)
+            parallel: Generate options in parallel (faster) vs sequential (default True)
 
         Returns:
             Dictionary with multiple options for each field
         """
-        prompt = f"""You are an expert in YouTube SEO for travel content. Generate {num_options} DIFFERENT options for metadata for a NEW Chinese travel video.
+        # Parallel generation: make 3 API calls simultaneously
+        if parallel and num_options == 3:
+            import asyncio
+            import concurrent.futures
+
+            styles = ["engaging", "informative", "curiosity"]
+
+            def generate_option(style):
+                return self.generate_single_option(topic, locations, key_points, style)
+
+            # Use ThreadPoolExecutor for parallel execution
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                futures = [executor.submit(generate_option, style) for style in styles]
+                options = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+            return {"options": options}
+
+        # Fallback: single API call for all options
+        prompt = f"""You are an expert in YouTube SEO for content. Generate {num_options} DIFFERENT options for metadata for a NEW video.
 
 **Video Information:**
 - Topic: {topic}
@@ -490,10 +615,22 @@ Return ONLY the JSON output with all {num_options} options."""
                     response_text = response_text[4:].strip()
 
             import json
+            import re
+
+            # Additional cleaning: remove any trailing commas before closing braces/brackets
+            response_text = re.sub(r',(\s*[}\]])', r'\1', response_text)
+
+            # Try to find JSON object if wrapped in other text
+            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            if json_match:
+                response_text = json_match.group(0)
+
             result = json.loads(response_text)
 
             return result
 
+        except json.JSONDecodeError as e:
+            raise Exception(f"Error parsing JSON from Claude API (line {e.lineno}, col {e.colno}): {e.msg}. Response preview: {response_text[:200]}")
         except Exception as e:
             raise Exception(f"Error generating metadata options with Claude API: {e}")
 

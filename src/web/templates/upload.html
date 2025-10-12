@@ -12,23 +12,30 @@
 
     <!-- Progress Steps -->
     <div class="mb-8">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center flex-1">
-                <div id="step1-indicator" class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white font-bold">1</div>
-                <div class="flex-1 h-1 bg-blue-600 mx-2"></div>
+        <div class="flex items-center">
+            <!-- Step 1 -->
+            <div class="flex flex-col items-center" style="width: 33.33%;">
+                <div id="step1-indicator" class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white font-bold mb-2">1</div>
+                <span id="step1-label" class="text-blue-600 font-medium text-sm text-center">Select Files</span>
             </div>
-            <div class="flex items-center flex-1">
-                <div id="step2-indicator" class="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-600 font-bold">2</div>
-                <div class="flex-1 h-1 bg-gray-300 mx-2"></div>
+
+            <!-- Connector Line 1 -->
+            <div id="line1" class="flex-1 h-1 bg-blue-600 -mt-6"></div>
+
+            <!-- Step 2 -->
+            <div class="flex flex-col items-center" style="width: 33.33%;">
+                <div id="step2-indicator" class="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-600 font-bold mb-2">2</div>
+                <span id="step2-label" class="text-gray-500 text-sm text-center">Choose Metadata</span>
             </div>
-            <div class="flex items-center flex-1">
-                <div id="step3-indicator" class="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-600 font-bold">3</div>
+
+            <!-- Connector Line 2 -->
+            <div id="line2" class="flex-1 h-1 bg-gray-300 -mt-6"></div>
+
+            <!-- Step 3 -->
+            <div class="flex flex-col items-center" style="width: 33.33%;">
+                <div id="step3-indicator" class="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-600 font-bold mb-2">3</div>
+                <span id="step3-label" class="text-gray-500 text-sm text-center">Upload to YouTube</span>
             </div>
-        </div>
-        <div class="flex justify-between mt-2 text-sm">
-            <span class="text-blue-600 font-medium">Select Files</span>
-            <span class="text-gray-500">Choose Metadata</span>
-            <span class="text-gray-500">Upload to YouTube</span>
         </div>
     </div>
 
@@ -104,13 +111,40 @@
                 </div>
             </div>
 
+            <!-- Manual Selection Options -->
+            <div class="border-t pt-4 mt-4">
+                <p class="text-sm text-gray-600 mb-3 text-center">Wrong detection? Select files manually:</p>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500 mb-2">Video File:</label>
+                        <input
+                            type="file"
+                            id="manual-video-input"
+                            accept="video/*"
+                            onchange="handleManualVideoSelect(event)"
+                            class="text-sm w-full"
+                        >
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500 mb-2">Thumbnail:</label>
+                        <input
+                            type="file"
+                            id="manual-thumbnail-input"
+                            accept="image/*"
+                            onchange="handleManualThumbnailSelect(event)"
+                            class="text-sm w-full"
+                        >
+                    </div>
+                </div>
+            </div>
+
             <!-- Reset Button -->
-            <div class="text-center">
+            <div class="text-center mt-4">
                 <button
                     onclick="resetFileSelection()"
                     class="text-sm text-gray-600 hover:text-gray-900 underline"
                 >
-                    Wrong detection? Reset and select again
+                    Clear all and start over
                 </button>
             </div>
         </div>
@@ -140,6 +174,19 @@
                 class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., Upper Antelope Canyon, Lower Antelope Canyon, Page Arizona"
             >
+        </div>
+
+        <!-- Filming Date -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                When was this filmed? (Optional)
+            </label>
+            <input
+                type="date"
+                id="filming-date"
+                class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+            <p class="text-xs text-gray-500 mt-1">This helps YouTube organize your video timeline</p>
         </div>
 
         <button
@@ -216,25 +263,137 @@
             </div>
         </div>
 
+        <!-- Publishing Options -->
+        <div class="bg-gray-50 rounded-lg p-6 mb-6">
+            <h3 class="font-bold text-gray-900 mb-4">Publishing Settings</h3>
+
+            <div class="space-y-4">
+                <!-- Privacy Status -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Privacy Status
+                    </label>
+                    <select id="privacy-status" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500">
+                        <option value="private" selected>Private (Only you can see)</option>
+                        <option value="unlisted">Unlisted (Anyone with link)</option>
+                        <option value="public">Public (Everyone can see)</option>
+                    </select>
+                </div>
+
+                <!-- Scheduled Publishing -->
+                <div>
+                    <label class="flex items-center mb-3">
+                        <input type="checkbox" id="schedule-publish" class="mr-2 rounded" onchange="toggleSchedule()">
+                        <span class="text-sm font-medium text-gray-700">Schedule for later</span>
+                    </label>
+
+                    <div id="schedule-fields" class="hidden space-y-3 pl-6">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Publish Date</label>
+                            <input
+                                type="date"
+                                id="publish-date"
+                                class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Publish Time</label>
+                            <input
+                                type="time"
+                                id="publish-time"
+                                class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500"
+                            >
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            Note: Scheduled videos will be set to Private until the scheduled time
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Summary -->
         <div id="upload-summary" class="bg-gray-50 rounded-lg p-6 mb-6">
-            <h3 class="font-bold text-gray-900 mb-4">Summary</h3>
-            <div class="space-y-2 text-sm">
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Video:</span>
-                    <span id="summary-video" class="text-gray-900 font-medium">--</span>
+            <h3 class="font-bold text-gray-900 mb-4">Review Metadata</h3>
+            <div class="space-y-6">
+                <!-- File Information -->
+                <div class="space-y-3">
+                    <h4 class="font-semibold text-gray-700 text-sm uppercase tracking-wide">Files</h4>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Video:</span>
+                            <span id="summary-video" class="text-gray-900 font-medium">--</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Thumbnail:</span>
+                            <span id="summary-thumbnail" class="text-gray-900 font-medium">--</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Thumbnail:</span>
-                    <span id="summary-thumbnail" class="text-gray-900 font-medium">--</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Title:</span>
-                    <span id="summary-title" class="text-gray-900 font-medium truncate max-w-md">--</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Tags:</span>
-                    <span id="summary-tags" class="text-gray-900 font-medium">--</span>
+
+                <!-- Metadata Information -->
+                <div class="space-y-4">
+                    <h4 class="font-semibold text-gray-700 text-sm uppercase tracking-wide">Video Metadata</h4>
+
+                    <div>
+                        <span class="text-gray-600 text-sm block mb-1">Title:</span>
+                        <p id="summary-title" class="text-gray-900 font-medium">--</p>
+                    </div>
+
+                    <div>
+                        <span class="text-gray-600 text-sm block mb-1">Description (editable):</span>
+                        <textarea
+                            id="summary-description"
+                            class="w-full text-gray-900 text-sm bg-white p-3 rounded max-h-96 min-h-[200px] overflow-y-auto whitespace-pre-wrap border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            rows="8"
+                        >--</textarea>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-gray-600 text-sm">Tags (<span id="summary-tags-count">0</span>) - click to remove:</span>
+                            <span class="text-sm text-gray-400 cursor-help" title="Tags help YouTube categorize your video (not visible to viewers)">ⓘ</span>
+                        </div>
+                        <div id="summary-tags" class="flex flex-wrap gap-2 mb-2">--</div>
+                        <div class="flex gap-2">
+                            <input
+                                type="text"
+                                id="new-tag-input"
+                                class="flex-1 text-sm border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="Add new tag..."
+                                onkeypress="if(event.key==='Enter'){addTag();event.preventDefault();}"
+                            >
+                            <button
+                                onclick="addTag()"
+                                class="bg-blue-600 text-white text-sm px-4 py-2 rounded hover:bg-blue-700"
+                            >
+                                Add Tag
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-gray-600 text-sm">Hashtags (<span id="summary-hashtags-count">0</span>) - click to remove:</span>
+                            <span class="text-sm text-gray-400 cursor-help" title="Hashtags appear above your video title and are clickable by viewers">ⓘ</span>
+                        </div>
+                        <div id="summary-hashtags" class="flex flex-wrap gap-2 mb-2">--</div>
+                        <div class="flex gap-2">
+                            <input
+                                type="text"
+                                id="new-hashtag-input"
+                                class="flex-1 text-sm border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="Add new hashtag (without #)..."
+                                onkeypress="if(event.key==='Enter'){addHashtag();event.preventDefault();}"
+                            >
+                            <button
+                                onclick="addHashtag()"
+                                class="bg-purple-600 text-white text-sm px-4 py-2 rounded hover:bg-purple-700"
+                            >
+                                Add Hashtag
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -271,7 +430,7 @@
         <div class="flex space-x-4">
             <button
                 id="back-to-step2-btn"
-                onclick="goToStep2()"
+                onclick="goToStep2FromStep3()"
                 class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-medium"
             >
                 ← Back
@@ -344,16 +503,41 @@
         }
     }
 
+    function extractLocationFromFilename(filename) {
+        // Extract location hints from filename like "55 - Arizona 4 (Antelope Canyon).MP4"
+        // Remove file extension and common patterns
+        let name = filename.replace(/\.[^/.]+$/, ''); // Remove extension
+        name = name.replace(/^\d+\s*-\s*/, ''); // Remove leading number like "55 - "
+
+        // Extract text from parentheses (often contains specific location)
+        const parenMatch = name.match(/\(([^)]+)\)/);
+        if (parenMatch) {
+            return parenMatch[1];
+        }
+
+        // Otherwise return the cleaned name
+        return name.replace(/[_-]/g, ' ').trim();
+    }
+
+    function getDisplayPath(file) {
+        // Use webkitRelativePath if available (from folder selection)
+        if (file.webkitRelativePath) {
+            return file.webkitRelativePath;
+        }
+        // Otherwise just use filename
+        return file.name;
+    }
+
     function showDetectedFiles() {
         // Show the detected files section
         document.getElementById('detected-files').classList.remove('hidden');
 
-        // Update video info
-        document.getElementById('video-name').textContent = selectedVideoFile.name;
+        // Update video info with full path
+        document.getElementById('video-name').textContent = getDisplayPath(selectedVideoFile);
         document.getElementById('video-size').textContent = formatFileSize(selectedVideoFile.size);
 
-        // Update thumbnail info and preview
-        document.getElementById('thumbnail-name').textContent = selectedThumbnailFile.name;
+        // Update thumbnail info and preview with full path
+        document.getElementById('thumbnail-name').textContent = getDisplayPath(selectedThumbnailFile);
         document.getElementById('thumbnail-size').textContent = formatFileSize(selectedThumbnailFile.size);
 
         // Show thumbnail preview
@@ -362,12 +546,57 @@
             document.getElementById('thumbnail-img').src = e.target.result;
         };
         reader.readAsDataURL(selectedThumbnailFile);
+
+        // Auto-populate location field if empty
+        const locationsField = document.getElementById('locations');
+        if (!locationsField.value) {
+            const extractedLocation = extractLocationFromFilename(selectedVideoFile.name);
+            if (extractedLocation) {
+                locationsField.value = extractedLocation;
+            }
+        }
+    }
+
+    function handleManualVideoSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+            selectedVideoFile = file;
+            document.getElementById('video-name').textContent = getDisplayPath(file);
+            document.getElementById('video-size').textContent = formatFileSize(file.size);
+
+            // Auto-populate location if not set
+            const locationsField = document.getElementById('locations');
+            if (!locationsField.value) {
+                const extractedLocation = extractLocationFromFilename(file.name);
+                if (extractedLocation) {
+                    locationsField.value = extractedLocation;
+                }
+            }
+        }
+    }
+
+    function handleManualThumbnailSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+            selectedThumbnailFile = file;
+            document.getElementById('thumbnail-name').textContent = getDisplayPath(file);
+            document.getElementById('thumbnail-size').textContent = formatFileSize(file.size);
+
+            // Show thumbnail preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('thumbnail-img').src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
     }
 
     function resetFileSelection() {
         selectedVideoFile = null;
         selectedThumbnailFile = null;
         document.getElementById('file-input').value = '';
+        document.getElementById('manual-video-input').value = '';
+        document.getElementById('manual-thumbnail-input').value = '';
         document.getElementById('detected-files').classList.add('hidden');
     }
 
@@ -460,20 +689,25 @@
                         </div>
 
                         <div class="mt-3">
-                            <p class="text-xs font-medium text-gray-500 mb-1">DESCRIPTION (Preview)</p>
-                            <p class="text-xs text-gray-700 line-clamp-3">${option.description.substring(0, 200)}...</p>
+                            <p class="text-xs font-medium text-gray-500 mb-1">DESCRIPTION</p>
+                            <div class="text-xs text-gray-700 bg-gray-50 p-3 rounded max-h-96 overflow-y-auto whitespace-pre-wrap border border-gray-200">${option.description}</div>
                         </div>
 
                         <div class="mt-3">
-                            <p class="text-xs font-medium text-gray-500 mb-1">TAGS</p>
+                            <div class="flex items-center gap-2 mb-1">
+                                <p class="text-xs font-medium text-gray-500">TAGS</p>
+                                <span class="text-xs text-gray-400 cursor-help" title="Tags help YouTube categorize your video (not visible to viewers)">ⓘ</span>
+                            </div>
                             <div class="flex flex-wrap gap-1">
-                                ${option.tags.slice(0, 5).map(tag => `<span class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">${tag}</span>`).join('')}
-                                ${option.tags.length > 5 ? `<span class="text-xs text-gray-500">+${option.tags.length - 5} more</span>` : ''}
+                                ${option.tags.map(tag => `<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">${tag}</span>`).join('')}
                             </div>
                         </div>
 
                         <div class="mt-3">
-                            <p class="text-xs font-medium text-gray-500 mb-1">HASHTAGS</p>
+                            <div class="flex items-center gap-2 mb-1">
+                                <p class="text-xs font-medium text-gray-500">HASHTAGS</p>
+                                <span class="text-xs text-gray-400 cursor-help" title="Hashtags appear above your video title and are clickable by viewers">ⓘ</span>
+                            </div>
                             <div class="flex flex-wrap gap-1">
                                 ${option.hashtags.map((tag, i) => `<span class="text-xs ${i < 3 ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'} px-2 py-1 rounded">${tag}</span>`).join('')}
                             </div>
@@ -502,6 +736,18 @@
         updateProgressIndicator(1);
     }
 
+    function goToStep2FromStep3() {
+        // Go back to step 2, preserving selected option
+        document.getElementById('step3').classList.add('hidden');
+        document.getElementById('step2').classList.remove('hidden');
+        updateProgressIndicator(2);
+
+        // Re-render options to show the previously selected one
+        if (generatedOptions.length > 0) {
+            renderOptions();
+        }
+    }
+
     function goToStep3() {
         if (selectedOption === null) {
             alert('Please select an option');
@@ -514,11 +760,91 @@
 
         const option = generatedOptions[selectedOption];
 
-        // Populate summary
-        document.getElementById('summary-video').textContent = selectedVideoFile.name;
-        document.getElementById('summary-thumbnail').textContent = selectedThumbnailFile.name;
+        // Populate summary with full paths
+        document.getElementById('summary-video').textContent = getDisplayPath(selectedVideoFile);
+        document.getElementById('summary-thumbnail').textContent = getDisplayPath(selectedThumbnailFile);
         document.getElementById('summary-title').textContent = option.title;
-        document.getElementById('summary-tags').textContent = `${option.tags.length} tags`;
+        document.getElementById('summary-description').value = option.description;
+
+        // Render editable tags and hashtags
+        renderEditableTags();
+        renderEditableHashtags();
+
+        // Set minimum date to today for the date picker
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('publish-date').setAttribute('min', today);
+    }
+
+    function toggleSchedule() {
+        const checkbox = document.getElementById('schedule-publish');
+        const scheduleFields = document.getElementById('schedule-fields');
+
+        if (checkbox.checked) {
+            scheduleFields.classList.remove('hidden');
+        } else {
+            scheduleFields.classList.add('hidden');
+        }
+    }
+
+    function renderEditableTags() {
+        const option = generatedOptions[selectedOption];
+        document.getElementById('summary-tags-count').textContent = option.tags.length;
+        const tagsContainer = document.getElementById('summary-tags');
+        tagsContainer.innerHTML = option.tags.map((tag, idx) =>
+            `<span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full cursor-pointer hover:bg-blue-200" onclick="removeTag(${idx})">
+                ${tag} ×
+            </span>`
+        ).join('');
+    }
+
+    function renderEditableHashtags() {
+        const option = generatedOptions[selectedOption];
+        document.getElementById('summary-hashtags-count').textContent = option.hashtags.length;
+        const hashtagsContainer = document.getElementById('summary-hashtags');
+        hashtagsContainer.innerHTML = option.hashtags.map((hashtag, idx) =>
+            `<span class="px-3 py-1 bg-purple-100 text-purple-800 text-xs rounded-full cursor-pointer hover:bg-purple-200" onclick="removeHashtag(${idx})">
+                ${hashtag} ×
+            </span>`
+        ).join('');
+    }
+
+    function addTag() {
+        const input = document.getElementById('new-tag-input');
+        const newTag = input.value.trim();
+        if (!newTag) return;
+
+        const option = generatedOptions[selectedOption];
+        option.tags.push(newTag);
+        input.value = '';
+        renderEditableTags();
+    }
+
+    function removeTag(index) {
+        const option = generatedOptions[selectedOption];
+        option.tags.splice(index, 1);
+        renderEditableTags();
+    }
+
+    function addHashtag() {
+        const input = document.getElementById('new-hashtag-input');
+        let newHashtag = input.value.trim();
+        if (!newHashtag) return;
+
+        // Ensure hashtag starts with #
+        if (!newHashtag.startsWith('#')) {
+            newHashtag = '#' + newHashtag;
+        }
+
+        const option = generatedOptions[selectedOption];
+        option.hashtags.push(newHashtag);
+        input.value = '';
+        renderEditableHashtags();
+    }
+
+    function removeHashtag(index) {
+        const option = generatedOptions[selectedOption];
+        option.hashtags.splice(index, 1);
+        renderEditableHashtags();
     }
 
     async function uploadToYouTube() {
@@ -540,14 +866,47 @@
 
         const option = generatedOptions[selectedOption];
 
+        // Get edited description from textarea
+        const editedDescription = document.getElementById('summary-description').value;
+
         // Prepare form data
         const formData = new FormData();
         formData.append('videoFile', selectedVideoFile);
         formData.append('thumbnailFile', selectedThumbnailFile);
         formData.append('title', option.title);
-        formData.append('description', option.description);
+        formData.append('description', editedDescription);
         formData.append('tags', JSON.stringify(option.tags));
         formData.append('hashtags', JSON.stringify(option.hashtags));
+
+        // Add privacy status
+        const privacyStatus = document.getElementById('privacy-status').value;
+        formData.append('privacyStatus', privacyStatus);
+
+        // Add filming date if provided
+        const filmingDate = document.getElementById('filming-date').value;
+        if (filmingDate) {
+            formData.append('recordingDate', filmingDate);
+        }
+
+        // Add scheduled publish time if checkbox is checked
+        const scheduleCheckbox = document.getElementById('schedule-publish');
+        if (scheduleCheckbox.checked) {
+            const publishDate = document.getElementById('publish-date').value;
+            const publishTime = document.getElementById('publish-time').value;
+
+            if (!publishDate || !publishTime) {
+                alert('Please select both date and time for scheduled publishing');
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '🚀 Upload to YouTube';
+                backBtn.disabled = false;
+                progressDiv.classList.add('hidden');
+                return;
+            }
+
+            // Combine date and time into ISO 8601 format
+            const publishAt = `${publishDate}T${publishTime}:00Z`;
+            formData.append('publishAt', publishAt);
+        }
 
         try {
             const response = await fetch('/api/upload/video', {
@@ -589,16 +948,42 @@
     }
 
     function updateProgressIndicator(step) {
-        // Update step indicators
+        // Update step indicators and labels
         for (let i = 1; i <= 3; i++) {
             const indicator = document.getElementById(`step${i}-indicator`);
+            const label = document.getElementById(`step${i}-label`);
+
             if (i <= step) {
                 indicator.classList.remove('bg-gray-300', 'text-gray-600');
                 indicator.classList.add('bg-blue-600', 'text-white');
+                label.classList.remove('text-gray-500');
+                label.classList.add('text-blue-600', 'font-medium');
             } else {
                 indicator.classList.remove('bg-blue-600', 'text-white');
                 indicator.classList.add('bg-gray-300', 'text-gray-600');
+                label.classList.remove('text-blue-600', 'font-medium');
+                label.classList.add('text-gray-500');
             }
+        }
+
+        // Update connector lines
+        const line1 = document.getElementById('line1');
+        const line2 = document.getElementById('line2');
+
+        if (step >= 2) {
+            line1.classList.remove('bg-gray-300');
+            line1.classList.add('bg-blue-600');
+        } else {
+            line1.classList.remove('bg-blue-600');
+            line1.classList.add('bg-gray-300');
+        }
+
+        if (step >= 3) {
+            line2.classList.remove('bg-gray-300');
+            line2.classList.add('bg-blue-600');
+        } else {
+            line2.classList.remove('bg-blue-600');
+            line2.classList.add('bg-gray-300');
         }
     }
 
@@ -623,3 +1008,4 @@
     }
 </style>
 {% endblock %}
+

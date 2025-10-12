@@ -208,6 +208,9 @@ def upload_video():
         description = request.form.get('description')
         tags = json.loads(request.form.get('tags', '[]'))
         hashtags = json.loads(request.form.get('hashtags', '[]'))
+        privacy_status = request.form.get('privacyStatus', 'private')
+        publish_at = request.form.get('publishAt')  # ISO 8601 format
+        recording_date = request.form.get('recordingDate')  # YYYY-MM-DD format
 
         if not title or not description:
             return jsonify({
@@ -242,10 +245,22 @@ def upload_video():
                 'categoryId': '19',  # Travel & Events category
             },
             'status': {
-                'privacyStatus': 'private',  # Start as private for safety
+                'privacyStatus': privacy_status,
                 'selfDeclaredMadeForKids': False,
             }
         }
+
+        # Add recording date if provided
+        if recording_date:
+            # Convert YYYY-MM-DD to ISO 8601 format (YYYY-MM-DDTHH:MM:SS.sZ)
+            body['recordingDetails'] = {
+                'recordingDate': f"{recording_date}T12:00:00.0Z"  # Use noon UTC as default time
+            }
+
+        # Add scheduled publish time if provided
+        if publish_at:
+            body['status']['publishAt'] = publish_at
+            body['status']['privacyStatus'] = 'private'  # Must be private for scheduled videos
 
         # Upload video using YouTube API
         from googleapiclient.http import MediaFileUpload
