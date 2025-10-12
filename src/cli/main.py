@@ -26,6 +26,7 @@ from src.tracking.video_tracker import VideoTracker
 from src.bilibili_client.client import BilibiliClient
 from src.analytics.tracker import AnalyticsTracker
 from src.analytics.reporter import AnalyticsReporter
+from src.analytics.html_generator import HTMLDashboardGenerator
 
 # Load environment variables
 load_dotenv()
@@ -1043,7 +1044,9 @@ def _save_metadata(metadata, filepath):
 @click.option('--video-limit', default=50, type=int, help='Number of recent videos to track (default: 50)')
 @click.option('--growth-days', default=7, type=int, help='Number of days to calculate growth metrics (default: 7)')
 @click.option('--save-snapshot', is_flag=True, help='Save a snapshot of current analytics')
-def analytics_dashboard(days, video_limit, growth_days, save_snapshot):
+@click.option('--html', is_flag=True, help='Generate HTML dashboard report (opens in browser)')
+@click.option('--html-output', default=None, help='Custom filename for HTML report')
+def analytics_dashboard(days, video_limit, growth_days, save_snapshot, html, html_output):
     """
     Display comprehensive analytics dashboard for your YouTube channel.
 
@@ -1126,19 +1129,43 @@ def analytics_dashboard(days, video_limit, growth_days, save_snapshot):
                 sorted_videos = sorted(videos_data, key=lambda x: x['views'])
                 underperforming = sorted_videos[:min(5, len(sorted_videos) // 4)]
 
-        # Generate and display dashboard report
-        reporter = AnalyticsReporter()
-        reporter.generate_dashboard_report(
-            channel_data=channel_data,
-            videos_data=recent_videos,  # Use filtered recent videos for "recent performance"
-            growth_metrics=growth_metrics,
-            top_videos=top_videos,
-            underperforming=underperforming
-        )
+        # Generate HTML dashboard if requested
+        if html:
+            console.print("\n[yellow]Generating HTML dashboard...[/yellow]")
+            html_generator = HTMLDashboardGenerator()
+            html_file = html_generator.generate_dashboard(
+                channel_data=channel_data,
+                videos_data=recent_videos,
+                growth_metrics=growth_metrics,
+                top_videos=top_videos,
+                underperforming=underperforming,
+                output_file=html_output
+            )
+            console.print(f"[green]✓ HTML dashboard saved to: {html_file}[/green]")
 
-        # Reminder to save snapshots
+            # Try to open in browser
+            import webbrowser
+            try:
+                webbrowser.open(f'file://{html_file}')
+                console.print("[green]✓ Opening dashboard in your browser...[/green]\n")
+            except:
+                console.print(f"[yellow]Open the file manually: {html_file}[/yellow]\n")
+        else:
+            # Generate and display terminal dashboard
+            reporter = AnalyticsReporter()
+            reporter.generate_dashboard_report(
+                channel_data=channel_data,
+                videos_data=recent_videos,  # Use filtered recent videos for "recent performance"
+                growth_metrics=growth_metrics,
+                top_videos=top_videos,
+                underperforming=underperforming
+            )
+
+        # Tips
         if not save_snapshot:
             console.print("[dim]Tip: Use --save-snapshot to track growth over time[/dim]")
+        if not html:
+            console.print("[dim]Tip: Use --html to generate a beautiful web dashboard[/dim]")
 
         console.print()
 

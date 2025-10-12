@@ -2,5 +2,6 @@
 
 from .tracker import AnalyticsTracker
 from .reporter import AnalyticsReporter
+from .html_generator import HTMLDashboardGenerator
 
-__all__ = ['AnalyticsTracker', 'AnalyticsReporter']
+__all__ = ['AnalyticsTracker', 'AnalyticsReporter', 'HTMLDashboardGenerator']
