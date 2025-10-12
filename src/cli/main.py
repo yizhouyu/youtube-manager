@@ -52,7 +52,6 @@ def batch_update(limit, video_id, auto_apply, force):
         # Initialize video tracker
         tracker = VideoTracker()
         console.print(f"[dim]Tracking file: {tracker.tracking_file.absolute()}[/dim]")
-        console.print(f"[dim]Previously processed: {tracker.get_processed_count()} videos[/dim]\n")
 
         # Authenticate with YouTube
         console.print("[yellow]Authenticating with YouTube...[/yellow]")
@@ -68,9 +67,23 @@ def batch_update(limit, video_id, auto_apply, force):
         if video_id:
             console.print(f"[yellow]Fetching video: {video_id}...[/yellow]")
             videos = [youtube_client.get_video_details(video_id)]
+            total_videos = 1
         else:
             console.print("[yellow]Fetching all videos from your channel...[/yellow]")
             videos = youtube_client.get_all_channel_videos()
+            total_videos = len(videos)
+
+        # Show tracking summary
+        tracked_count = tracker.get_processed_count()
+        optimized_count = tracker.get_optimized_count()
+        tool_generated_count = tracker.get_tool_generated_count()
+        unprocessed_count = total_videos - tracked_count
+
+        console.print(f"\n[cyan]Channel Summary:[/cyan]")
+        console.print(f"  Total videos: {total_videos}")
+        console.print(f"  Already optimized: {optimized_count}")
+        console.print(f"  Tool-generated (skipped): {tool_generated_count}")
+        console.print(f"  [bold]Not yet processed: {unprocessed_count}[/bold]\n")
 
         # Filter out already processed videos (unless force flag is set)
         if not force:
@@ -78,18 +91,18 @@ def batch_update(limit, video_id, auto_apply, force):
             videos = [v for v in videos if not tracker.is_processed(v['id'])]
             skipped_count = original_count - len(videos)
             if skipped_count > 0:
-                console.print(f"[yellow]Skipping {skipped_count} already processed video(s).[/yellow]")
+                console.print(f"[yellow]Skipping {skipped_count} already tracked video(s).[/yellow]")
                 console.print(f"[dim]Use --force to re-process them.[/dim]")
 
         if limit:
             videos = videos[:limit]
 
         if len(videos) == 0:
-            console.print("[yellow]No videos to process. All videos have been processed already.[/yellow]")
+            console.print("[yellow]No videos to process. All videos already tracked.[/yellow]")
             console.print("[dim]Use --force to re-process videos.[/dim]")
             return
 
-        console.print(f"[green]Found {len(videos)} video(s) to process.[/green]\n")
+        console.print(f"[green]Processing {len(videos)} video(s) in this run.[/green]\n")
 
         # Track successful updates in this run
         processed_in_this_run = 0
@@ -149,8 +162,61 @@ def batch_update(limit, video_id, auto_apply, force):
                 continue
 
         console.print("\n[bold green]Batch update completed![/bold green]")
-        console.print(f"[green]Processed in this run: {processed_in_this_run} video(s)[/green]")
-        console.print(f"[green]Total processed (all time): {tracker.get_processed_count()} video(s)[/green]")
+        console.print(f"[green]Optimized in this run: {processed_in_this_run} video(s)[/green]")
+        console.print(f"[green]Total tracked (all time): {tracker.get_processed_count()} video(s)[/green]")
+        console.print(f"[dim]  - Optimized: {tracker.get_optimized_count()}[/dim]")
+        console.print(f"[dim]  - Tool-generated: {tracker.get_tool_generated_count()}[/dim]")
+
+    except Exception as e:
+        console.print(f"\n[bold red]Error: {e}[/bold red]")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--video-ids', required=True, help='Comma-separated list of video IDs to mark as tool-generated')
+def mark_tool_generated(video_ids):
+    """
+    Mark videos as tool-generated (skip future processing).
+
+    Use this for newer videos that were created with good SEO metadata
+    from the start. These videos will be excluded from batch processing.
+
+    Example:
+        python youtube_helper.py mark-tool-generated --video-ids "abc123,def456"
+    """
+    console.print("\n[bold cyan]Mark Videos as Tool-Generated[/bold cyan]\n")
+
+    try:
+        # Initialize tracker
+        tracker = VideoTracker()
+
+        # Authenticate with YouTube to get video titles
+        console.print("[yellow]Authenticating with YouTube...[/yellow]")
+        auth = YouTubeAuthenticator()
+        youtube_service = auth.get_youtube_service()
+        youtube_client = YouTubeClient(youtube_service)
+
+        # Process each video ID
+        video_id_list = [vid.strip() for vid in video_ids.split(',')]
+        marked_count = 0
+
+        for video_id in video_id_list:
+            try:
+                # Fetch video details
+                video = youtube_client.get_video_details(video_id)
+
+                # Mark as tool-generated
+                tracker.mark_as_tool_generated(video_id, video['title'])
+
+                console.print(f"[green]✓ Marked as tool-generated:[/green] {video['title'][:80]}")
+                marked_count += 1
+
+            except Exception as e:
+                console.print(f"[red]✗ Error with video {video_id}: {e}[/red]")
+                continue
+
+        console.print(f"\n[bold green]Marked {marked_count} video(s) as tool-generated![/bold green]")
+        console.print(f"[dim]These videos will be skipped in future batch updates.[/dim]")
 
     except Exception as e:
         console.print(f"\n[bold red]Error: {e}[/bold red]")

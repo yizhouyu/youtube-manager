@@ -59,6 +59,7 @@ class VideoTracker:
         """
         self.processed_videos[video_id] = {
             'processed_at': datetime.now().isoformat(),
+            'status': 'optimized',  # 'optimized' or 'tool_generated'
             'before': {
                 'title': original_metadata.get('title', ''),
                 'description': original_metadata.get('description', ''),
@@ -70,6 +71,22 @@ class VideoTracker:
                 'tags': optimized_metadata.get('tags', []),
                 'hashtags': optimized_metadata.get('hashtags', [])
             }
+        }
+        self._save_tracking_data()
+
+    def mark_as_tool_generated(self, video_id: str, title: str):
+        """
+        Mark a video as tool-generated (created with good SEO, skip processing).
+
+        Args:
+            video_id: YouTube video ID
+            title: Video title for reference
+        """
+        self.processed_videos[video_id] = {
+            'processed_at': datetime.now().isoformat(),
+            'status': 'tool_generated',
+            'title': title,
+            'note': 'Video created with SEO tool - no optimization needed'
         }
         self._save_tracking_data()
 
@@ -86,8 +103,16 @@ class VideoTracker:
         return self.processed_videos.get(video_id)
 
     def get_processed_count(self) -> int:
-        """Get total number of processed videos."""
+        """Get total number of tracked videos (both optimized and tool-generated)."""
         return len(self.processed_videos)
+
+    def get_optimized_count(self) -> int:
+        """Get count of videos that were optimized."""
+        return sum(1 for v in self.processed_videos.values() if v.get('status') == 'optimized')
+
+    def get_tool_generated_count(self) -> int:
+        """Get count of videos marked as tool-generated."""
+        return sum(1 for v in self.processed_videos.values() if v.get('status') == 'tool_generated')
 
     def remove_from_tracking(self, video_id: str):
         """
