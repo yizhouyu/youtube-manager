@@ -84,6 +84,8 @@ def get_analytics_dashboard():
             'success': True,
             'data': {
                 'channel': {
+                    'id': channel_data.get('channel_id', ''),
+                    'title': channel_data.get('channel_title', ''),
                     'subscribers': channel_data.get('total_subscribers', 0),
                     'totalVideos': channel_data.get('total_videos', 0),
                     'totalViews': channel_data.get('total_views', 0),
@@ -104,6 +106,49 @@ def get_analytics_dashboard():
                 'underperforming': underperforming,
                 'timestamp': datetime.now().isoformat()
             }
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/playlists', methods=['GET'])
+def get_playlists():
+    """
+    Fetch all playlists for the authenticated user.
+
+    Returns:
+        JSON with list of playlists (id, title, video count)
+    """
+    try:
+        youtube_service = get_authenticated_service()
+
+        # Fetch all playlists
+        playlists = []
+        request = youtube_service.playlists().list(
+            part='snippet,contentDetails',
+            mine=True,
+            maxResults=50
+        )
+
+        while request:
+            response = request.execute()
+
+            for item in response.get('items', []):
+                playlists.append({
+                    'id': item['id'],
+                    'title': item['snippet']['title'],
+                    'videoCount': item['contentDetails']['itemCount']
+                })
+
+            request = youtube_service.playlists().list_next(request, response)
+
+        return jsonify({
+            'success': True,
+            'playlists': playlists
         })
 
     except Exception as e:
@@ -215,6 +260,7 @@ def upload_video():
         privacy_status = request.form.get('privacyStatus', 'private')
         publish_at = request.form.get('publishAt')  # ISO 8601 format
         recording_date = request.form.get('recordingDate')  # YYYY-MM-DD format
+        playlist_id = request.form.get('playlistId')  # Optional playlist ID
 
         if not title or not description:
             return jsonify({
@@ -295,6 +341,21 @@ def upload_video():
             youtube_service.thumbnails().set(
                 videoId=video_id,
                 media_body=MediaFileUpload(thumbnail_path)
+            ).execute()
+
+        # Add to playlist if specified
+        if playlist_id:
+            youtube_service.playlistItems().insert(
+                part='snippet',
+                body={
+                    'snippet': {
+                        'playlistId': playlist_id,
+                        'resourceId': {
+                            'kind': 'youtube#video',
+                            'videoId': video_id
+                        }
+                    }
+                }
             ).execute()
 
         # Clean up temporary files

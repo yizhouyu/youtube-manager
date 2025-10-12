@@ -290,6 +290,17 @@
                     </select>
                 </div>
 
+                <!-- Playlist Selection -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Add to Playlist (Optional)
+                    </label>
+                    <select id="playlist-selector" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" disabled>
+                        <option value="">Loading playlists...</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Select a playlist to add this video to</p>
+                </div>
+
                 <!-- Scheduled Publishing -->
                 <div>
                     <label class="flex items-center mb-3">
@@ -362,7 +373,13 @@
                     <div>
                         <div class="flex items-center gap-2 mb-2">
                             <span class="text-gray-600 text-sm">Tags (<span id="summary-tags-count">0</span>) - click to remove:</span>
-                            <span class="text-sm text-gray-400 cursor-help" title="Tags help YouTube categorize your video (not visible to viewers)">ⓘ</span>
+                            <div class="relative group">
+                                <span class="text-sm text-gray-400 cursor-help">ⓘ</span>
+                                <div class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-900 text-white text-xs rounded py-2 px-3 z-50">
+                                    Tags help YouTube categorize your video (not visible to viewers)
+                                    <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                </div>
+                            </div>
                         </div>
                         <div id="summary-tags" class="flex flex-wrap gap-2 mb-2">--</div>
                         <div class="flex gap-2">
@@ -385,7 +402,13 @@
                     <div>
                         <div class="flex items-center gap-2 mb-2">
                             <span class="text-gray-600 text-sm">Hashtags (<span id="summary-hashtags-count">0</span>) - click to remove:</span>
-                            <span class="text-sm text-gray-400 cursor-help" title="Hashtags appear above your video title and are clickable by viewers">ⓘ</span>
+                            <div class="relative group">
+                                <span class="text-sm text-gray-400 cursor-help">ⓘ</span>
+                                <div class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-900 text-white text-xs rounded py-2 px-3 z-50">
+                                    Hashtags appear above your video title and are clickable by viewers
+                                    <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                </div>
+                            </div>
                         </div>
                         <div id="summary-hashtags" class="flex flex-wrap gap-2 mb-2">--</div>
                         <div class="flex gap-2">
@@ -706,7 +729,13 @@
                         <div class="mt-3">
                             <div class="flex items-center gap-2 mb-1">
                                 <p class="text-xs font-medium text-gray-500">TAGS</p>
-                                <span class="text-xs text-gray-400 cursor-help" title="Tags help YouTube categorize your video (not visible to viewers)">ⓘ</span>
+                                <div class="relative group">
+                                    <span class="text-xs text-gray-400 cursor-help">ⓘ</span>
+                                    <div class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-900 text-white text-xs rounded py-2 px-3 z-50 whitespace-normal">
+                                        Tags help YouTube categorize your video (not visible to viewers)
+                                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="flex flex-wrap gap-1">
                                 ${option.tags.map(tag => `<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">${tag}</span>`).join('')}
@@ -716,7 +745,13 @@
                         <div class="mt-3">
                             <div class="flex items-center gap-2 mb-1">
                                 <p class="text-xs font-medium text-gray-500">HASHTAGS</p>
-                                <span class="text-xs text-gray-400 cursor-help" title="Hashtags appear above your video title and are clickable by viewers">ⓘ</span>
+                                <div class="relative group">
+                                    <span class="text-xs text-gray-400 cursor-help">ⓘ</span>
+                                    <div class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-900 text-white text-xs rounded py-2 px-3 z-50 whitespace-normal">
+                                        Hashtags appear above your video title and are clickable by viewers
+                                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="flex flex-wrap gap-1">
                                 ${option.hashtags.map((tag, i) => `<span class="text-xs ${i < 3 ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'} px-2 py-1 rounded">${tag}</span>`).join('')}
@@ -946,6 +981,12 @@
             formData.append('publishAt', publishAt);
         }
 
+        // Add playlist ID if selected
+        const playlistId = document.getElementById('playlist-selector').value;
+        if (playlistId) {
+            formData.append('playlistId', playlistId);
+        }
+
         try {
             const response = await fetch('/api/upload/video', {
                 method: 'POST',
@@ -1053,6 +1094,52 @@
     function resetForm() {
         location.reload();
     }
+
+    // Load playlists when page loads
+    let playlistsData = [];
+    async function loadPlaylists() {
+        try {
+            const response = await fetch('/api/playlists');
+            const result = await response.json();
+
+            if (result.success) {
+                playlistsData = result.playlists;
+                const selector = document.getElementById('playlist-selector');
+
+                // Clear loading message
+                selector.innerHTML = '<option value="">None (Don\'t add to playlist)</option>';
+
+                // Find "Travel" playlist as default
+                let travelPlaylistId = null;
+                result.playlists.forEach((playlist, index) => {
+                    const option = document.createElement('option');
+                    option.value = playlist.id;
+                    option.textContent = `${playlist.title} (${playlist.videoCount} videos)`;
+                    selector.appendChild(option);
+
+                    // Check if this is the Travel playlist
+                    if (playlist.title.toLowerCase().includes('travel')) {
+                        travelPlaylistId = playlist.id;
+                    }
+                });
+
+                // Set Travel as default if found
+                if (travelPlaylistId) {
+                    selector.value = travelPlaylistId;
+                }
+
+                selector.disabled = false;
+            } else {
+                document.getElementById('playlist-selector').innerHTML = '<option value="">Failed to load playlists</option>';
+            }
+        } catch (err) {
+            console.error('Error loading playlists:', err);
+            document.getElementById('playlist-selector').innerHTML = '<option value="">Error loading playlists</option>';
+        }
+    }
+
+    // Load playlists when page loads
+    loadPlaylists();
 </script>
 
 <style>

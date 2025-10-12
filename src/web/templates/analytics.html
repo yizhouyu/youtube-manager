@@ -10,12 +10,20 @@
             <h1 class="text-4xl font-bold text-gray-900">Analytics Dashboard</h1>
             <p class="text-gray-600 mt-2">Track your channel's performance and growth</p>
         </div>
-        <button onclick="refreshAnalytics()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition flex items-center">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-            </svg>
-            Refresh
-        </button>
+        <div class="flex gap-3">
+            <a id="channel-link" href="#" target="_blank" class="hidden bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition flex items-center">
+                <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+                View Channel
+            </a>
+            <button onclick="refreshAnalytics()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Refresh
+            </button>
+        </div>
     </div>
 
     <!-- Loading State -->
@@ -167,6 +175,13 @@
 
     function renderDashboard() {
         const data = analyticsData;
+
+        // Channel link
+        if (data.channel.id) {
+            const channelLink = document.getElementById('channel-link');
+            channelLink.href = `https://youtube.com/channel/${data.channel.id}`;
+            channelLink.classList.remove('hidden');
+        }
 
         // Channel Overview
         document.getElementById('subscribers').textContent = formatNumber(data.channel.subscribers);
