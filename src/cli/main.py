@@ -91,6 +91,9 @@ def batch_update(limit, video_id, auto_apply, force):
 
         console.print(f"[green]Found {len(videos)} video(s) to process.[/green]\n")
 
+        # Track successful updates in this run
+        processed_in_this_run = 0
+
         # Process each video
         for idx, video in enumerate(videos, 1):
             console.print(f"\n[bold]Processing video {idx}/{len(videos)}[/bold]")
@@ -136,12 +139,16 @@ def batch_update(limit, video_id, auto_apply, force):
                     optimized_metadata=optimized
                 )
 
+                # Increment current run counter
+                processed_in_this_run += 1
+
             except Exception as e:
                 console.print(f"[red]Error processing video: {e}[/red]")
                 continue
 
         console.print("\n[bold green]Batch update completed![/bold green]")
-        console.print(f"[green]Total processed videos: {tracker.get_processed_count()}[/green]")
+        console.print(f"[green]Processed in this run: {processed_in_this_run} video(s)[/green]")
+        console.print(f"[green]Total processed (all time): {tracker.get_processed_count()} video(s)[/green]")
 
     except Exception as e:
         console.print(f"\n[bold red]Error: {e}[/bold red]")
