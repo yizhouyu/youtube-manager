@@ -142,3 +142,6 @@ python youtube_helper.py new-video --topic "北京旅游攻略" --locations "故
 **OAuth2 authentication loop:**
 - Delete `config/token.pickle` and re-authenticate
 - Check OAuth2 consent screen is configured properly
+
+**Notification system:**
+- For long-running tasks, Claude Code uses `~/.claude_notify_helper.sh` (see global profile in `~/.claude/CLAUDE.md` for details)
