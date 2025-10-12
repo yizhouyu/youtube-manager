@@ -71,9 +71,13 @@ def get_analytics_dashboard():
         # Fetch analytics data
         channel_data = tracker.fetch_channel_analytics()
         videos_data = tracker.fetch_video_analytics(limit=50)  # Fetch recent 50 videos
+
+        # Save video analytics to history for tracker methods
+        tracker.save_snapshot(channel_data, videos_data)
+
         growth_metrics = tracker.get_growth_metrics(days=7)
-        top_videos = tracker.get_top_performing_videos(videos_data, limit=10)
-        underperforming = tracker.get_underperforming_videos(videos_data, limit=5)
+        top_videos = tracker.get_top_performing_videos(metric='views', limit=10)
+        underperforming = tracker.get_underperforming_videos(threshold_percentile=25, limit=5)
 
         # Format data for frontend
         return jsonify({
