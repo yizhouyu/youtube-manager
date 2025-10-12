@@ -164,7 +164,7 @@ Structure:
 - Links and resources
 - Other attributions
 ```"""
-            example_hashtags = "#中国旅行 #TravelChina #旅行Vlog"
+            example_hashtags = "#中国旅行 #TravelChina #旅行Vlog #ChinaTravel #旅游攻略"
         else:  # english
             lang_instruction = """**1. TITLE (MUST be in English)**
 - CRITICAL: The title MUST be in English. DO NOT translate to Chinese.
@@ -209,7 +209,7 @@ Structure:
 - Links and resources
 - Other attributions
 ```"""
-            example_hashtags = "#PersonalGrowth #读书 #Productivity"
+            example_hashtags = "#PersonalGrowth #读书 #Productivity #ReadingChallenge #自我提升"
 
         prompt = f"""You are an expert in YouTube SEO. Your task is to optimize metadata for this video to improve discoverability for both primary and secondary language audiences.
 
@@ -241,9 +241,13 @@ Generate SEO-optimized metadata following these requirements:
 - Topic-specific tags in both languages
 - Balance between broad and niche keywords
 
-**4. HASHTAGS (2-3 bilingual hashtags)**
-- Focused hashtags aligned with main keywords
+**4. HASHTAGS (3-5 bilingual hashtags)**
+- First 3 hashtags will appear above video title (most visible)
+- Mix of broad reach and niche specificity
+- Bilingual approach for maximum discoverability
+- Focused on main keywords and topics
 - Examples: {example_hashtags}
+- Avoid generic tags like #video or #youtube
 
 **Output Format (JSON):**
 ```json
@@ -251,7 +255,7 @@ Generate SEO-optimized metadata following these requirements:
   "title": "optimized title in original language",
   "description": "Primary language section\\n\\n---\\n\\nSecondary language section",
   "tags": ["tag1", "tag2", "tag3", ...],
-  "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3"]
+  "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5"]
 }}
 ```
 
@@ -342,9 +346,11 @@ Create compelling, SEO-optimized metadata from scratch.
 - Location-specific
 - Broad + niche keywords
 
-**4. HASHTAGS (2-3 bilingual)**
+**4. HASHTAGS (3-5 bilingual)**
+- First 3 will appear above video title (most visible)
+- Mix broad reach + niche specificity
 - Main keyword focused
-- Example: #中国旅行 #TravelChina #旅游攻略
+- Example: #中国旅行 #TravelChina #旅游攻略 #ChinaVlog #旅行日记
 
 **Output Format (JSON only):**
 ```json
@@ -352,7 +358,7 @@ Create compelling, SEO-optimized metadata from scratch.
   "title": "optimized title",
   "description": "Chinese section\\n\\n---\\n\\nEnglish section",
   "tags": ["tag1", "tag2", ...],
-  "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3"]
+  "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5"]
 }}
 ```
 
