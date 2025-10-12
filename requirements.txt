@@ -1,0 +1,17 @@
+# YouTube API
+google-api-python-client==2.147.0
+google-auth-oauthlib==1.2.1
+google-auth-httplib2==0.2.0
+
+# Anthropic Claude API
+anthropic>=0.38.0
+
+# CLI
+click==8.1.7
+rich==13.9.4
+
+# Environment variables
+python-dotenv==1.0.1
+
+# Utilities
+requests==2.32.3
