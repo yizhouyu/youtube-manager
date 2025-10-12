@@ -136,6 +136,20 @@
                         >
                     </div>
                 </div>
+
+                <!-- AI Thumbnail Generation Option -->
+                <div class="mt-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+                    <label class="flex items-start cursor-pointer">
+                        <input type="checkbox" id="ai-thumbnail-enabled" class="mt-1 mr-3 rounded" onchange="toggleAIThumbnail()">
+                        <div>
+                            <span class="font-medium text-gray-900 flex items-center">
+                                ✨ Generate AI-Powered Thumbnail
+                                <span class="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">NEW</span>
+                            </span>
+                            <p class="text-xs text-gray-600 mt-1">Upload a plain image, and AI will add eye-catching text overlay (3 options to choose from)</p>
+                        </div>
+                    </label>
+                </div>
             </div>
 
             <!-- Reset Button -->
@@ -195,6 +209,46 @@
         >
             Continue to Generate Metadata →
         </button>
+    </div>
+
+    <!-- Step 1.5: Choose AI-Generated Thumbnail (conditional) -->
+    <div id="step1-5" class="bg-white rounded-xl shadow-lg p-8 hidden">
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">Step 1.5: Choose Your Thumbnail</h2>
+        <p class="text-gray-600 mb-6">AI generated 3 thumbnail options with different text overlays. Pick the one you like best!</p>
+
+        <!-- Generating Message -->
+        <div id="thumbnail-generating" class="text-center py-12">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
+            <p class="text-lg font-medium text-gray-900">Generating AI thumbnails...</p>
+            <p class="text-sm text-gray-500 mt-2">Claude is analyzing your video and creating compelling text overlays</p>
+        </div>
+
+        <!-- Thumbnail Options (3 cards) -->
+        <div id="thumbnail-options-container" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <!-- Options will be inserted here by JavaScript -->
+        </div>
+
+        <!-- Error Message -->
+        <div id="thumbnail-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <p class="text-red-700 text-sm"></p>
+        </div>
+
+        <div class="flex space-x-4">
+            <button
+                onclick="goBackToStep1()"
+                class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-medium"
+            >
+                ← Back
+            </button>
+            <button
+                id="continue-with-thumbnail-btn"
+                onclick="continueWithSelectedThumbnail()"
+                class="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-medium"
+                disabled
+            >
+                Continue with Selected Thumbnail →
+            </button>
+        </div>
     </div>
 
     <!-- Step 2: Choose from Multiple Options -->
@@ -651,13 +705,150 @@
 
         locationsInput = document.getElementById('locations').value.trim();
 
-        // Hide step 1, show step 2
-        document.getElementById('step1').classList.add('hidden');
-        document.getElementById('step2').classList.remove('hidden');
-        updateProgressIndicator(2);
+        // Check if AI thumbnail is enabled
+        const aiThumbnailEnabled = document.getElementById('ai-thumbnail-enabled').checked;
 
-        // Generate metadata
+        if (aiThumbnailEnabled) {
+            // Go to Step 1.5 (thumbnail selection)
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step1-5').classList.remove('hidden');
+            updateProgressIndicator(2);  // Still show as step 2 on progress bar
+            await generateAIThumbnails();
+        } else {
+            // Go directly to Step 2 (metadata selection)
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.remove('hidden');
+            updateProgressIndicator(2);
+            await generateMetadata();
+        }
+    }
+
+    // Thumbnail generation state
+    let thumbnailOptions = [];
+    let selectedThumbnailIndex = null;
+    let generatedThumbnailBlob = null;
+
+    function toggleAIThumbnail() {
+        const enabled = document.getElementById('ai-thumbnail-enabled').checked;
+        if (enabled && !selectedThumbnailFile) {
+            alert('Please select a base thumbnail image first');
+            document.getElementById('ai-thumbnail-enabled').checked = false;
+        }
+    }
+
+    async function generateAIThumbnails() {
+        try {
+            // Show loading state
+            document.getElementById('thumbnail-generating').classList.remove('hidden');
+            document.getElementById('thumbnail-options-container').classList.add('hidden');
+            document.getElementById('thumbnail-error').classList.add('hidden');
+
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('image', selectedThumbnailFile);
+            formData.append('title', extractTitleFromFilename(selectedVideoFile.name));
+            formData.append('description', videoDescriptionInput);
+            if (locationsInput) {
+                formData.append('location', locationsInput);
+            }
+
+            // Call API
+            const response = await fetch('/api/thumbnail/generate', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to generate thumbnails');
+            }
+
+            thumbnailOptions = result.options;
+            renderThumbnailOptions();
+
+            // Hide loading, show options
+            document.getElementById('thumbnail-generating').classList.add('hidden');
+            document.getElementById('thumbnail-options-container').classList.remove('hidden');
+
+        } catch (error) {
+            console.error('Thumbnail generation error:', error);
+            document.getElementById('thumbnail-generating').classList.add('hidden');
+            const errorDiv = document.getElementById('thumbnail-error');
+            errorDiv.querySelector('p').textContent = 'Error: ' + error.message;
+            errorDiv.classList.remove('hidden');
+        }
+    }
+
+    function renderThumbnailOptions() {
+        const container = document.getElementById('thumbnail-options-container');
+
+        container.innerHTML = thumbnailOptions.map((option, idx) => `
+            <div class="border-2 ${selectedThumbnailIndex === idx ? 'border-purple-500 bg-purple-50' : 'border-gray-200'} rounded-lg p-4 hover:border-purple-300 transition cursor-pointer" onclick="selectThumbnail(${idx})">
+                <div class="mb-3">
+                    <img src="${option.image_base64}" alt="Thumbnail option ${idx + 1}" class="w-full rounded-lg shadow-md">
+                </div>
+                <div class="flex items-start mb-2">
+                    <input type="radio" name="thumbnail-option" value="${idx}" ${selectedThumbnailIndex === idx ? 'checked' : ''} class="mt-1 mr-2" onchange="selectThumbnail(${idx})">
+                    <div class="flex-1">
+                        <p class="text-sm font-bold text-gray-900 mb-1">Option ${idx + 1}</p>
+                        <p class="text-xs text-gray-600 mb-2">${option.reasoning}</p>
+                        <div class="text-xs">
+                            <p class="font-medium text-purple-700">Main: ${option.main_text}</p>
+                            ${option.subtitle ? `<p class="text-gray-500">Sub: ${option.subtitle}</p>` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function selectThumbnail(idx) {
+        selectedThumbnailIndex = idx;
+        renderThumbnailOptions();
+        document.getElementById('continue-with-thumbnail-btn').disabled = false;
+    }
+
+    async function continueWithSelectedThumbnail() {
+        if (selectedThumbnailIndex === null) {
+            alert('Please select a thumbnail option');
+            return;
+        }
+
+        // Convert base64 to Blob and update selectedThumbnailFile
+        const option = thumbnailOptions[selectedThumbnailIndex];
+        const base64Data = option.image_base64.split(',')[1];
+        const byteCharacters = atob(base64Data);
+        const byteArrays = [];
+
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteArrays.push(byteCharacters.charCodeAt(i));
+        }
+
+        const blob = new Blob([new Uint8Array(byteArrays)], { type: 'image/jpeg' });
+        selectedThumbnailFile = new File([blob], 'ai-generated-thumbnail.jpg', { type: 'image/jpeg' });
+
+        // Continue to Step 2 (metadata generation)
+        document.getElementById('step1-5').classList.add('hidden');
+        document.getElementById('step2').classList.remove('hidden');
         await generateMetadata();
+    }
+
+    function goBackToStep1() {
+        document.getElementById('step1-5').classList.add('hidden');
+        document.getElementById('step1').classList.remove('hidden');
+        updateProgressIndicator(1);
+    }
+
+    function extractTitleFromFilename(filename) {
+        // Remove extension and clean up
+        let name = filename.replace(/\.[^/.]+$/, '');
+        name = name.replace(/^\d+\s*-\s*/, '');
+        const parenMatch = name.match(/\(([^)]+)\)/);
+        if (parenMatch) {
+            return parenMatch[1];
+        }
+        return name.replace(/[_-]/g, ' ').trim();
     }
 
     async function generateMetadata() {

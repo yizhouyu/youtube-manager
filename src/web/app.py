@@ -13,6 +13,7 @@ from src.youtube_client.client import YouTubeClient
 from src.seo_optimizer.optimizer import BilingualSEOOptimizer
 from src.analytics.tracker import AnalyticsTracker
 from src.analytics.reporter import AnalyticsReporter
+from src.thumbnail_generator.generator import ThumbnailGenerator
 
 
 def get_authenticated_service():
@@ -152,6 +153,65 @@ def get_playlists():
         })
 
     except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/thumbnail/generate', methods=['POST'])
+def generate_thumbnail():
+    """
+    Generate 3 AI-powered thumbnail options with text overlays.
+
+    Expected multipart form data:
+    - image: image file
+    - title: video title
+    - description: video description (optional)
+    - location: video location (optional)
+
+    Returns:
+        JSON with 3 thumbnail options (base64 encoded images + text details)
+    """
+    try:
+        if 'image' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No image file provided'
+            }), 400
+
+        image_file = request.files['image']
+        title = request.form.get('title', '')
+        description = request.form.get('description', '')
+        location = request.form.get('location', None)
+
+        if not title:
+            return jsonify({
+                'success': False,
+                'error': 'Title is required'
+            }), 400
+
+        # Save image temporarily
+        from io import BytesIO
+        image_data = BytesIO(image_file.read())
+
+        # Generate 3 thumbnail options
+        generator = ThumbnailGenerator()
+        options = generator.generate_thumbnail_options(
+            image_path=image_data,
+            title=title,
+            description=description or title,
+            location=location
+        )
+
+        return jsonify({
+            'success': True,
+            'options': options
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
