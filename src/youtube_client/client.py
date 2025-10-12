@@ -89,7 +89,7 @@ class YouTubeClient:
             for i in range(0, len(video_ids), 50):
                 batch_ids = video_ids[i:i + 50]
                 videos_request = self.youtube.videos().list(
-                    part='snippet,statistics',
+                    part='snippet,statistics,contentDetails',
                     id=','.join(batch_ids)
                 )
                 videos_response = videos_request.execute()
@@ -104,6 +104,7 @@ class YouTubeClient:
                         'publishedAt': item['snippet']['publishedAt'],
                         'defaultLanguage': item['snippet'].get('defaultLanguage'),
                         'defaultAudioLanguage': item['snippet'].get('defaultAudioLanguage'),
+                        'duration': item['contentDetails'].get('duration'),
                         'viewCount': item['statistics'].get('viewCount', '0'),
                         'likeCount': item['statistics'].get('likeCount', '0'),
                     }
@@ -127,7 +128,7 @@ class YouTubeClient:
         """
         try:
             request = self.youtube.videos().list(
-                part='snippet,statistics',
+                part='snippet,statistics,contentDetails',
                 id=video_id
             )
             response = request.execute()
@@ -143,6 +144,7 @@ class YouTubeClient:
                     'publishedAt': item['snippet']['publishedAt'],
                     'defaultLanguage': item['snippet'].get('defaultLanguage'),
                     'defaultAudioLanguage': item['snippet'].get('defaultAudioLanguage'),
+                    'duration': item['contentDetails'].get('duration'),
                     'viewCount': item['statistics'].get('viewCount', '0'),
                     'likeCount': item['statistics'].get('likeCount', '0'),
                 }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-YouTube SEO Helper is a Python CLI tool designed to optimize video metadata for a Chinese travel YouTube channel (~60 videos). The tool generates bilingual (Chinese-English) SEO-optimized titles, descriptions, tags, and hashtags using the Claude API and updates videos via the YouTube Data API v3.
+YouTube Manager is a Python CLI tool designed to optimize video metadata for a Chinese travel YouTube channel, sync to Bilibili, and track analytics. The tool generates bilingual (Chinese-English) SEO-optimized titles, descriptions, tags, and hashtags using the Claude API and updates videos via the YouTube Data API v3.
 
 ## Architecture
 
@@ -17,7 +17,7 @@ YouTube SEO Helper is a Python CLI tool designed to optimize video metadata for 
 
 **Project Structure:**
 ```
-youtube_helper/
+youtube_manager/
 ├── src/
 │   ├── auth/              # YouTube OAuth2 authentication
 │   │   └── youtube_auth.py
@@ -25,13 +25,18 @@ youtube_helper/
 │   │   └── client.py
 │   ├── seo_optimizer/     # Claude API-powered bilingual metadata generator
 │   │   └── optimizer.py
+│   ├── bilibili_client/   # Bilibili API integration
+│   │   └── client.py
+│   ├── analytics/         # Analytics tracking & reporting
+│   │   ├── tracker.py
+│   │   └── reporter.py
 │   └── cli/               # CLI commands and UI
 │       └── main.py
 ├── config/                # API credentials (gitignored)
 │   ├── .gitkeep
 │   ├── client_secrets.json  (user must provide)
 │   └── token.pickle         (auto-generated)
-├── youtube_helper.py      # Main entry point
+├── youtube_manager.py     # Main entry point
 ├── requirements.txt
 └── .env                   # API keys (gitignored)
 ```
@@ -58,16 +63,16 @@ The first run will open a browser for OAuth2 authentication. Token is saved to `
 
 **Batch update existing videos:**
 ```bash
-python youtube_helper.py batch-update
-python youtube_helper.py batch-update --limit 5           # Process first 5 videos
-python youtube_helper.py batch-update --video-id VIDEO_ID # Process specific video
-python youtube_helper.py batch-update --auto-apply        # Skip manual approval
+python youtube_manager.py batch-update
+python youtube_manager.py batch-update --limit 5           # Process first 5 videos
+python youtube_manager.py batch-update --video-id VIDEO_ID # Process specific video
+python youtube_manager.py batch-update --auto-apply        # Skip manual approval
 ```
 
 **Generate metadata for new videos:**
 ```bash
-python youtube_helper.py new-video
-python youtube_helper.py new-video --topic "北京旅游攻略" --locations "故宫,长城" --save metadata.txt
+python youtube_manager.py new-video
+python youtube_manager.py new-video --topic "北京旅游攻略" --locations "故宫,长城" --save metadata.txt
 ```
 
 ## Key Components
@@ -91,11 +96,36 @@ python youtube_helper.py new-video --topic "北京旅游攻略" --locations "故
   - Mixed Chinese/English tags (8-12 total)
   - Bilingual hashtags (2-3)
 
+**src/bilibili_client/client.py:**
+- `get_user_videos()`: Fetches all videos from authenticated Bilibili account
+- `get_video_details()`: Gets metadata for specific video
+- `update_video_metadata()`: Updates video metadata (experimental - see BILIBILI_API_NOTES.md)
+- `generate_update_data()`: Helper for manual sync workflow
+- Cookie-based authentication (SESSDATA, bili_jct)
+
+**src/analytics/tracker.py:**
+- `fetch_channel_analytics()`: Fetches channel-level metrics
+- `fetch_video_analytics()`: Fetches per-video performance data
+- `save_snapshot()`: Stores historical analytics data
+- `get_growth_metrics()`: Calculates week-over-week growth
+- `get_top_performing_videos()`: Identifies best performers
+- `get_underperforming_videos()`: Flags videos needing attention
+
+**src/analytics/reporter.py:**
+- `generate_dashboard_report()`: Creates comprehensive visual dashboard
+- `format_number()`, `format_change()`: Pretty formatting utilities
+- Displays: channel overview, recent performance, top videos, insights
+
 **src/cli/main.py:**
 - CLI interface using Click and Rich
-- Two main commands: `batch-update` and `new-video`
+- Eight main commands:
+  - `batch-update`, `new-video` (SEO optimization)
+  - `match-bilibili`, `sync-to-bilibili`, `generate-bilibili-descriptions` (Bilibili sync)
+  - `analytics-dashboard` (Analytics tracking)
+  - `mark-tool-generated`, `backfill-metadata` (Utilities)
 - Interactive review mode with side-by-side comparisons
-- Batch processing with progress feedback
+- Batch processing with parallel SEO generation
+- Rate limiting for Claude API
 
 ## Development Notes
 
@@ -120,8 +150,8 @@ python youtube_helper.py new-video --topic "北京旅游攻略" --locations "故
 
 **Manual testing workflow:**
 1. Test authentication: Run any command to trigger OAuth2 flow
-2. Test single video: `python youtube_helper.py batch-update --video-id <ID> --limit 1`
-3. Test metadata generation: `python youtube_helper.py new-video --topic "测试"`
+2. Test single video: `python youtube_manager.py batch-update --video-id <ID> --limit 1`
+3. Test metadata generation: `python youtube_manager.py new-video --topic "测试"`
 4. Review mode: Check side-by-side comparisons before applying changes
 5. Verify updates in YouTube Studio
 

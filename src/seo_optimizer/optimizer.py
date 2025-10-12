@@ -390,3 +390,125 @@ Return ONLY the JSON output."""
 
         except Exception as e:
             raise Exception(f"Error generating metadata with Claude API: {e}")
+
+    def compress_description_for_bilibili(
+        self,
+        description: str,
+        max_length: int = 250,
+        video_title: Optional[str] = None
+    ) -> str:
+        """
+        Intelligently compress a description for Bilibili using LLM.
+
+        This method preserves the most important information while fitting
+        within Bilibili's character limits. It prioritizes Chinese content
+        and maintains key details like locations, highlights, and calls-to-action.
+
+        Args:
+            description: Full description (bilingual or Chinese)
+            max_length: Maximum character length for Bilibili (default 250)
+            video_title: Optional video title for context
+
+        Returns:
+            Compressed description that fits within max_length
+        """
+        # If already within limit, return as-is
+        if len(description) <= max_length:
+            return description
+
+        prompt = f"""You are an expert at compressing video descriptions while preserving maximum information value.
+
+**Task:** Compress the following video description to fit within {max_length} characters while keeping the MOST important information.
+
+{f"**Video Title:** {video_title}" if video_title else ""}
+
+**Original Description:**
+{description}
+
+**Compression Guidelines:**
+1. **Prioritize Chinese content** - If the description is bilingual, focus on Chinese section
+2. **Keep essential information:**
+   - Main topic/location
+   - Key highlights and activities
+   - Important tips or recommendations
+   - Call-to-action (subscribe/follow if present)
+3. **Remove or shorten:**
+   - Redundant descriptions
+   - Overly detailed explanations
+   - Generic filler words
+   - English section if bilingual (keep only Chinese)
+   - Timestamps (if necessary for space)
+   - Social media links (if necessary for space)
+4. **Writing style:**
+   - Concise and punchy
+   - Use emojis if they save space and add clarity
+   - Break into short, scannable lines
+   - Keep most engaging parts
+
+**Critical Requirements:**
+- Output MUST be {max_length} characters or less
+- Must remain in Chinese (if original is Chinese/bilingual)
+- Should feel complete, not abruptly cut off
+- Preserve the video's core value proposition
+
+**Output:** Return ONLY the compressed description, nothing else. No explanations, no JSON, just the compressed text."""
+
+        try:
+            response = self.client.messages.create(
+                model="claude-sonnet-4-5-20250929",
+                max_tokens=1024,
+                messages=[{
+                    "role": "user",
+                    "content": prompt
+                }]
+            )
+
+            compressed = response.content[0].text.strip()
+
+            # Safety check: if Claude exceeded limit, do hard truncation
+            if len(compressed) > max_length:
+                # Try to truncate at sentence boundary
+                truncated = compressed[:max_length]
+                sentence_endings = ['。', '！', '？', '.', '!', '?', '\n']
+                best_break = -1
+
+                for i in range(len(truncated) - 1, max(0, len(truncated) - 50), -1):
+                    if truncated[i] in sentence_endings:
+                        best_break = i + 1
+                        break
+
+                if best_break > 0:
+                    compressed = truncated[:best_break].strip()
+                else:
+                    compressed = truncated.rstrip()
+
+            return compressed
+
+        except Exception as e:
+            # Fallback to simple truncation if LLM fails
+            console.print(f"[yellow]Warning: LLM compression failed ({e}), falling back to simple truncation[/yellow]")
+            return self._simple_truncate(description, max_length)
+
+    def _simple_truncate(self, text: str, max_length: int) -> str:
+        """
+        Simple truncation fallback (used if LLM compression fails).
+
+        Args:
+            text: Text to truncate
+            max_length: Maximum length
+
+        Returns:
+            Truncated text
+        """
+        if len(text) <= max_length:
+            return text
+
+        truncated = text[:max_length]
+        sentence_endings = ['。', '！', '？', '.', '!', '?', '\n']
+
+        # Search backwards for sentence ending
+        for i in range(len(truncated) - 1, max(0, len(truncated) - 50), -1):
+            if truncated[i] in sentence_endings:
+                return truncated[:i + 1].strip()
+
+        return truncated.rstrip()

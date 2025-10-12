@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Entry point for YouTube SEO Helper CLI."""
+"""Entry point for YouTube Manager CLI."""
 
 from src.cli.main import cli
 

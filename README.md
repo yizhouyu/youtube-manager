@@ -1,15 +1,34 @@
-# YouTube SEO Helper
+# YouTube Manager
 
-A Python CLI tool to optimize video metadata for Chinese travel YouTube channels with bilingual (Chinese-English) SEO.
+A Python CLI tool to optimize video metadata for Chinese travel YouTube channels with bilingual (Chinese-English) SEO, sync to Bilibili, and track analytics.
 
 ## Features
 
-- **Batch Update**: Optimize metadata for all existing videos (~60 videos)
+### SEO Optimization
+- **Batch Update**: Optimize metadata for all existing videos
 - **New Video Mode**: Generate SEO-optimized metadata for upcoming videos
 - **Bilingual SEO**: Generate Chinese titles with bilingual descriptions and tags
 - **Interactive Review**: Preview changes before applying
-- **YouTube API Integration**: Direct updates to your videos
 - **AI-Powered**: Uses Claude API for intelligent metadata generation
+
+### Bilibili Integration
+- **Video Matching**: Automatically match YouTube videos with Bilibili videos by title
+- **LLM Compression**: Intelligently compress descriptions to fit Bilibili's 250-character limit
+- **Metadata Sync**: Sync titles, descriptions, and tags from YouTube to Bilibili
+- **Manual Sync Workflow**: Generate ready-to-paste compressed descriptions
+
+### Analytics Dashboard
+- **Channel Analytics**: Track subscribers, views, and video count
+- **Video Performance**: Analyze engagement rates, views, and likes
+- **Growth Metrics**: Week-over-week growth tracking
+- **Top Performers**: Identify your best performing videos
+- **Underperforming Videos**: Flag videos that need attention
+- **Historical Tracking**: Save snapshots for trend analysis
+
+### General
+- **Video Tracking**: Never re-process the same video twice
+- **Parallel Processing**: Generate SEO metadata for multiple videos simultaneously
+- **Rate Limiting**: Built-in protection for API limits
 
 ## SEO Optimization Strategy
 
@@ -43,12 +62,13 @@ A Python CLI tool to optimize video metadata for Chinese travel YouTube channels
 - YouTube channel with videos
 - Google Cloud Platform account (for YouTube API)
 - Anthropic API key (for Claude)
+- (Optional) Bilibili account with videos (for Bilibili sync features)
 
 ### Setup
 
 1. **Clone the repository:**
    ```bash
-   cd youtube_helper
+   cd youtube_manager
    ```
 
 2. **Create and activate virtual environment:**
@@ -74,8 +94,19 @@ A Python CLI tool to optimize video metadata for Chinese travel YouTube channels
    - Copy `.env.example` to `.env`
    - Add your API key: `ANTHROPIC_API_KEY=your_api_key_here`
 
-6. **First-time authentication:**
-   - Run any command (e.g., `python youtube_helper.py batch-update --limit 1`)
+6. **(Optional) Set up Bilibili credentials:**
+   - Log in to Bilibili in your browser
+   - Open browser DevTools (F12) → Application/Storage → Cookies
+   - Copy `SESSDATA` and `bili_jct` cookie values
+   - Add to `.env` file:
+     ```
+     BILIBILI_SESSDATA=your_sessdata_value
+     BILIBILI_BILI_JCT=your_bili_jct_value
+     ```
+   - See `.env.example` for more details
+
+7. **First-time authentication:**
+   - Run any command (e.g., `python youtube_manager.py batch-update --limit 1`)
    - Browser will open for YouTube OAuth2 authentication
    - Grant permissions to the application
    - Token will be saved for future use
@@ -87,20 +118,20 @@ A Python CLI tool to optimize video metadata for Chinese travel YouTube channels
 Optimize metadata for all videos on your channel:
 
 ```bash
-python youtube_helper.py batch-update
+python youtube_manager.py batch-update
 ```
 
 **Options:**
 
 ```bash
 # Process only the first 5 videos
-python youtube_helper.py batch-update --limit 5
+python youtube_manager.py batch-update --limit 5
 
 # Update a specific video by ID
-python youtube_helper.py batch-update --video-id VIDEO_ID
+python youtube_manager.py batch-update --video-id VIDEO_ID
 
 # Auto-apply all changes without manual review
-python youtube_helper.py batch-update --auto-apply
+python youtube_manager.py batch-update --auto-apply
 ```
 
 **Workflow:**
@@ -115,20 +146,20 @@ python youtube_helper.py batch-update --auto-apply
 Create SEO-optimized metadata for a new video:
 
 ```bash
-python youtube_helper.py new-video
+python youtube_manager.py new-video
 ```
 
 **With options:**
 
 ```bash
 # Specify topic and details
-python youtube_helper.py new-video \
+python youtube_manager.py new-video \
   --topic "北京旅游攻略" \
   --locations "故宫,长城,天安门" \
   --key-points "历史文化,美食推荐,交通指南"
 
 # Save output to file
-python youtube_helper.py new-video --save metadata.txt
+python youtube_manager.py new-video --save metadata.txt
 ```
 
 **Interactive mode:**
@@ -137,18 +168,68 @@ python youtube_helper.py new-video --save metadata.txt
 - Generates complete metadata
 - Displays formatted output ready to copy
 
+### Bilibili Sync
+
+Match and sync your videos between YouTube and Bilibili:
+
+```bash
+# Step 1: Match videos between YouTube and Bilibili
+python youtube_manager.py match-bilibili
+
+# Step 2: Generate compressed descriptions for manual sync
+python youtube_manager.py generate-bilibili-descriptions --min-confidence 0.9
+
+# Or: Try automated sync (experimental)
+python youtube_manager.py sync-to-bilibili --min-confidence 0.9
+```
+
+**Features:**
+- Uses original YouTube titles for accurate matching
+- LLM-powered intelligent compression (preserves ~85% of information)
+- Handles Bilibili's 250-character description limit
+- Manual sync workflow for reliability
+
+See [BILIBILI_COMPRESSION_GUIDE.md](BILIBILI_COMPRESSION_GUIDE.md) and [BILIBILI_API_NOTES.md](BILIBILI_API_NOTES.md) for detailed documentation.
+
+### Analytics Dashboard
+
+Track your channel's performance over time:
+
+```bash
+# Display comprehensive analytics dashboard
+python youtube_manager.py analytics-dashboard
+
+# Save a snapshot for historical tracking
+python youtube_manager.py analytics-dashboard --save-snapshot
+
+# Customize the analysis period
+python youtube_manager.py analytics-dashboard --days 28 --growth-days 7 --video-limit 50
+```
+
+**Dashboard includes:**
+- Channel overview (subscribers, views, total videos)
+- Recent performance metrics (last 7-28 days)
+- Top 10 performing videos
+- Bottom 25% underperforming videos
+- AI-generated insights and recommendations
+- Week-over-week growth tracking
+
+**Best practice:** Run with `--save-snapshot` weekly to track growth trends over time.
+
 ## Project Structure
 
 ```
-youtube_helper/
+youtube_manager/
 ├── src/
 │   ├── auth/              # YouTube OAuth2 authentication
 │   ├── youtube_client/    # YouTube API operations
 │   ├── seo_optimizer/     # Claude API metadata generation
+│   ├── bilibili_client/   # Bilibili integration
+│   ├── analytics/         # Analytics tracking & reporting
 │   └── cli/               # CLI interface
 ├── config/                # API credentials (gitignored)
 │   └── client_secrets.json
-├── youtube_helper.py      # Main entry point
+├── youtube_manager.py     # Main entry point
 ├── requirements.txt
 ├── .env                   # Environment variables
 └── README.md
@@ -188,7 +269,7 @@ You've reached the daily limit of 10,000 units. Wait 24 hours or request a quota
 Delete `config/token.pickle` and re-authenticate:
 ```bash
 rm config/token.pickle
-python youtube_helper.py batch-update --limit 1
+python youtube_manager.py batch-update --limit 1
 ```
 
 ### Chinese characters not displaying correctly

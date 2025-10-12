@@ -47,7 +47,8 @@ class VideoTracker:
         self,
         video_id: str,
         original_metadata: Dict,
-        optimized_metadata: Dict
+        optimized_metadata: Dict,
+        video_info: Optional[Dict] = None
     ):
         """
         Mark a video as processed and save both before/after metadata.
@@ -56,8 +57,9 @@ class VideoTracker:
             video_id: YouTube video ID
             original_metadata: Original metadata before optimization (title, description, tags)
             optimized_metadata: Optimized metadata after changes (title, description, tags, hashtags)
+            video_info: Additional video info (publishedAt, duration, etc.)
         """
-        self.processed_videos[video_id] = {
+        entry = {
             'processed_at': datetime.now().isoformat(),
             'status': 'optimized',  # 'optimized' or 'tool_generated'
             'before': {
@@ -72,22 +74,45 @@ class VideoTracker:
                 'hashtags': optimized_metadata.get('hashtags', [])
             }
         }
+
+        # Add video info if provided
+        if video_info:
+            entry['video_info'] = {
+                'published_at': video_info.get('publishedAt'),
+                'duration': video_info.get('duration'),
+                'view_count': video_info.get('viewCount'),
+                'like_count': video_info.get('likeCount')
+            }
+
+        self.processed_videos[video_id] = entry
         self._save_tracking_data()
 
-    def mark_as_tool_generated(self, video_id: str, title: str):
+    def mark_as_tool_generated(self, video_id: str, title: str, video_info: Optional[Dict] = None):
         """
         Mark a video as tool-generated (created with good SEO, skip processing).
 
         Args:
             video_id: YouTube video ID
             title: Video title for reference
+            video_info: Additional video info (publishedAt, duration, etc.)
         """
-        self.processed_videos[video_id] = {
+        entry = {
             'processed_at': datetime.now().isoformat(),
             'status': 'tool_generated',
             'title': title,
             'note': 'Video created with SEO tool - no optimization needed'
         }
+
+        # Add video info if provided
+        if video_info:
+            entry['video_info'] = {
+                'published_at': video_info.get('publishedAt'),
+                'duration': video_info.get('duration'),
+                'view_count': video_info.get('viewCount'),
+                'like_count': video_info.get('likeCount')
+            }
+
+        self.processed_videos[video_id] = entry
         self._save_tracking_data()
 
     def get_processed_info(self, video_id: str) -> Optional[Dict]:
