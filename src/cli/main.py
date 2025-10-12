@@ -52,6 +52,7 @@ def batch_update(limit, video_id, auto_apply, force):
         # Initialize video tracker
         tracker = VideoTracker()
         console.print(f"[dim]Tracking file: {tracker.tracking_file.absolute()}[/dim]")
+        console.print(f"[dim]Currently tracking {len(tracker.processed_videos)} video IDs[/dim]")
 
         # Authenticate with YouTube
         console.print("[yellow]Authenticating with YouTube...[/yellow]")
@@ -88,10 +89,21 @@ def batch_update(limit, video_id, auto_apply, force):
         # Filter out already processed videos (unless force flag is set)
         if not force:
             original_count = len(videos)
+
+            # Debug: Show which videos are being filtered
+            skipped_videos = []
+            for v in videos:
+                if tracker.is_processed(v['id']):
+                    skipped_videos.append((v['id'], v['title'][:50]))
+
             videos = [v for v in videos if not tracker.is_processed(v['id'])]
             skipped_count = original_count - len(videos)
+
             if skipped_count > 0:
                 console.print(f"[yellow]Skipping {skipped_count} already tracked video(s).[/yellow]")
+                if skipped_count <= 5:  # Show details if not too many
+                    for vid_id, title in skipped_videos:
+                        console.print(f"[dim]  - {vid_id}: {title}...[/dim]")
                 console.print(f"[dim]Use --force to re-process them.[/dim]")
 
         if limit:
@@ -113,6 +125,11 @@ def batch_update(limit, video_id, auto_apply, force):
             console.print(f"\n[bold]Processing video {idx}/{len(videos)}[/bold]")
             console.print(f"[cyan]Video ID:[/cyan] {video['id']}")
             console.print(f"[cyan]Current Title:[/cyan] {video['title'][:80]}...")
+
+            # Debug: Check if already tracked
+            if tracker.is_processed(video['id']):
+                console.print(f"[yellow]⚠ WARNING: This video ID is already in tracking file![/yellow]")
+                console.print(f"[dim]This shouldn't happen - please report this issue.[/dim]")
 
             # Generate optimized metadata
             console.print("[yellow]Generating SEO-optimized metadata...[/yellow]")

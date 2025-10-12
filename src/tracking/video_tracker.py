@@ -108,7 +108,9 @@ class VideoTracker:
 
     def get_optimized_count(self) -> int:
         """Get count of videos that were optimized."""
-        return sum(1 for v in self.processed_videos.values() if v.get('status') == 'optimized')
+        # Count entries with status='optimized' OR entries without status (legacy entries)
+        return sum(1 for v in self.processed_videos.values()
+                  if v.get('status') == 'optimized' or v.get('status') is None)
 
     def get_tool_generated_count(self) -> int:
         """Get count of videos marked as tool-generated."""
