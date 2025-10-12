@@ -46,27 +46,30 @@ class VideoTracker:
     def mark_as_processed(
         self,
         video_id: str,
-        title: str,
-        description_preview: str,
-        tags: list,
-        metadata: Optional[Dict] = None
+        original_metadata: Dict,
+        optimized_metadata: Dict
     ):
         """
-        Mark a video as processed and save metadata.
+        Mark a video as processed and save both before/after metadata.
 
         Args:
             video_id: YouTube video ID
-            title: Updated video title
-            description_preview: First 200 chars of description
-            tags: List of tags
-            metadata: Optional additional metadata
+            original_metadata: Original metadata before optimization (title, description, tags)
+            optimized_metadata: Optimized metadata after changes (title, description, tags, hashtags)
         """
         self.processed_videos[video_id] = {
             'processed_at': datetime.now().isoformat(),
-            'title': title,
-            'description_preview': description_preview[:200],
-            'tags': tags,
-            'metadata': metadata or {}
+            'before': {
+                'title': original_metadata.get('title', ''),
+                'description': original_metadata.get('description', ''),
+                'tags': original_metadata.get('tags', [])
+            },
+            'after': {
+                'title': optimized_metadata.get('title', ''),
+                'description': optimized_metadata.get('description', ''),
+                'tags': optimized_metadata.get('tags', []),
+                'hashtags': optimized_metadata.get('hashtags', [])
+            }
         }
         self._save_tracking_data()
 

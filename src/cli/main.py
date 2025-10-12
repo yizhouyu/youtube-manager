@@ -125,12 +125,15 @@ def batch_update(limit, video_id, auto_apply, force):
                 )
                 console.print("[green]✓ Video updated successfully![/green]")
 
-                # Mark as processed
+                # Mark as processed with full before/after metadata
                 tracker.mark_as_processed(
                     video_id=video['id'],
-                    title=optimized['title'],
-                    description_preview=optimized['description'][:200],
-                    tags=optimized['tags']
+                    original_metadata={
+                        'title': video['title'],
+                        'description': video['description'],
+                        'tags': video.get('tags', [])
+                    },
+                    optimized_metadata=optimized
                 )
 
             except Exception as e:
