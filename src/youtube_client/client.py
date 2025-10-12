@@ -74,13 +74,16 @@ class YouTubeClient:
 
                 for item in search_response.get('items', []):
                     if item['id']['kind'] == 'youtube#video':
-                        video_ids.append(item['id']['videoId'])
+                        video_id = item['id']['videoId']
+                        # Deduplicate: YouTube Search API can return same video multiple times
+                        if video_id not in video_ids:
+                            video_ids.append(video_id)
 
                 page_token = search_response.get('nextPageToken')
                 if not page_token:
                     break
 
-            print(f"Found {len(video_ids)} videos. Fetching details...")
+            print(f"Found {len(video_ids)} unique videos. Fetching details...")
 
             # Fetch video details in batches of 50 (API limit)
             for i in range(0, len(video_ids), 50):
