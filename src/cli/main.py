@@ -200,13 +200,11 @@ def _display_comparison(video, optimized):
     table.add_row(video['title'], optimized['title'])
     console.print(table)
 
-    # Description comparison (first 400 chars with wrapping)
-    table = Table(title="Description Preview (first 400 chars)", show_header=True, show_lines=True)
+    # Description comparison (full text)
+    table = Table(title="Description (Full)", show_header=True, show_lines=True)
     table.add_column("Current", style="yellow", ratio=1, no_wrap=False)
     table.add_column("Optimized", style="green", ratio=1, no_wrap=False)
-    current_desc = video['description'][:400] + "..." if len(video['description']) > 400 else video['description']
-    optimized_desc = optimized['description'][:400] + "..." if len(optimized['description']) > 400 else optimized['description']
-    table.add_row(current_desc, optimized_desc)
+    table.add_row(video['description'], optimized['description'])
     console.print(table)
 
     # Tags comparison
