@@ -1348,6 +1348,9 @@
                 successDiv.classList.remove('hidden');
                 document.getElementById('youtube-link').href = result.videoUrl;
 
+                // Clear unsaved changes flag - upload is complete
+                uploadComplete = true;
+
                 // Show "Upload Another" button
                 uploadBtn.classList.add('hidden');
                 backBtn.classList.add('hidden');
@@ -1449,6 +1452,46 @@
 
     // Load playlists when page loads
     loadPlaylists();
+
+    // Track if there are unsaved changes
+    let hasUnsavedChanges = false;
+    let uploadComplete = false;
+
+    // Set hasUnsavedChanges to true when files are selected or metadata is generated
+    function markAsUnsaved() {
+        hasUnsavedChanges = true;
+    }
+
+    // Warn user before leaving page if there are unsaved changes
+    window.addEventListener('beforeunload', function(e) {
+        // Don't warn if upload is complete or no changes made
+        if (!hasUnsavedChanges || uploadComplete) {
+            return undefined;
+        }
+
+        // Show warning (modern browsers show their own message)
+        const message = 'You have unsaved changes. Are you sure you want to leave?';
+        e.preventDefault();
+        e.returnValue = message;
+        return message;
+    });
+
+    // Mark as unsaved when files are selected
+    const originalShowDetectedFiles = showDetectedFiles;
+    showDetectedFiles = function() {
+        markAsUnsaved();
+        return originalShowDetectedFiles.apply(this, arguments);
+    };
+
+    // Mark as unsaved when metadata is generated
+    const originalSelectOption = selectOption;
+    selectOption = function(idx) {
+        markAsUnsaved();
+        return originalSelectOption.apply(this, arguments);
+    };
+
+    // Clear unsaved flag when upload completes successfully
+    // (This is set in the uploadToYouTube function when it receives success response)
 </script>
 
 <style>
