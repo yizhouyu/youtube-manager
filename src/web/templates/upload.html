@@ -117,7 +117,7 @@
 
                 <!-- AI Thumbnail Generation Option -->
                 <div class="mt-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
-                    <label class="flex items-start cursor-pointer">
+                    <label class="flex items-start cursor-pointer mb-3">
                         <input type="checkbox" id="ai-thumbnail-enabled" class="mt-1 mr-3 rounded" onchange="toggleAIThumbnail()">
                         <div>
                             <span class="font-medium text-gray-900 flex items-center">
@@ -127,6 +127,19 @@
                             <p class="text-xs text-gray-600 mt-1">Upload a plain image, and AI will add eye-catching text overlay (3 options to choose from)</p>
                         </div>
                     </label>
+
+                    <!-- Language Selector -->
+                    <div id="thumbnail-language-selector" class="hidden ml-8 mt-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Thumbnail Text Language
+                        </label>
+                        <select id="thumbnail-language" class="w-64 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="zh-CN" selected>简体中文 (Simplified Chinese)</option>
+                            <option value="en">English</option>
+                            <option value="zh-TW">繁體中文 (Traditional Chinese)</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Select the language for AI-generated thumbnail text</p>
+                    </div>
                 </div>
             </div>
 
@@ -808,9 +821,19 @@
 
     function toggleAIThumbnail() {
         const enabled = document.getElementById('ai-thumbnail-enabled').checked;
-        if (enabled && !selectedThumbnailFile) {
-            alert('Please select a base thumbnail image first');
-            document.getElementById('ai-thumbnail-enabled').checked = false;
+        const languageSelector = document.getElementById('thumbnail-language-selector');
+
+        if (enabled) {
+            if (!selectedThumbnailFile) {
+                alert('Please select a base thumbnail image first');
+                document.getElementById('ai-thumbnail-enabled').checked = false;
+                return;
+            }
+            // Show language selector when AI is enabled
+            languageSelector.classList.remove('hidden');
+        } else {
+            // Hide language selector when AI is disabled
+            languageSelector.classList.add('hidden');
         }
     }
 
@@ -829,6 +852,9 @@
             if (locationsInput) {
                 formData.append('location', locationsInput);
             }
+            // Add explicit language selection
+            const selectedLanguage = document.getElementById('thumbnail-language').value;
+            formData.append('language', selectedLanguage);
 
             // Call API
             const response = await fetch('/api/thumbnail/generate', {

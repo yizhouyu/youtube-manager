@@ -184,6 +184,7 @@ def generate_thumbnail():
         title = request.form.get('title', '')
         description = request.form.get('description', '')
         location = request.form.get('location', None)
+        language = request.form.get('language', 'zh-CN')  # Default to Simplified Chinese
 
         if not title:
             return jsonify({
@@ -201,7 +202,8 @@ def generate_thumbnail():
             image_path=image_data,
             title=title,
             description=description or title,
-            location=location
+            location=location,
+            language=language
         )
 
         return jsonify({

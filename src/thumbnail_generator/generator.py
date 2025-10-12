@@ -25,7 +25,7 @@ class ThumbnailGenerator:
         """
         self.client = anthropic.Anthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
 
-    def suggest_thumbnail_text(self, title, description, location=None, style="bold"):
+    def suggest_thumbnail_text(self, title, description, location=None, style="bold", language="zh-CN"):
         """
         Use Claude to suggest 3 compelling thumbnail text options based on video context.
 
@@ -34,6 +34,7 @@ class ThumbnailGenerator:
             description: Video description
             location: Optional location/destination
             style: Text style (bold, minimal, dramatic)
+            language: Target language (zh-CN, en, zh-TW)
 
         Returns:
             list of 3 dicts with text suggestions:
@@ -48,12 +49,33 @@ class ThumbnailGenerator:
         """
         location_context = f"\n- Location: {location}" if location else ""
 
+        # Map language codes to language names and requirements
+        language_requirements = {
+            'zh-CN': {
+                'name': 'Simplified Chinese (简体中文)',
+                'requirement': 'ALL thumbnail text MUST be in Simplified Chinese (简体中文). DO NOT use English. DO NOT use Traditional Chinese (繁體中文).',
+                'examples': '惊艳, 绝美, 必看, 秘境 (NOT: 驚艷, 絕美)'
+            },
+            'en': {
+                'name': 'English',
+                'requirement': 'ALL thumbnail text MUST be in English. DO NOT use Chinese characters.',
+                'examples': 'AMAZING, MUST-SEE, HIDDEN GEM, SECRET SPOT'
+            },
+            'zh-TW': {
+                'name': 'Traditional Chinese (繁體中文)',
+                'requirement': 'ALL thumbnail text MUST be in Traditional Chinese (繁體中文). DO NOT use English. DO NOT use Simplified Chinese (简体中文).',
+                'examples': '驚艷, 絕美, 必看, 秘境 (NOT: 惊艳, 绝美)'
+            }
+        }
+
+        lang_config = language_requirements.get(language, language_requirements['zh-CN'])
+
         prompt = f"""You are a YouTube thumbnail text expert specializing in travel content.
 
 **CRITICAL LANGUAGE REQUIREMENT:**
-- If the title or description contains Chinese characters, ALL thumbnail text MUST be in Simplified Chinese (简体中文)
-- DO NOT use English if Chinese content is detected
-- DO NOT use Traditional Chinese (繁體中文)
+- Target language: {lang_config['name']}
+- {lang_config['requirement']}
+- Example words: {lang_config['examples']}
 
 Given this video context:
 - Title: {title}
@@ -361,7 +383,8 @@ Return ONLY a JSON array with 3 objects:
         title,
         description,
         location=None,
-        style="bold"
+        style="bold",
+        language="zh-CN"
     ):
         """
         Complete workflow: Generate 3 thumbnail options with different text overlays.
@@ -372,6 +395,7 @@ Return ONLY a JSON array with 3 objects:
             description: Video description
             location: Optional location
             style: Text style for suggestions
+            language: Target language (zh-CN, en, zh-TW)
 
         Returns:
             List of 3 thumbnail options:
@@ -389,7 +413,7 @@ Return ONLY a JSON array with 3 objects:
         from copy import deepcopy
 
         # Get 3 text suggestions from Claude (with color suggestions)
-        suggestions = self.suggest_thumbnail_text(title, description, location, style)
+        suggestions = self.suggest_thumbnail_text(title, description, location, style, language)
 
         results = []
 
