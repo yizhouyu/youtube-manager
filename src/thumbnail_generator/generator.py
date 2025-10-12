@@ -58,22 +58,27 @@ Given this video context:
 Suggest 3 DIFFERENT compelling thumbnail text options that will maximize click-through rate.
 Each option should have a different approach/angle.
 
+**CRITICAL: If the content is in Chinese, you MUST use Simplified Chinese (简体中文), NOT Traditional Chinese (繁體中文).**
+
 Requirements:
 1. **Main Text**: 3-5 words maximum, BOLD and attention-grabbing
    - Use simple, powerful words
-   - Numbers work well (e.g., "5 HIDDEN GEMS")
+   - Numbers work well (e.g., "5个隐藏景点" for Chinese, "5 HIDDEN GEMS" for English)
    - Create curiosity or promise value
-   - For Chinese content: Use Simplified Chinese (简体中文)
+   - **IMPORTANT: For Chinese content, use ONLY Simplified Chinese characters (简体中文)**
+   - Examples of Simplified Chinese: 惊艳, 绝美, 必看, 秘境
+   - DO NOT use Traditional Chinese: 驚艷, 絕美, 必看, 秘境
 
 2. **Subtitle** (optional): Short supporting text if needed
    - 2-4 words
    - Adds context or urgency
+   - **Also use Simplified Chinese if main text is Chinese**
 
 3. **Best Practices**:
-   - Use ALL CAPS for maximum impact
+   - Use ALL CAPS for English text
+   - For Chinese, use emotive words like: 惊艳(amazing), 隐藏(hidden), 必看(must-see), 秘境(secret)
    - Avoid clickbait - be authentic
    - Match the video's actual content
-   - Use emotive words (AMAZING, HIDDEN, MUST-SEE, SECRET)
 
 4. **Variety**: Make each option different:
    - Option 1: Bold/dramatic approach
@@ -192,20 +197,50 @@ Return ONLY a JSON array with 3 objects:
 
         draw = ImageDraw.Draw(final_img)
 
-        # Load fonts (fallback to default if custom fonts not available)
-        try:
-            # Try to use system fonts
-            font_main = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", font_size_main)
-            font_subtitle = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", font_size_subtitle)
-        except:
+        # Detect if text contains Chinese characters
+        def has_chinese(text):
+            return any('\u4e00' <= char <= '\u9fff' for char in text)
+
+        is_chinese = has_chinese(main_text)
+
+        # Load fonts with better Chinese support
+        font_paths_to_try = []
+        if is_chinese:
+            # Chinese-optimized fonts (macOS)
+            font_paths_to_try = [
+                "/System/Library/Fonts/PingFang.ttc",  # PingFang SC - best for Chinese
+                "/System/Library/Fonts/STHeiti Light.ttc",  # STHeiti
+                "/System/Library/Fonts/Hiragino Sans GB.ttc",  # Hiragino
+                "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",  # Arial Unicode
+            ]
+        else:
+            # English fonts (bold)
+            font_paths_to_try = [
+                "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+                "/Library/Fonts/Arial Bold.ttf",
+            ]
+
+        # Add Linux fallbacks
+        font_paths_to_try.extend([
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",  # Chinese support on Linux
+        ])
+
+        font_main = None
+        font_subtitle = None
+
+        for font_path in font_paths_to_try:
             try:
-                # Fallback for Linux
-                font_main = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size_main)
-                font_subtitle = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size_subtitle)
+                font_main = ImageFont.truetype(font_path, font_size_main)
+                font_subtitle = ImageFont.truetype(font_path, font_size_subtitle)
+                break
             except:
-                # Use default PIL font
-                font_main = ImageFont.load_default()
-                font_subtitle = ImageFont.load_default()
+                continue
+
+        # Final fallback to default font
+        if font_main is None:
+            font_main = ImageFont.load_default()
+            font_subtitle = ImageFont.load_default()
 
         # Wrap text if too long
         max_chars_per_line = 20
