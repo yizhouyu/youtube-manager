@@ -50,6 +50,11 @@ class ThumbnailGenerator:
 
         prompt = f"""You are a YouTube thumbnail text expert specializing in travel content.
 
+**CRITICAL LANGUAGE REQUIREMENT:**
+- If the title or description contains Chinese characters, ALL thumbnail text MUST be in Simplified Chinese (简体中文)
+- DO NOT use English if Chinese content is detected
+- DO NOT use Traditional Chinese (繁體中文)
+
 Given this video context:
 - Title: {title}
 - Description: {description[:500]}{location_context}
@@ -57,8 +62,6 @@ Given this video context:
 
 Suggest 3 DIFFERENT compelling thumbnail text options that will maximize click-through rate.
 Each option should have a different approach/angle.
-
-**CRITICAL: If the content is in Chinese, you MUST use Simplified Chinese (简体中文), NOT Traditional Chinese (繁體中文).**
 
 Requirements:
 1. **Main Text**: 3-5 words maximum, BOLD and attention-grabbing
@@ -85,22 +88,43 @@ Requirements:
    - Option 2: Curiosity/question approach
    - Option 3: Value/benefit approach
 
+5. **Color Design**: For each option, suggest text and outline colors that:
+   - Match the video's mood and theme
+   - Ensure high visibility and contrast
+   - Create emotional impact
+   - Examples:
+     * Sunset/Adventure: Orange text (#FFA500) with red outline (#FF4500)
+     * Ocean/Calm: Cyan text (#00FFFF) with blue outline (#0066FF)
+     * Nature/Fresh: Green text (#00FF00) with dark green outline (#006400)
+     * Energy/Exciting: Yellow text (#FFFF00) with orange outline (#FF6600)
+     * Luxury/Premium: Gold text (#FFD700) with black outline (#000000)
+     * Mystery/Dark: White text (#FFFFFF) with purple outline (#800080)
+
 Return ONLY a JSON array with 3 objects:
 [
     {{
         "main_text": "OPTION 1 TEXT HERE",
         "subtitle": "Optional subtitle or empty string",
-        "reasoning": "Brief explanation why this works"
+        "reasoning": "Brief explanation why this works",
+        "text_color": "#RRGGBB hex color for main text",
+        "outline_color": "#RRGGBB hex color for outline",
+        "color_reasoning": "Why these colors work for this video"
     }},
     {{
         "main_text": "OPTION 2 TEXT HERE",
         "subtitle": "Optional subtitle or empty string",
-        "reasoning": "Brief explanation why this works"
+        "reasoning": "Brief explanation why this works",
+        "text_color": "#RRGGBB hex color",
+        "outline_color": "#RRGGBB hex color",
+        "color_reasoning": "Why these colors work"
     }},
     {{
         "main_text": "OPTION 3 TEXT HERE",
         "subtitle": "Optional subtitle or empty string",
-        "reasoning": "Brief explanation why this works"
+        "reasoning": "Brief explanation why this works",
+        "text_color": "#RRGGBB hex color",
+        "outline_color": "#RRGGBB hex color",
+        "color_reasoning": "Why these colors work"
     }}
 ]"""
 
@@ -126,22 +150,31 @@ Return ONLY a JSON array with 3 objects:
 
         except Exception as e:
             print(f"Error generating thumbnail text: {e}")
-            # Fallback to simple text based on title
+            # Fallback to simple text based on title with default colors
             return [
                 {
                     "main_text": title[:30].upper(),
                     "subtitle": "",
-                    "reasoning": "Fallback suggestion (bold)"
+                    "reasoning": "Fallback suggestion (bold)",
+                    "text_color": "#FFFF00",  # Yellow
+                    "outline_color": "#FF6600",  # Orange
+                    "color_reasoning": "High-energy yellow for attention"
                 },
                 {
                     "main_text": title[:25].upper() + "!",
                     "subtitle": "WATCH NOW",
-                    "reasoning": "Fallback suggestion (urgent)"
+                    "reasoning": "Fallback suggestion (urgent)",
+                    "text_color": "#00FFFF",  # Cyan
+                    "outline_color": "#0066FF",  # Blue
+                    "color_reasoning": "Modern cyan for tech appeal"
                 },
                 {
                     "main_text": "MUST SEE: " + title[:20].upper(),
                     "subtitle": "",
-                    "reasoning": "Fallback suggestion (value)"
+                    "reasoning": "Fallback suggestion (value)",
+                    "text_color": "#FFFFFF",  # White
+                    "outline_color": "#000000",  # Black
+                    "color_reasoning": "Classic high contrast"
                 }
             ]
 
@@ -186,14 +219,29 @@ Return ONLY a JSON array with 3 objects:
         if img.mode != 'RGB':
             img = img.convert('RGB')
 
-        # Resize to YouTube thumbnail dimensions (1280x720)
+        # Resize to YouTube thumbnail dimensions (1280x720) - FILL completely
         target_size = (1280, 720)
-        img.thumbnail(target_size, Image.Resampling.LANCZOS)
+        target_ratio = target_size[0] / target_size[1]  # 16:9
+        img_ratio = img.size[0] / img.size[1]
 
-        # Create new image with target size and paste resized image centered
-        final_img = Image.new('RGB', target_size, (0, 0, 0))
-        offset = ((target_size[0] - img.size[0]) // 2, (target_size[1] - img.size[1]) // 2)
-        final_img.paste(img, offset)
+        if img_ratio > target_ratio:
+            # Image is wider - scale by height, then crop width
+            new_height = target_size[1]
+            new_width = int(new_height * img_ratio)
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            # Crop to center
+            left = (new_width - target_size[0]) // 2
+            img = img.crop((left, 0, left + target_size[0], target_size[1]))
+        else:
+            # Image is taller - scale by width, then crop height
+            new_width = target_size[0]
+            new_height = int(new_width / img_ratio)
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            # Crop to center
+            top = (new_height - target_size[1]) // 2
+            img = img.crop((0, top, target_size[0], top + target_size[1]))
+
+        final_img = img  # Image now fills entire canvas
 
         draw = ImageDraw.Draw(final_img)
 
@@ -340,32 +388,16 @@ Return ONLY a JSON array with 3 objects:
         import base64
         from copy import deepcopy
 
-        # Get 3 text suggestions from Claude
+        # Get 3 text suggestions from Claude (with color suggestions)
         suggestions = self.suggest_thumbnail_text(title, description, location, style)
 
         results = []
 
-        # Different color schemes for each option
-        color_schemes = [
-            # Option 1: Bold Yellow/Orange (high energy)
-            {
-                'text_color': (255, 255, 0),  # Bright yellow
-                'outline_color': (255, 100, 0),  # Orange outline
-                'outline_width': 10
-            },
-            # Option 2: Electric Blue/Cyan (modern, tech)
-            {
-                'text_color': (0, 255, 255),  # Cyan
-                'outline_color': (0, 100, 255),  # Blue outline
-                'outline_width': 10
-            },
-            # Option 3: Classic White with thick black (high contrast)
-            {
-                'text_color': (255, 255, 255),  # White
-                'outline_color': (0, 0, 0),  # Black outline
-                'outline_width': 12
-            }
-        ]
+        # Helper function to convert hex color to RGB tuple
+        def hex_to_rgb(hex_color):
+            """Convert hex color (#RRGGBB) to RGB tuple (R, G, B)"""
+            hex_color = hex_color.lstrip('#')
+            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
         # Generate thumbnail for each suggestion
         for idx, suggestion in enumerate(suggestions):
@@ -378,18 +410,19 @@ Return ONLY a JSON array with 3 objects:
                 img_copy = BytesIO(image_path.read())
                 image_path.seek(0)
 
-            # Get color scheme for this option
-            colors = color_schemes[idx % len(color_schemes)]
+            # Get Claude-suggested colors for this option
+            text_color = hex_to_rgb(suggestion.get('text_color', '#FFFFFF'))
+            outline_color = hex_to_rgb(suggestion.get('outline_color', '#000000'))
 
-            # Generate thumbnail with this text and colors
+            # Generate thumbnail with this text and Claude's suggested colors
             result_image = self.add_text_to_image(
                 img_copy,
                 main_text=suggestion['main_text'],
                 subtitle=suggestion.get('subtitle', ''),
                 output_path=None,  # Return BytesIO
-                text_color=colors['text_color'],
-                outline_color=colors['outline_color'],
-                outline_width=colors['outline_width']
+                text_color=text_color,
+                outline_color=outline_color,
+                outline_width=10  # Fixed outline width for consistency
             )
 
             # Convert to base64 for web display
@@ -401,7 +434,10 @@ Return ONLY a JSON array with 3 objects:
                 'image_base64': image_base64,
                 'main_text': suggestion['main_text'],
                 'subtitle': suggestion.get('subtitle', ''),
-                'reasoning': suggestion.get('reasoning', '')
+                'reasoning': suggestion.get('reasoning', ''),
+                'color_reasoning': suggestion.get('color_reasoning', ''),
+                'text_color': suggestion.get('text_color', '#FFFFFF'),
+                'outline_color': suggestion.get('outline_color', '#000000')
             })
 
         return results
