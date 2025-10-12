@@ -379,8 +379,13 @@
                     <h4 class="font-semibold text-gray-700 text-sm uppercase tracking-wide">Video Metadata</h4>
 
                     <div>
-                        <span class="text-gray-600 text-sm block mb-1">Title:</span>
-                        <p id="summary-title" class="text-gray-900 font-medium">--</p>
+                        <span class="text-gray-600 text-sm block mb-1">Title (editable):</span>
+                        <input
+                            type="text"
+                            id="summary-title"
+                            class="w-full text-gray-900 text-sm bg-white p-3 rounded border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
+                            value="--"
+                        />
                     </div>
 
                     <div>
@@ -934,7 +939,24 @@
         }
 
         const blob = new Blob([new Uint8Array(byteArrays)], { type: 'image/jpeg' });
-        selectedThumbnailFile = new File([blob], 'ai-generated-thumbnail.jpg', { type: 'image/jpeg' });
+
+        // Generate filename with " - thumbnail" suffix before extension
+        const originalName = selectedThumbnailFile.name;
+        const lastDotIndex = originalName.lastIndexOf('.');
+        const nameWithoutExt = lastDotIndex > -1 ? originalName.substring(0, lastDotIndex) : originalName;
+        const ext = lastDotIndex > -1 ? originalName.substring(lastDotIndex) : '.jpg';
+        const newFilename = `${nameWithoutExt} - thumbnail${ext}`;
+
+        selectedThumbnailFile = new File([blob], newFilename, { type: 'image/jpeg' });
+
+        // Automatically download/save the generated thumbnail
+        const downloadLink = document.createElement('a');
+        downloadLink.href = URL.createObjectURL(blob);
+        downloadLink.download = newFilename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        URL.revokeObjectURL(downloadLink.href);
 
         // Continue to Step 3 (metadata generation) when AI thumbnails enabled
         document.getElementById('step-thumbnail').classList.add('hidden');
@@ -1115,7 +1137,7 @@
         // Populate summary with full paths
         document.getElementById('summary-video').textContent = getDisplayPath(selectedVideoFile);
         document.getElementById('summary-thumbnail').textContent = getDisplayPath(selectedThumbnailFile);
-        document.getElementById('summary-title').textContent = option.title;
+        document.getElementById('summary-title').value = option.title;
         document.getElementById('summary-description').value = option.description;
 
         // Display thumbnail preview
@@ -1223,7 +1245,8 @@
 
         const option = generatedOptions[selectedOption];
 
-        // Get edited description from textarea
+        // Get edited title and description from input fields
+        const editedTitle = document.getElementById('summary-title').value;
         const editedDescription = document.getElementById('summary-description').value;
 
         // Calculate estimated upload time (rough estimate: 1MB per 2 seconds for typical connection)
@@ -1258,7 +1281,7 @@
         const formData = new FormData();
         formData.append('videoFile', selectedVideoFile);
         formData.append('thumbnailFile', selectedThumbnailFile);
-        formData.append('title', option.title);
+        formData.append('title', editedTitle);
         formData.append('description', editedDescription);
         formData.append('tags', JSON.stringify(option.tags));
         formData.append('hashtags', JSON.stringify(option.hashtags));
