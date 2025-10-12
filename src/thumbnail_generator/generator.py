@@ -25,6 +25,92 @@ class ThumbnailGenerator:
         """
         self.client = anthropic.Anthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
 
+    def analyze_image_for_text_placement(self, image_data):
+        """
+        Use Claude's vision API to analyze the image and suggest text placement.
+
+        Args:
+            image_data: BytesIO object containing the image
+
+        Returns:
+            dict with placement suggestions:
+            {
+                'position': 'top'|'center'|'bottom',
+                'reasoning': 'Why this placement works',
+                'has_face': bool
+            }
+        """
+        import base64
+
+        # Convert image to base64
+        image_data.seek(0)
+        image_base64 = base64.b64encode(image_data.read()).decode('utf-8')
+        image_data.seek(0)
+
+        try:
+            message = self.client.messages.create(
+                model="claude-sonnet-4-5-20250929",
+                max_tokens=300,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": image_base64
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": """Analyze this image for YouTube thumbnail text placement.
+
+**Your task:**
+1. Detect if there are any FACES or PEOPLE in the image
+2. Identify the main subject/focus area
+3. Suggest the best vertical position for text overlay
+
+**Positioning options:**
+- "top": Place text in upper third (avoid if face/subject is there)
+- "center": Place text in middle (avoid if face/subject is centered)
+- "bottom": Place text in lower third (avoid if face/subject is there)
+
+**Priority:** NEVER cover faces or main subjects!
+
+Return ONLY a JSON object:
+{
+    "position": "top"|"center"|"bottom",
+    "has_face": true|false,
+    "reasoning": "Brief explanation (e.g., 'Face detected in center, place text at bottom')"
+}"""
+                        }
+                    ]
+                }]
+            )
+
+            # Parse response
+            import json
+            response_text = message.content[0].text.strip()
+
+            # Extract JSON
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0].strip()
+
+            result = json.loads(response_text)
+            return result
+
+        except Exception as e:
+            print(f"Error analyzing image: {e}")
+            # Fallback to bottom position (safest)
+            return {
+                "position": "bottom",
+                "has_face": False,
+                "reasoning": "Fallback to bottom position"
+            }
+
     def suggest_thumbnail_text(self, title, description, location=None, style="bold", language="zh-CN"):
         """
         Use Claude to suggest 3 compelling thumbnail text options based on video context.
@@ -273,20 +359,24 @@ Return ONLY a JSON array with 3 objects:
 
         is_chinese = has_chinese(main_text)
 
-        # Load fonts with better Chinese support
+        # Load fonts with modern, light-hearted style
         font_paths_to_try = []
         if is_chinese:
-            # Chinese-optimized fonts (macOS)
+            # Modern Chinese fonts (macOS) - rounded, friendly style
             font_paths_to_try = [
-                "/System/Library/Fonts/PingFang.ttc",  # PingFang SC - best for Chinese
-                "/System/Library/Fonts/STHeiti Light.ttc",  # STHeiti
-                "/System/Library/Fonts/Hiragino Sans GB.ttc",  # Hiragino
-                "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",  # Arial Unicode
+                "/System/Library/Fonts/PingFang.ttc",  # PingFang SC - modern, clean
+                "/System/Library/Fonts/Supplemental/Songti.ttc",  # Songti - elegant
+                "/System/Library/Fonts/STHeiti Medium.ttc",  # STHeiti Medium - friendly weight
+                "/System/Library/Fonts/Hiragino Sans GB.ttc",  # Hiragino - soft
+                "/System/Library/Fonts/Supplemental/Kaiti.ttc",  # Kaiti - handwritten feel
+                "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",  # Fallback
             ]
         else:
-            # English fonts (bold)
+            # Modern English fonts - bold but friendly
             font_paths_to_try = [
-                "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+                "/System/Library/Fonts/Supplemental/Impact.ttf",  # Impact - bold, modern
+                "/System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf",  # Rounded
+                "/System/Library/Fonts/Supplemental/Arial Bold.ttf",  # Clean bold
                 "/Library/Fonts/Arial Bold.ttf",
             ]
 
@@ -412,6 +502,10 @@ Return ONLY a JSON array with 3 objects:
         import base64
         from copy import deepcopy
 
+        # Analyze image for smart text placement (avoid faces)
+        placement_analysis = self.analyze_image_for_text_placement(image_path)
+        text_position = placement_analysis['position']
+
         # Get 3 text suggestions from Claude (with color suggestions)
         suggestions = self.suggest_thumbnail_text(title, description, location, style, language)
 
@@ -438,7 +532,7 @@ Return ONLY a JSON array with 3 objects:
             text_color = hex_to_rgb(suggestion.get('text_color', '#FFFFFF'))
             outline_color = hex_to_rgb(suggestion.get('outline_color', '#000000'))
 
-            # Generate thumbnail with this text and Claude's suggested colors
+            # Generate thumbnail with this text, Claude's suggested colors, and smart positioning
             result_image = self.add_text_to_image(
                 img_copy,
                 main_text=suggestion['main_text'],
@@ -446,7 +540,8 @@ Return ONLY a JSON array with 3 objects:
                 output_path=None,  # Return BytesIO
                 text_color=text_color,
                 outline_color=outline_color,
-                outline_width=10  # Fixed outline width for consistency
+                outline_width=10,  # Fixed outline width for consistency
+                position=text_position  # Smart position to avoid faces
             )
 
             # Convert to base64 for web display
@@ -460,6 +555,8 @@ Return ONLY a JSON array with 3 objects:
                 'subtitle': suggestion.get('subtitle', ''),
                 'reasoning': suggestion.get('reasoning', ''),
                 'color_reasoning': suggestion.get('color_reasoning', ''),
+                'placement_reasoning': placement_analysis['reasoning'],
+                'text_position': text_position,
                 'text_color': suggestion.get('text_color', '#FFFFFF'),
                 'outline_color': suggestion.get('outline_color', '#000000')
             })
