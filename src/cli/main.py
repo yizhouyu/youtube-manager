@@ -194,25 +194,25 @@ def new_video(topic, locations, key_points, save):
 def _display_comparison(video, optimized):
     """Display side-by-side comparison of current vs optimized metadata."""
     # Title comparison
-    table = Table(title="Title Comparison", show_header=True)
-    table.add_column("Current", style="yellow", width=50)
-    table.add_column("Optimized", style="green", width=50)
+    table = Table(title="Title Comparison", show_header=True, show_lines=True)
+    table.add_column("Current", style="yellow", ratio=1, no_wrap=False)
+    table.add_column("Optimized", style="green", ratio=1, no_wrap=False)
     table.add_row(video['title'], optimized['title'])
     console.print(table)
 
-    # Description comparison (first 200 chars)
-    table = Table(title="Description Preview", show_header=True)
-    table.add_column("Current", style="yellow", width=50)
-    table.add_column("Optimized", style="green", width=50)
-    current_desc = video['description'][:200] + "..." if len(video['description']) > 200 else video['description']
-    optimized_desc = optimized['description'][:200] + "..." if len(optimized['description']) > 200 else optimized['description']
+    # Description comparison (first 400 chars with wrapping)
+    table = Table(title="Description Preview (first 400 chars)", show_header=True, show_lines=True)
+    table.add_column("Current", style="yellow", ratio=1, no_wrap=False)
+    table.add_column("Optimized", style="green", ratio=1, no_wrap=False)
+    current_desc = video['description'][:400] + "..." if len(video['description']) > 400 else video['description']
+    optimized_desc = optimized['description'][:400] + "..." if len(optimized['description']) > 400 else optimized['description']
     table.add_row(current_desc, optimized_desc)
     console.print(table)
 
     # Tags comparison
-    table = Table(title="Tags Comparison", show_header=True)
-    table.add_column("Current", style="yellow", width=50)
-    table.add_column("Optimized", style="green", width=50)
+    table = Table(title="Tags Comparison", show_header=True, show_lines=True)
+    table.add_column("Current", style="yellow", ratio=1, no_wrap=False)
+    table.add_column("Optimized", style="green", ratio=1, no_wrap=False)
     current_tags = ', '.join(video.get('tags', ['None']))
     optimized_tags = ', '.join(optimized['tags'])
     table.add_row(current_tags, optimized_tags)
