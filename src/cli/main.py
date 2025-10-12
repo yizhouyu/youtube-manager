@@ -106,6 +106,7 @@ def batch_update(limit, video_id, auto_apply, force):
 
         # Track successful updates in this run
         processed_in_this_run = 0
+        user_quit = False
 
         # Process each video
         for idx, video in enumerate(videos, 1):
@@ -129,7 +130,19 @@ def batch_update(limit, video_id, auto_apply, force):
 
                 # Ask for approval
                 if not auto_apply:
-                    if not Confirm.ask("\n[bold]Apply these changes?[/bold]", default=False):
+                    choice = Prompt.ask(
+                        "\n[bold]Apply these changes?[/bold]",
+                        choices=["y", "n", "q"],
+                        default="n",
+                        show_choices=True
+                    )
+
+                    if choice == 'q':
+                        console.print("\n[yellow]Quitting batch update...[/yellow]")
+                        console.print(f"[cyan]Processed so far: {processed_in_this_run} video(s)[/cyan]")
+                        user_quit = True
+                        break
+                    elif choice == 'n':
                         console.print("[yellow]Skipping this video.[/yellow]")
                         continue
 
@@ -161,7 +174,12 @@ def batch_update(limit, video_id, auto_apply, force):
                 console.print(f"[red]Error processing video: {e}[/red]")
                 continue
 
-        console.print("\n[bold green]Batch update completed![/bold green]")
+        # Summary message
+        if user_quit:
+            console.print("\n[bold yellow]Batch update stopped by user.[/bold yellow]")
+        else:
+            console.print("\n[bold green]Batch update completed![/bold green]")
+
         console.print(f"[green]Optimized in this run: {processed_in_this_run} video(s)[/green]")
         console.print(f"[green]Total tracked (all time): {tracker.get_processed_count()} video(s)[/green]")
         console.print(f"[dim]  - Optimized: {tracker.get_optimized_count()}[/dim]")
