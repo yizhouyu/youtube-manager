@@ -253,13 +253,23 @@
         <h2 class="text-2xl font-bold text-gray-900 mb-6">Step 3: Upload to YouTube</h2>
 
         <!-- Upload Progress -->
-        <div id="upload-progress" class="hidden mb-6">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-sm font-medium text-gray-700">Uploading...</span>
-                <span id="upload-percentage" class="text-sm font-medium text-blue-600">0%</span>
+        <div id="upload-progress" class="hidden mb-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <div class="flex items-center mb-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-sm font-semibold text-gray-900">Uploading to YouTube...</span>
+                        <span id="upload-percentage" class="text-sm font-bold text-blue-600">0%</span>
+                    </div>
+                    <p id="upload-status" class="text-xs text-gray-600">Preparing upload...</p>
+                </div>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
-                <div id="upload-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            <div class="w-full bg-gray-300 rounded-full h-3 mb-2">
+                <div id="upload-progress-bar" class="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 shadow-sm" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-xs text-gray-500">
+                <span id="upload-size-info">--</span>
+                <span id="upload-eta">Calculating time...</span>
             </div>
         </div>
 
@@ -869,6 +879,34 @@
         // Get edited description from textarea
         const editedDescription = document.getElementById('summary-description').value;
 
+        // Calculate estimated upload time (rough estimate: 1MB per 2 seconds for typical connection)
+        const videoSizeMB = selectedVideoFile.size / (1024 * 1024);
+        const estimatedSeconds = Math.ceil(videoSizeMB * 2);
+
+        // Show file size and ETA
+        document.getElementById('upload-size-info').textContent = `Uploading ${formatFileSize(selectedVideoFile.size)}`;
+        document.getElementById('upload-eta').textContent = `Estimated time: ${formatTime(estimatedSeconds)}`;
+        document.getElementById('upload-status').textContent = `Processing video file...`;
+
+        // Simulate realistic progress during upload
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            if (progress < 90) {
+                progress += Math.random() * 10;
+                progress = Math.min(progress, 90);
+                document.getElementById('upload-progress-bar').style.width = progress + '%';
+                document.getElementById('upload-percentage').textContent = Math.floor(progress) + '%';
+
+                if (progress < 30) {
+                    document.getElementById('upload-status').textContent = 'Uploading video to YouTube...';
+                } else if (progress < 60) {
+                    document.getElementById('upload-status').textContent = 'Processing thumbnail...';
+                } else if (progress < 90) {
+                    document.getElementById('upload-status').textContent = 'Finalizing upload...';
+                }
+            }
+        }, 1000);
+
         // Prepare form data
         const formData = new FormData();
         formData.append('videoFile', selectedVideoFile);
@@ -916,6 +954,9 @@
 
             const result = await response.json();
 
+            // Stop progress simulation
+            clearInterval(progressInterval);
+
             if (!result.success) {
                 throw new Error(result.error || 'Upload failed');
             }
@@ -923,6 +964,8 @@
             // Show success
             document.getElementById('upload-progress-bar').style.width = '100%';
             document.getElementById('upload-percentage').textContent = '100%';
+            document.getElementById('upload-status').textContent = 'Upload complete!';
+            document.getElementById('upload-eta').textContent = 'Done';
 
             setTimeout(() => {
                 progressDiv.classList.add('hidden');
@@ -933,9 +976,10 @@
                 uploadBtn.classList.add('hidden');
                 backBtn.classList.add('hidden');
                 document.getElementById('upload-another-btn').classList.remove('hidden');
-            }, 500);
+            }, 1000);
 
         } catch (error) {
+            clearInterval(progressInterval);
             progressDiv.classList.add('hidden');
             errorDiv.classList.remove('hidden');
             document.getElementById('upload-error-message').textContent = error.message;
@@ -992,6 +1036,18 @@
         if (bytes >= 1048576) return (bytes / 1048576).toFixed(2) + ' MB';
         if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
         return bytes + ' bytes';
+    }
+
+    function formatTime(seconds) {
+        if (seconds < 60) return `${seconds} seconds`;
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        if (minutes < 60) {
+            return secs > 0 ? `${minutes}m ${secs}s` : `${minutes} minutes`;
+        }
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return mins > 0 ? `${hours}h ${mins}m` : `${hours} hours`;
     }
 
     function resetForm() {
