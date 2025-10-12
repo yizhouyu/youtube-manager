@@ -353,66 +353,6 @@
             </div>
         </div>
 
-        <!-- Publishing Options -->
-        <div class="bg-gray-50 rounded-lg p-6 mb-6">
-            <h3 class="font-bold text-gray-900 mb-4">Publishing Settings</h3>
-
-            <div class="space-y-4">
-                <!-- Privacy Status -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Privacy Status
-                    </label>
-                    <select id="privacy-status" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500">
-                        <option value="private" selected>Private (Only you can see)</option>
-                        <option value="unlisted">Unlisted (Anyone with link)</option>
-                        <option value="public">Public (Everyone can see)</option>
-                    </select>
-                </div>
-
-                <!-- Playlist Selection -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Add to Playlist (Optional)
-                    </label>
-                    <select id="playlist-selector" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" disabled>
-                        <option value="">Loading playlists...</option>
-                    </select>
-                    <p class="text-xs text-gray-500 mt-1">Select a playlist to add this video to</p>
-                </div>
-
-                <!-- Scheduled Publishing -->
-                <div>
-                    <label class="flex items-center mb-3">
-                        <input type="checkbox" id="schedule-publish" class="mr-2 rounded" onchange="toggleSchedule()">
-                        <span class="text-sm font-medium text-gray-700">Schedule for later</span>
-                    </label>
-
-                    <div id="schedule-fields" class="hidden space-y-3 pl-6">
-                        <div>
-                            <label class="block text-xs text-gray-600 mb-1">Publish Date</label>
-                            <input
-                                type="date"
-                                id="publish-date"
-                                class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500"
-                            >
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-600 mb-1">Publish Time</label>
-                            <input
-                                type="time"
-                                id="publish-time"
-                                class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500"
-                            >
-                        </div>
-                        <p class="text-xs text-gray-500">
-                            Note: Scheduled videos will be set to Private until the scheduled time
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Summary -->
         <div id="upload-summary" class="bg-gray-50 rounded-lg p-6 mb-6">
             <h3 class="font-bold text-gray-900 mb-4">Review Metadata</h3>
@@ -421,16 +361,6 @@
                 <div class="space-y-3">
                     <div class="flex justify-between items-center">
                         <h4 class="font-semibold text-gray-700 text-sm uppercase tracking-wide">Files</h4>
-                        <button
-                            id="open-folder-btn"
-                            onclick="openFileFolder()"
-                            class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded transition flex items-center gap-1"
-                        >
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
-                            </svg>
-                            Open Folder
-                        </button>
                     </div>
                     <div class="space-y-2 text-sm">
                         <div class="flex justify-between">
@@ -518,6 +448,66 @@
                                 Add Hashtag
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Publishing Options -->
+        <div class="bg-gray-50 rounded-lg p-6 mb-6">
+            <h3 class="font-bold text-gray-900 mb-4">Publishing Settings</h3>
+
+            <div class="space-y-4">
+                <!-- Privacy Status -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Privacy Status
+                    </label>
+                    <select id="privacy-status" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500">
+                        <option value="private" selected>Private (Only you can see)</option>
+                        <option value="unlisted">Unlisted (Anyone with link)</option>
+                        <option value="public">Public (Everyone can see)</option>
+                    </select>
+                </div>
+
+                <!-- Playlist Selection -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Add to Playlist (Optional)
+                    </label>
+                    <select id="playlist-selector" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500" disabled>
+                        <option value="">Loading playlists...</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Select a playlist to add this video to</p>
+                </div>
+
+                <!-- Scheduled Publishing -->
+                <div>
+                    <label class="flex items-center mb-3">
+                        <input type="checkbox" id="schedule-publish" class="mr-2 rounded" onchange="toggleSchedule()">
+                        <span class="text-sm font-medium text-gray-700">Schedule for later</span>
+                    </label>
+
+                    <div id="schedule-fields" class="hidden space-y-3 pl-6">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Publish Date</label>
+                            <input
+                                type="date"
+                                id="publish-date"
+                                class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Publish Time</label>
+                            <input
+                                type="time"
+                                id="publish-time"
+                                class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500"
+                            >
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            Note: Scheduled videos will be set to Private until the scheduled time
+                        </p>
                     </div>
                 </div>
             </div>
@@ -1057,8 +1047,9 @@
                                 <p class="text-xs font-medium text-gray-500">HASHTAGS</p>
                                 <div class="relative group">
                                     <span class="text-xs text-gray-400 cursor-help">ⓘ</span>
-                                    <div class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-900 text-white text-xs rounded py-2 px-3 z-50 whitespace-normal">
-                                        Hashtags appear above your video title and are clickable by viewers
+                                    <div class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-72 bg-gray-900 text-white text-xs rounded py-2 px-3 z-50 whitespace-normal">
+                                        <strong>Purple hashtags</strong> (first 3): Appear prominently above your video title<br>
+                                        <strong>Gray hashtags</strong> (4+): Only appear in the description
                                         <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
                                     </div>
                                 </div>

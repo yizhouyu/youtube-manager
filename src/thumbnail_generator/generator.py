@@ -41,6 +41,25 @@ class ThumbnailGenerator:
             }
         """
         import base64
+        from PIL import Image
+
+        # Open image to detect format
+        image_data.seek(0)
+        img = Image.open(image_data)
+        image_format = img.format.lower()  # 'jpeg', 'png', etc.
+        image_data.seek(0)
+
+        # Map PIL formats to MIME types
+        mime_types = {
+            'jpeg': 'image/jpeg',
+            'jpg': 'image/jpeg',
+            'png': 'image/png',
+            'webp': 'image/webp',
+            'gif': 'image/gif'
+        }
+        media_type = mime_types.get(image_format, 'image/jpeg')
+
+        print(f"[DEBUG] Detected image format: {image_format}, using media_type: {media_type}")
 
         # Convert image to base64
         image_data.seek(0)
@@ -58,7 +77,7 @@ class ThumbnailGenerator:
                             "type": "image",
                             "source": {
                                 "type": "base64",
-                                "media_type": "image/jpeg",
+                                "media_type": media_type,  # Use detected media type
                                 "data": image_base64
                             }
                         },
@@ -100,15 +119,17 @@ Return ONLY a JSON object:
                 response_text = response_text.split("```")[1].split("```")[0].strip()
 
             result = json.loads(response_text)
+            print(f"[DEBUG] Vision Analysis Result: {result}")
             return result
 
         except Exception as e:
-            print(f"Error analyzing image: {e}")
+            print(f"[ERROR] Error analyzing image: {e}")
+            print(f"[ERROR] Response was: {response_text if 'response_text' in locals() else 'N/A'}")
             # Fallback to bottom position (safest)
             return {
                 "position": "bottom",
                 "has_face": False,
-                "reasoning": "Fallback to bottom position"
+                "reasoning": "Fallback to bottom position (error occurred)"
             }
 
     def suggest_thumbnail_text(self, title, description, location=None, style="bold", language="zh-CN"):
@@ -253,11 +274,14 @@ Return ONLY a JSON array with 3 objects:
             elif "```" in response_text:
                 response_text = response_text.split("```")[1].split("```")[0].strip()
 
+            print(f"[DEBUG] Claude text generation response: {response_text[:500]}...")
             result = json.loads(response_text)
+            print(f"[DEBUG] Generated {len(result)} text suggestions, first one: {result[0]['main_text']}")
             return result
 
         except Exception as e:
-            print(f"Error generating thumbnail text: {e}")
+            print(f"[ERROR] Error generating thumbnail text: {e}")
+            print(f"[ERROR] Raw response: {response_text if 'response_text' in locals() else 'N/A'}")
             # Fallback to simple text based on title with default colors
             return [
                 {
