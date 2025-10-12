@@ -345,6 +345,28 @@ Return ONLY a JSON array with 3 objects:
 
         results = []
 
+        # Different color schemes for each option
+        color_schemes = [
+            # Option 1: Bold Yellow/Orange (high energy)
+            {
+                'text_color': (255, 255, 0),  # Bright yellow
+                'outline_color': (255, 100, 0),  # Orange outline
+                'outline_width': 10
+            },
+            # Option 2: Electric Blue/Cyan (modern, tech)
+            {
+                'text_color': (0, 255, 255),  # Cyan
+                'outline_color': (0, 100, 255),  # Blue outline
+                'outline_width': 10
+            },
+            # Option 3: Classic White with thick black (high contrast)
+            {
+                'text_color': (255, 255, 255),  # White
+                'outline_color': (0, 0, 0),  # Black outline
+                'outline_width': 12
+            }
+        ]
+
         # Generate thumbnail for each suggestion
         for idx, suggestion in enumerate(suggestions):
             # Read image fresh for each option (if it's a file path)
@@ -356,12 +378,18 @@ Return ONLY a JSON array with 3 objects:
                 img_copy = BytesIO(image_path.read())
                 image_path.seek(0)
 
-            # Generate thumbnail with this text
+            # Get color scheme for this option
+            colors = color_schemes[idx % len(color_schemes)]
+
+            # Generate thumbnail with this text and colors
             result_image = self.add_text_to_image(
                 img_copy,
                 main_text=suggestion['main_text'],
                 subtitle=suggestion.get('subtitle', ''),
-                output_path=None  # Return BytesIO
+                output_path=None,  # Return BytesIO
+                text_color=colors['text_color'],
+                outline_color=colors['outline_color'],
+                outline_width=colors['outline_width']
             )
 
             # Convert to base64 for web display

@@ -12,30 +12,8 @@
 
     <!-- Progress Steps -->
     <div class="mb-8">
-        <div class="flex items-center">
-            <!-- Step 1 -->
-            <div class="flex flex-col items-center" style="width: 33.33%;">
-                <div id="step1-indicator" class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white font-bold mb-2">1</div>
-                <span id="step1-label" class="text-blue-600 font-medium text-sm text-center">Select Files</span>
-            </div>
-
-            <!-- Connector Line 1 -->
-            <div id="line1" class="flex-1 h-1 bg-blue-600 -mt-6"></div>
-
-            <!-- Step 2 -->
-            <div class="flex flex-col items-center" style="width: 33.33%;">
-                <div id="step2-indicator" class="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-600 font-bold mb-2">2</div>
-                <span id="step2-label" class="text-gray-500 text-sm text-center">Choose Metadata</span>
-            </div>
-
-            <!-- Connector Line 2 -->
-            <div id="line2" class="flex-1 h-1 bg-gray-300 -mt-6"></div>
-
-            <!-- Step 3 -->
-            <div class="flex flex-col items-center" style="width: 33.33%;">
-                <div id="step3-indicator" class="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-600 font-bold mb-2">3</div>
-                <span id="step3-label" class="text-gray-500 text-sm text-center">Upload to YouTube</span>
-            </div>
+        <div id="progress-bar-container" class="flex items-center">
+            <!-- Steps will be dynamically generated -->
         </div>
     </div>
 
@@ -211,9 +189,9 @@
         </button>
     </div>
 
-    <!-- Step 1.5: Choose AI-Generated Thumbnail (conditional) -->
-    <div id="step1-5" class="bg-white rounded-xl shadow-lg p-8 hidden">
-        <h2 class="text-2xl font-bold text-gray-900 mb-2">Step 1.5: Choose Your Thumbnail</h2>
+    <!-- Step 2: Choose AI-Generated Thumbnail (conditional) -->
+    <div id="step-thumbnail" class="bg-white rounded-xl shadow-lg p-8 hidden">
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">Step 2: Choose Your Thumbnail</h2>
         <p class="text-gray-600 mb-6">AI generated 3 thumbnail options with different text overlays. Pick the one you like best!</p>
 
         <!-- Generating Message -->
@@ -306,6 +284,17 @@
     <div id="step3" class="bg-white rounded-xl shadow-lg p-8 hidden">
         <h2 class="text-2xl font-bold text-gray-900 mb-6">Step 3: Upload to YouTube</h2>
 
+        <!-- Thumbnail Preview -->
+        <div class="mb-6 bg-gray-50 rounded-lg p-6">
+            <h3 class="font-bold text-gray-900 mb-4">Thumbnail Preview</h3>
+            <div class="flex justify-center">
+                <div class="max-w-lg w-full">
+                    <img id="thumbnail-preview" src="" alt="Thumbnail preview" class="w-full rounded-lg shadow-lg border-2 border-gray-300">
+                    <p class="text-xs text-gray-500 mt-2 text-center">This thumbnail will be uploaded to YouTube</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Upload Progress -->
         <div id="upload-progress" class="hidden mb-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
             <div class="flex items-center mb-4">
@@ -393,15 +382,27 @@
             <div class="space-y-6">
                 <!-- File Information -->
                 <div class="space-y-3">
-                    <h4 class="font-semibold text-gray-700 text-sm uppercase tracking-wide">Files</h4>
+                    <div class="flex justify-between items-center">
+                        <h4 class="font-semibold text-gray-700 text-sm uppercase tracking-wide">Files</h4>
+                        <button
+                            id="open-folder-btn"
+                            onclick="openFileFolder()"
+                            class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded transition flex items-center gap-1"
+                        >
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                            </svg>
+                            Open Folder
+                        </button>
+                    </div>
                     <div class="space-y-2 text-sm">
                         <div class="flex justify-between">
                             <span class="text-gray-600">Video:</span>
-                            <span id="summary-video" class="text-gray-900 font-medium">--</span>
+                            <span id="summary-video" class="text-gray-900 font-medium text-right ml-4 truncate">--</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-600">Thumbnail:</span>
-                            <span id="summary-thumbnail" class="text-gray-900 font-medium">--</span>
+                            <span id="summary-thumbnail" class="text-gray-900 font-medium text-right ml-4 truncate">--</span>
                         </div>
                     </div>
                 </div>
@@ -549,6 +550,58 @@
     let selectedOption = null;
     let videoDescriptionInput = '';
     let locationsInput = '';
+
+    // Progress bar management
+    function renderProgressBar(currentStep) {
+        const aiThumbnailEnabled = document.getElementById('ai-thumbnail-enabled')?.checked || false;
+        const container = document.getElementById('progress-bar-container');
+
+        let steps = [];
+        if (aiThumbnailEnabled) {
+            steps = [
+                { num: 1, label: 'Select Files', id: 'step1' },
+                { num: 2, label: 'Choose Thumbnail', id: 'step-thumbnail' },
+                { num: 3, label: 'Choose Metadata', id: 'step2' },
+                { num: 4, label: 'Upload', id: 'step3' }
+            ];
+        } else {
+            steps = [
+                { num: 1, label: 'Select Files', id: 'step1' },
+                { num: 2, label: 'Choose Metadata', id: 'step2' },
+                { num: 3, label: 'Upload', id: 'step3' }
+            ];
+        }
+
+        const stepWidth = 100 / steps.length;
+        let html = '';
+
+        steps.forEach((step, idx) => {
+            const isActive = step.num === currentStep;
+            const isComplete = step.num < currentStep;
+            const indicatorClass = isActive ? 'bg-blue-600 text-white' : isComplete ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600';
+            const labelClass = isActive ? 'text-blue-600 font-medium' : isComplete ? 'text-green-600' : 'text-gray-500';
+
+            html += `
+                <div class="flex flex-col items-center" style="width: ${stepWidth}%;">
+                    <div class="flex items-center justify-center w-10 h-10 rounded-full ${indicatorClass} font-bold mb-2">
+                        ${isComplete ? '✓' : step.num}
+                    </div>
+                    <span class="${labelClass} text-sm text-center">${step.label}</span>
+                </div>
+            `;
+
+            // Add connector line except after last step
+            if (idx < steps.length - 1) {
+                const lineClass = isComplete ? 'bg-green-500' : isActive ? 'bg-blue-600' : 'bg-gray-300';
+                html += `<div class="flex-1 h-1 ${lineClass} -mt-6"></div>`;
+            }
+        });
+
+        container.innerHTML = html;
+    }
+
+    // Initialize progress bar on page load
+    renderProgressBar(1);
 
     function handleFilesSelect(event) {
         const files = Array.from(event.target.files);
@@ -709,16 +762,16 @@
         const aiThumbnailEnabled = document.getElementById('ai-thumbnail-enabled').checked;
 
         if (aiThumbnailEnabled) {
-            // Go to Step 1.5 (thumbnail selection)
+            // Go to Step 2 (thumbnail selection)
             document.getElementById('step1').classList.add('hidden');
-            document.getElementById('step1-5').classList.remove('hidden');
-            updateProgressIndicator(2);  // Still show as step 2 on progress bar
+            document.getElementById('step-thumbnail').classList.remove('hidden');
+            renderProgressBar(2);
             await generateAIThumbnails();
         } else {
             // Go directly to Step 2 (metadata selection)
             document.getElementById('step1').classList.add('hidden');
             document.getElementById('step2').classList.remove('hidden');
-            updateProgressIndicator(2);
+            renderProgressBar(2);
             await generateMetadata();
         }
     }
@@ -828,16 +881,17 @@
         const blob = new Blob([new Uint8Array(byteArrays)], { type: 'image/jpeg' });
         selectedThumbnailFile = new File([blob], 'ai-generated-thumbnail.jpg', { type: 'image/jpeg' });
 
-        // Continue to Step 2 (metadata generation)
-        document.getElementById('step1-5').classList.add('hidden');
+        // Continue to Step 3 (metadata generation) when AI thumbnails enabled
+        document.getElementById('step-thumbnail').classList.add('hidden');
         document.getElementById('step2').classList.remove('hidden');
+        renderProgressBar(3);  // Step 3 in 4-step flow
         await generateMetadata();
     }
 
     function goBackToStep1() {
-        document.getElementById('step1-5').classList.add('hidden');
+        document.getElementById('step-thumbnail').classList.add('hidden');
         document.getElementById('step1').classList.remove('hidden');
-        updateProgressIndicator(1);
+        renderProgressBar(1);
     }
 
     function extractTitleFromFilename(filename) {
@@ -969,14 +1023,17 @@
     function goToStep1() {
         document.getElementById('step2').classList.add('hidden');
         document.getElementById('step1').classList.remove('hidden');
-        updateProgressIndicator(1);
+        renderProgressBar(1);
     }
 
     function goToStep2FromStep3() {
-        // Go back to step 2, preserving selected option
+        // Go back to step 2 (metadata), preserving selected option
+        const aiThumbnailEnabled = document.getElementById('ai-thumbnail-enabled').checked;
+        const stepNum = aiThumbnailEnabled ? 3 : 2;  // Step 3 or 2 depending on workflow
+
         document.getElementById('step3').classList.add('hidden');
         document.getElementById('step2').classList.remove('hidden');
-        updateProgressIndicator(2);
+        renderProgressBar(stepNum);
 
         // Re-render options to show the previously selected one
         if (generatedOptions.length > 0) {
@@ -990,9 +1047,12 @@
             return;
         }
 
+        const aiThumbnailEnabled = document.getElementById('ai-thumbnail-enabled').checked;
+        const stepNum = aiThumbnailEnabled ? 4 : 3;  // Step 4 or 3 depending on workflow
+
         document.getElementById('step2').classList.add('hidden');
         document.getElementById('step3').classList.remove('hidden');
-        updateProgressIndicator(3);
+        renderProgressBar(stepNum);
 
         const option = generatedOptions[selectedOption];
 
@@ -1001,6 +1061,11 @@
         document.getElementById('summary-thumbnail').textContent = getDisplayPath(selectedThumbnailFile);
         document.getElementById('summary-title').textContent = option.title;
         document.getElementById('summary-description').value = option.description;
+
+        // Display thumbnail preview
+        const thumbnailPreview = document.getElementById('thumbnail-preview');
+        const thumbnailURL = URL.createObjectURL(selectedThumbnailFile);
+        thumbnailPreview.src = thumbnailURL;
 
         // Render editable tags and hashtags
         renderEditableTags();
@@ -1223,45 +1288,6 @@
         }
     }
 
-    function updateProgressIndicator(step) {
-        // Update step indicators and labels
-        for (let i = 1; i <= 3; i++) {
-            const indicator = document.getElementById(`step${i}-indicator`);
-            const label = document.getElementById(`step${i}-label`);
-
-            if (i <= step) {
-                indicator.classList.remove('bg-gray-300', 'text-gray-600');
-                indicator.classList.add('bg-blue-600', 'text-white');
-                label.classList.remove('text-gray-500');
-                label.classList.add('text-blue-600', 'font-medium');
-            } else {
-                indicator.classList.remove('bg-blue-600', 'text-white');
-                indicator.classList.add('bg-gray-300', 'text-gray-600');
-                label.classList.remove('text-blue-600', 'font-medium');
-                label.classList.add('text-gray-500');
-            }
-        }
-
-        // Update connector lines
-        const line1 = document.getElementById('line1');
-        const line2 = document.getElementById('line2');
-
-        if (step >= 2) {
-            line1.classList.remove('bg-gray-300');
-            line1.classList.add('bg-blue-600');
-        } else {
-            line1.classList.remove('bg-blue-600');
-            line1.classList.add('bg-gray-300');
-        }
-
-        if (step >= 3) {
-            line2.classList.remove('bg-gray-300');
-            line2.classList.add('bg-blue-600');
-        } else {
-            line2.classList.remove('bg-blue-600');
-            line2.classList.add('bg-gray-300');
-        }
-    }
 
     function formatFileSize(bytes) {
         if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
@@ -1280,6 +1306,19 @@
         const hours = Math.floor(minutes / 60);
         const mins = minutes % 60;
         return mins > 0 ? `${hours}h ${mins}m` : `${hours} hours`;
+    }
+
+    function openFileFolder() {
+        // Get the full path from the File object
+        // Note: For security reasons, browsers don't expose full paths
+        // But the webkitRelativePath property can help show the path
+        if (selectedVideoFile && selectedVideoFile.webkitRelativePath) {
+            const folderPath = selectedVideoFile.webkitRelativePath.split('/').slice(0, -1).join('/');
+            alert(`Files are located in:\n${folderPath || 'Your selected folder'}\n\nVideo: ${selectedVideoFile.name}\nThumbnail: ${selectedThumbnailFile.name}`);
+        } else {
+            // Show file names only
+            alert(`Selected files:\n\nVideo: ${selectedVideoFile.name}\nThumbnail: ${selectedThumbnailFile.name}\n\nNote: For security reasons, browsers cannot reveal the full file path.`);
+        }
     }
 
     function resetForm() {
