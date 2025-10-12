@@ -1,13 +1,26 @@
 # YouTube Manager
 
-A Python CLI tool to optimize video metadata for Chinese travel YouTube channels with bilingual (Chinese-English) SEO, sync to Bilibili, and track analytics.
+A Python tool for content creators to optimize video metadata with bilingual (Chinese-English) SEO, upload videos with AI-powered metadata generation, sync to Bilibili, and track analytics. Available as both a **Web UI** and **CLI tool**.
 
 ## Features
+
+### 🌐 Web UI (NEW!)
+- **Video Upload Workflow**: Upload videos directly to YouTube with AI-generated metadata
+  - Smart file detection (automatically identifies video + thumbnail)
+  - 3 AI-generated metadata options (engaging, informative, curiosity-based)
+  - Edit metadata before upload (description, tags, hashtags)
+  - Real-time upload progress with ETA
+  - Scheduled publishing support
+  - Privacy settings (private/unlisted/public)
+- **Analytics Dashboard**: Visual dashboard with channel metrics and top performing videos
+- **Modern Interface**: Clean, responsive design built with Flask + Tailwind CSS
+- **Start server**: `python start_web.py` → Access at http://localhost:5001
 
 ### SEO Optimization
 - **Batch Update**: Optimize metadata for all existing videos
 - **New Video Mode**: Generate SEO-optimized metadata for upcoming videos
-- **Bilingual SEO**: Generate Chinese titles with bilingual descriptions and tags
+- **Bilingual SEO**: Simplified Chinese (简体中文) titles with bilingual descriptions and tags
+- **Multiple Options**: Generate 3 different metadata styles with parallel API calls
 - **Interactive Review**: Preview changes before applying
 - **AI-Powered**: Uses Claude API for intelligent metadata generation
 
@@ -113,7 +126,30 @@ A Python CLI tool to optimize video metadata for Chinese travel YouTube channels
 
 ## Usage
 
-### Batch Update Existing Videos
+### Web UI (Recommended)
+
+Start the web server for a visual interface:
+
+```bash
+python start_web.py
+```
+
+Then open http://localhost:5001 in your browser.
+
+**Features:**
+- **Upload Videos**: Select video + thumbnail, generate AI metadata, upload to YouTube
+- **Analytics Dashboard**: View channel performance, top videos, growth metrics
+- **Easy to Use**: No command-line knowledge required
+
+See [docs/WEB_UI_SETUP.md](docs/WEB_UI_SETUP.md) for detailed instructions.
+
+---
+
+### CLI Commands
+
+For advanced users and automation:
+
+#### Batch Update Existing Videos
 
 Optimize metadata for all videos on your channel:
 
@@ -191,9 +227,9 @@ python youtube_manager.py sync-to-bilibili --min-confidence 0.9
 
 See [BILIBILI_COMPRESSION_GUIDE.md](BILIBILI_COMPRESSION_GUIDE.md) and [BILIBILI_API_NOTES.md](BILIBILI_API_NOTES.md) for detailed documentation.
 
-### Analytics Dashboard
+#### Analytics Dashboard (CLI)
 
-Track your channel's performance over time:
+Track your channel's performance in the terminal:
 
 ```bash
 # Display comprehensive analytics dashboard
@@ -216,20 +252,28 @@ python youtube_manager.py analytics-dashboard --days 28 --growth-days 7 --video-
 
 **Best practice:** Run with `--save-snapshot` weekly to track growth trends over time.
 
+**Tip:** Use the web UI for a visual dashboard with charts and graphs!
+
 ## Project Structure
 
 ```
 youtube_manager/
 ├── src/
+│   ├── web/               # Flask web application
+│   │   ├── app.py         # Web routes and API endpoints
+│   │   └── templates/     # HTML templates
 │   ├── auth/              # YouTube OAuth2 authentication
 │   ├── youtube_client/    # YouTube API operations
 │   ├── seo_optimizer/     # Claude API metadata generation
 │   ├── bilibili_client/   # Bilibili integration
 │   ├── analytics/         # Analytics tracking & reporting
 │   └── cli/               # CLI interface
+├── docs/                  # Documentation
 ├── config/                # API credentials (gitignored)
 │   └── client_secrets.json
-├── youtube_manager.py     # Main entry point
+├── data/                  # Analytics history
+├── start_web.py           # Web server launcher
+├── youtube_manager.py     # CLI entry point
 ├── requirements.txt
 ├── .env                   # Environment variables
 └── README.md
