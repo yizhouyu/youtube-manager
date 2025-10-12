@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Home - YouTube Manager{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Hero Section -->
+    <div class="text-center mb-12">
+        <h1 class="text-5xl font-bold text-gray-900 mb-4">
+            Welcome to YouTube Manager
+        </h1>
+        <p class="text-xl text-gray-600 mb-8">
+            Optimize your content with AI-powered SEO and analytics
+        </p>
+    </div>
+
+    <!-- Feature Cards -->
+    <div class="grid md:grid-cols-2 gap-8 mb-12">
+        <!-- Analytics Card -->
+        <div class="bg-white rounded-xl shadow-lg p-8 card-hover cursor-pointer" onclick="window.location.href='/analytics'">
+            <div class="flex items-center mb-4">
+                <div class="bg-blue-100 rounded-full p-3 mr-4">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">Analytics Dashboard</h2>
+            </div>
+            <p class="text-gray-600 mb-4">
+                Track your channel performance, view growth metrics, and identify top-performing videos.
+            </p>
+            <ul class="space-y-2 text-sm text-gray-500">
+                <li class="flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                    </svg>
+                    Real-time subscriber & view tracking
+                </li>
+                <li class="flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                    </svg>
+                    Engagement rate analysis
+                </li>
+                <li class="flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                    </svg>
+                    Identify underperforming content
+                </li>
+            </ul>
+            <div class="mt-6">
+                <button class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
+                    View Analytics →
+                </button>
+            </div>
+        </div>
+
+        <!-- Upload Card -->
+        <div class="bg-white rounded-xl shadow-lg p-8 card-hover cursor-pointer" onclick="window.location.href='/upload'">
+            <div class="flex items-center mb-4">
+                <div class="bg-purple-100 rounded-full p-3 mr-4">
+                    <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">Upload Video</h2>
+            </div>
+            <p class="text-gray-600 mb-4">
+                Upload new videos with AI-generated SEO-optimized metadata in Chinese and English.
+            </p>
+            <ul class="space-y-2 text-sm text-gray-500">
+                <li class="flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                    </svg>
+                    AI-powered bilingual metadata
+                </li>
+                <li class="flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                    </svg>
+                    Automatic thumbnail upload
+                </li>
+                <li class="flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                    </svg>
+                    Review before publishing
+                </li>
+            </ul>
+            <div class="mt-6">
+                <button class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition">
+                    Upload Video →
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        <h3 class="text-xl font-bold text-gray-900 mb-4">Quick Stats</h3>
+        <div id="quick-stats" class="grid md:grid-cols-4 gap-6">
+            <div class="text-center">
+                <div class="text-3xl font-bold text-blue-600">--</div>
+                <div class="text-sm text-gray-500 mt-1">Subscribers</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-green-600">--</div>
+                <div class="text-sm text-gray-500 mt-1">Total Videos</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-purple-600">--</div>
+                <div class="text-sm text-gray-500 mt-1">Total Views</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-indigo-600">--</div>
+                <div class="text-sm text-gray-500 mt-1">7-Day Growth</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Fetch quick stats on page load
+    async function loadQuickStats() {
+        try {
+            const response = await fetch('/api/analytics/dashboard');
+            const result = await response.json();
+
+            if (result.success) {
+                const data = result.data;
+                const statsHtml = `
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-blue-600">${formatNumber(data.channel.subscribers)}</div>
+                        <div class="text-sm text-gray-500 mt-1">Subscribers</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-green-600">${data.channel.totalVideos}</div>
+                        <div class="text-sm text-gray-500 mt-1">Total Videos</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-purple-600">${formatNumber(data.channel.totalViews)}</div>
+                        <div class="text-sm text-gray-500 mt-1">Total Views</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold ${data.growth.subscriberGrowth >= 0 ? 'text-indigo-600' : 'text-red-600'}">
+                            ${data.growth.subscriberGrowth >= 0 ? '+' : ''}${data.growth.subscriberGrowth}
+                        </div>
+                        <div class="text-sm text-gray-500 mt-1">7-Day Growth</div>
+                    </div>
+                `;
+                document.getElementById('quick-stats').innerHTML = statsHtml;
+            }
+        } catch (error) {
+            console.error('Error loading quick stats:', error);
+        }
+    }
+
+    function formatNumber(num) {
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        return num.toString();
+    }
+
+    // Load stats on page load
+    loadQuickStats();
+</script>
+{% endblock %}

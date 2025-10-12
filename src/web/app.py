@@ -1,0 +1,320 @@
+"""Flask web application for YouTube Manager."""
+
+import os
+import json
+import tempfile
+from pathlib import Path
+from datetime import datetime
+from flask import Flask, render_template, request, jsonify, send_from_directory
+from werkzeug.utils import secure_filename
+
+from src.auth.youtube_auth import YouTubeAuthenticator
+from src.youtube_client.client import YouTubeClient
+from src.seo_optimizer.optimizer import BilingualSEOOptimizer
+from src.analytics.tracker import AnalyticsTracker
+from src.analytics.reporter import AnalyticsReporter
+
+
+def get_authenticated_service():
+    """Get authenticated YouTube service."""
+    auth = YouTubeAuthenticator()
+    return auth.get_youtube_service()
+
+
+app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB max file size
+app.config['UPLOAD_FOLDER'] = tempfile.mkdtemp()
+app.secret_key = os.urandom(24)
+
+# Allowed file extensions
+ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'mov', 'avi', 'mkv', 'webm'}
+ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp'}
+
+
+def allowed_file(filename, allowed_extensions):
+    """Check if file extension is allowed."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
+
+@app.route('/')
+def index():
+    """Home page with navigation."""
+    return render_template('index.html')
+
+
+@app.route('/analytics')
+def analytics_page():
+    """Analytics dashboard page."""
+    return render_template('analytics.html')
+
+
+@app.route('/upload')
+def upload_page():
+    """Video upload page."""
+    return render_template('upload.html')
+
+
+@app.route('/api/analytics/dashboard', methods=['GET'])
+def get_analytics_dashboard():
+    """
+    Generate analytics dashboard data.
+
+    Returns:
+        JSON with analytics data for frontend rendering
+    """
+    try:
+        # Get authenticated YouTube service
+        youtube_service = get_authenticated_service()
+        youtube_client = YouTubeClient(youtube_service)
+        tracker = AnalyticsTracker(youtube_service)
+
+        # Fetch analytics data
+        channel_data = tracker.fetch_channel_analytics()
+        videos_data = tracker.fetch_video_analytics(days=7)
+        growth_metrics = tracker.get_growth_metrics(days=7)
+        top_videos = tracker.get_top_performing_videos(videos_data, limit=10)
+        underperforming = tracker.get_underperforming_videos(videos_data, limit=5)
+
+        # Format data for frontend
+        return jsonify({
+            'success': True,
+            'data': {
+                'channel': {
+                    'subscribers': channel_data.get('total_subscribers', 0),
+                    'totalVideos': channel_data.get('total_videos', 0),
+                    'totalViews': channel_data.get('total_views', 0),
+                },
+                'growth': {
+                    'subscriberGrowth': growth_metrics.get('subscriber_growth', 0),
+                    'viewsGrowth': growth_metrics.get('views_growth', 0),
+                    'periodDays': growth_metrics.get('period_days', 7),
+                },
+                'recent': {
+                    'videosTracked': len(videos_data),
+                    'totalViews': sum(v['views'] for v in videos_data),
+                    'totalLikes': sum(v['likes'] for v in videos_data),
+                    'totalComments': sum(v['comments'] for v in videos_data),
+                    'avgEngagement': sum(v['engagement_rate'] for v in videos_data) / len(videos_data) if videos_data else 0,
+                },
+                'topVideos': top_videos,
+                'underperforming': underperforming,
+                'timestamp': datetime.now().isoformat()
+            }
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/upload/generate-metadata', methods=['POST'])
+def generate_metadata():
+    """
+    Generate multiple SEO-optimized metadata options for a new video.
+
+    Expected JSON body:
+    {
+        "videoDescription": "What you talked about in the video",
+        "locations": "Optional: locations featured",
+        "numOptions": 3  // Optional: number of options to generate
+    }
+
+    Returns:
+        JSON with multiple metadata options
+    """
+    try:
+        data = request.get_json()
+        video_description = data.get('videoDescription', '')
+        locations = data.get('locations', '')
+        num_options = data.get('numOptions', 3)
+
+        if not video_description:
+            return jsonify({
+                'success': False,
+                'error': 'Video description is required'
+            }), 400
+
+        # Initialize SEO optimizer
+        optimizer = BilingualSEOOptimizer()
+
+        # Generate multiple metadata options
+        result = optimizer.generate_multiple_options(
+            topic=video_description,
+            locations=locations if locations else None,
+            num_options=num_options
+        )
+
+        return jsonify({
+            'success': True,
+            'options': result.get('options', [])
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/upload/video', methods=['POST'])
+def upload_video():
+    """
+    Handle video and thumbnail upload, then publish to YouTube.
+
+    Expected multipart/form-data:
+    - videoFile: Video file
+    - thumbnailFile: Thumbnail image
+    - title: Video title
+    - description: Video description
+    - tags: JSON array of tags
+    - hashtags: JSON array of hashtags
+
+    Returns:
+        JSON with upload status and video URL
+    """
+    try:
+        # Validate files
+        if 'videoFile' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No video file provided'
+            }), 400
+
+        video_file = request.files['videoFile']
+        thumbnail_file = request.files.get('thumbnailFile')
+
+        if video_file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'No video file selected'
+            }), 400
+
+        if not allowed_file(video_file.filename, ALLOWED_VIDEO_EXTENSIONS):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid video file format'
+            }), 400
+
+        if thumbnail_file and not allowed_file(thumbnail_file.filename, ALLOWED_IMAGE_EXTENSIONS):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid thumbnail file format'
+            }), 400
+
+        # Get metadata
+        title = request.form.get('title')
+        description = request.form.get('description')
+        tags = json.loads(request.form.get('tags', '[]'))
+        hashtags = json.loads(request.form.get('hashtags', '[]'))
+
+        if not title or not description:
+            return jsonify({
+                'success': False,
+                'error': 'Title and description are required'
+            }), 400
+
+        # Save files temporarily
+        video_filename = secure_filename(video_file.filename)
+        video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
+        video_file.save(video_path)
+
+        thumbnail_path = None
+        if thumbnail_file:
+            thumbnail_filename = secure_filename(thumbnail_file.filename)
+            thumbnail_path = os.path.join(app.config['UPLOAD_FOLDER'], thumbnail_filename)
+            thumbnail_file.save(thumbnail_path)
+
+        # Prepend hashtags to description (first 3 hashtags appear above video)
+        hashtag_str = ' '.join(hashtags[:5])  # Use up to 5 hashtags
+        full_description = f"{hashtag_str}\n\n{description}"
+
+        # Upload to YouTube
+        youtube_service = get_authenticated_service()
+
+        # Prepare video metadata
+        body = {
+            'snippet': {
+                'title': title,
+                'description': full_description,
+                'tags': tags,
+                'categoryId': '19',  # Travel & Events category
+            },
+            'status': {
+                'privacyStatus': 'private',  # Start as private for safety
+                'selfDeclaredMadeForKids': False,
+            }
+        }
+
+        # Upload video using YouTube API
+        from googleapiclient.http import MediaFileUpload
+
+        media = MediaFileUpload(
+            video_path,
+            mimetype='video/*',
+            resumable=True,
+            chunksize=1024*1024  # 1MB chunks
+        )
+
+        request_upload = youtube_service.videos().insert(
+            part='snippet,status',
+            body=body,
+            media_body=media
+        )
+
+        response = None
+        while response is None:
+            status, response = request_upload.next_chunk()
+            if status:
+                print(f"Upload progress: {int(status.progress() * 100)}%")
+
+        video_id = response['id']
+
+        # Upload thumbnail if provided
+        if thumbnail_path:
+            youtube_service.thumbnails().set(
+                videoId=video_id,
+                media_body=MediaFileUpload(thumbnail_path)
+            ).execute()
+
+        # Clean up temporary files
+        os.remove(video_path)
+        if thumbnail_path:
+            os.remove(thumbnail_path)
+
+        return jsonify({
+            'success': True,
+            'videoId': video_id,
+            'videoUrl': f'https://www.youtube.com/watch?v={video_id}',
+            'message': 'Video uploaded successfully! (Set to private - you can publish it in YouTube Studio)'
+        })
+
+    except Exception as e:
+        # Clean up files on error
+        if 'video_path' in locals() and os.path.exists(video_path):
+            os.remove(video_path)
+        if 'thumbnail_path' in locals() and thumbnail_path and os.path.exists(thumbnail_path):
+            os.remove(thumbnail_path)
+
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint."""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat()
+    })
+
+
+if __name__ == '__main__':
+    print("🚀 Starting YouTube Manager Web UI...")
+    print("📊 Access at: http://localhost:5000")
+    print("   - Analytics: http://localhost:5000/analytics")
+    print("   - Upload: http://localhost:5000/upload")
+    app.run(debug=True, host='0.0.0.0', port=5000)

@@ -391,6 +391,112 @@ Return ONLY the JSON output."""
         except Exception as e:
             raise Exception(f"Error generating metadata with Claude API: {e}")
 
+    def generate_multiple_options(
+        self,
+        topic: str,
+        locations: Optional[str] = None,
+        key_points: Optional[str] = None,
+        num_options: int = 3
+    ) -> Dict[str, any]:
+        """
+        Generate multiple metadata options for a new video.
+
+        Args:
+            topic: Main topic/title of the video
+            locations: Locations covered
+            key_points: Key highlights
+            num_options: Number of options to generate (default 3)
+
+        Returns:
+            Dictionary with multiple options for each field
+        """
+        prompt = f"""You are an expert in YouTube SEO for travel content. Generate {num_options} DIFFERENT options for metadata for a NEW Chinese travel video.
+
+**Video Information:**
+- Topic: {topic}
+{f"- Locations: {locations}" if locations else ""}
+{f"- Key Points: {key_points}" if key_points else ""}
+
+**Your Task:**
+Generate {num_options} different variations of metadata. Each option should have a different angle/style:
+- Option 1: Click-worthy and engaging (use words like 必看, 攻略, 完整版)
+- Option 2: Descriptive and informative (focus on detailed info)
+- Option 3: Question/curiosity-based (use questions or curiosity gaps)
+
+**For EACH option, provide:**
+
+**1. TITLE (Chinese)**
+- 60 characters optimal, max 70
+- Each title should have different tone/angle
+- Primary keywords FIRST
+
+**2. DESCRIPTION (Bilingual)**
+- Chinese section (250+ words) + English section (150+ words)
+- Each description should emphasize different aspects
+
+**3. TAGS (8-12 tags)**
+- Mix of Chinese and English
+- Can share some core tags, but add unique ones per option
+
+**4. HASHTAGS (3-5)**
+- First 3 appear above video
+- Mix broad + specific
+
+**Output Format (JSON only):**
+```json
+{{
+  "options": [
+    {{
+      "title": "option 1 title",
+      "description": "Chinese section\\n\\n---\\n\\nEnglish section",
+      "tags": ["tag1", "tag2", ...],
+      "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5"]
+    }},
+    {{
+      "title": "option 2 title",
+      "description": "...",
+      "tags": [...],
+      "hashtags": [...]
+    }},
+    {{
+      "title": "option 3 title",
+      "description": "...",
+      "tags": [...],
+      "hashtags": [...]
+    }}
+  ]
+}}
+```
+
+Return ONLY the JSON output with all {num_options} options."""
+
+        try:
+            response = self.client.messages.create(
+                model="claude-sonnet-4-5-20250929",
+                max_tokens=4096,  # Increased for multiple options
+                messages=[{
+                    "role": "user",
+                    "content": prompt
+                }]
+            )
+
+            response_text = response.content[0].text.strip()
+
+            # Clean up markdown code blocks
+            if response_text.startswith('```'):
+                lines = response_text.split('\n')
+                response_text = '\n'.join(lines[1:-1]) if len(lines) > 2 else response_text
+                if response_text.startswith('json'):
+                    response_text = response_text[4:].strip()
+
+            import json
+            result = json.loads(response_text)
+
+            return result
+
+        except Exception as e:
+            raise Exception(f"Error generating metadata options with Claude API: {e}")
+
     def compress_description_for_bilibili(
         self,
         description: str,

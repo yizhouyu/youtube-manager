@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard - YouTube Manager{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-4xl font-bold text-gray-900">Analytics Dashboard</h1>
+            <p class="text-gray-600 mt-2">Track your channel's performance and growth</p>
+        </div>
+        <button onclick="refreshAnalytics()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Refresh
+        </button>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading" class="text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <p class="text-gray-600 mt-4">Loading analytics...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="error" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+        <div class="flex items-center">
+            <svg class="w-6 h-6 text-red-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"/>
+            </svg>
+            <div>
+                <h3 class="font-bold text-red-900">Error Loading Analytics</h3>
+                <p id="error-message" class="text-red-700 text-sm mt-1"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div id="dashboard" class="hidden">
+        <!-- Channel Overview Cards -->
+        <div class="grid md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Subscribers</p>
+                        <p id="subscribers" class="text-3xl font-bold text-blue-600 mt-1">--</p>
+                        <p id="subscriber-growth" class="text-sm mt-2">--</p>
+                    </div>
+                    <div class="bg-blue-100 rounded-full p-3">
+                        <svg class="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Total Videos</p>
+                        <p id="total-videos" class="text-3xl font-bold text-green-600 mt-1">--</p>
+                        <p class="text-sm text-gray-500 mt-2">Published</p>
+                    </div>
+                    <div class="bg-green-100 rounded-full p-3">
+                        <svg class="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Total Views</p>
+                        <p id="total-views" class="text-3xl font-bold text-purple-600 mt-1">--</p>
+                        <p id="views-growth" class="text-sm mt-2">--</p>
+                    </div>
+                    <div class="bg-purple-100 rounded-full p-3">
+                        <svg class="w-8 h-8 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+                            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Performance -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">Recent Performance (Last 7 Days)</h2>
+            <div class="grid md:grid-cols-4 gap-6">
+                <div>
+                    <p class="text-sm text-gray-600">Videos Tracked</p>
+                    <p id="recent-videos" class="text-2xl font-bold text-gray-900 mt-1">--</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Total Views</p>
+                    <p id="recent-views" class="text-2xl font-bold text-gray-900 mt-1">--</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Total Likes</p>
+                    <p id="recent-likes" class="text-2xl font-bold text-gray-900 mt-1">--</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Avg Engagement</p>
+                    <p id="recent-engagement" class="text-2xl font-bold text-gray-900 mt-1">--</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Performing Videos -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">🏆 Top Performing Videos</h2>
+            <div id="top-videos" class="space-y-3">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Underperforming Videos -->
+        <div class="bg-white rounded-xl shadow-lg p-6" id="underperforming-section">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">⚠️ Videos Needing Attention</h2>
+            <p class="text-sm text-gray-600 mb-4">Bottom 25% by views</p>
+            <div id="underperforming-videos" class="space-y-3">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let analyticsData = null;
+
+    async function refreshAnalytics() {
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const dashboard = document.getElementById('dashboard');
+
+        loading.classList.remove('hidden');
+        error.classList.add('hidden');
+        dashboard.classList.add('hidden');
+
+        try {
+            const response = await fetch('/api/analytics/dashboard');
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to load analytics');
+            }
+
+            analyticsData = result.data;
+            renderDashboard();
+
+            loading.classList.add('hidden');
+            dashboard.classList.remove('hidden');
+
+        } catch (err) {
+            loading.classList.add('hidden');
+            error.classList.remove('hidden');
+            document.getElementById('error-message').textContent = err.message;
+        }
+    }
+
+    function renderDashboard() {
+        const data = analyticsData;
+
+        // Channel Overview
+        document.getElementById('subscribers').textContent = formatNumber(data.channel.subscribers);
+        document.getElementById('total-videos').textContent = data.channel.totalVideos;
+        document.getElementById('total-views').textContent = formatNumber(data.channel.totalViews);
+
+        // Growth indicators
+        const subGrowth = data.growth.subscriberGrowth;
+        document.getElementById('subscriber-growth').innerHTML = `
+            <span class="${subGrowth >= 0 ? 'text-green-600' : 'text-red-600'}">
+                ${subGrowth >= 0 ? '↑' : '↓'} ${Math.abs(subGrowth)} (7 days)
+            </span>
+        `;
+
+        const viewsGrowth = data.growth.viewsGrowth;
+        document.getElementById('views-growth').innerHTML = `
+            <span class="${viewsGrowth >= 0 ? 'text-green-600' : 'text-red-600'}">
+                ${viewsGrowth >= 0 ? '↑' : '↓'} ${formatNumber(Math.abs(viewsGrowth))} (7 days)
+            </span>
+        `;
+
+        // Recent Performance
+        document.getElementById('recent-videos').textContent = data.recent.videosTracked;
+        document.getElementById('recent-views').textContent = formatNumber(data.recent.totalViews);
+        document.getElementById('recent-likes').textContent = formatNumber(data.recent.totalLikes);
+        document.getElementById('recent-engagement').textContent = data.recent.avgEngagement.toFixed(2) + '%';
+
+        // Top Videos
+        const topVideosHtml = data.topVideos.map((video, idx) => `
+            <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition">
+                <div class="flex items-center flex-1">
+                    <span class="text-lg font-bold text-gray-400 w-8">${idx + 1}</span>
+                    <div class="flex-1 ml-3">
+                        <p class="text-sm font-medium text-gray-900">${video.title}</p>
+                        <p class="text-xs text-gray-500 mt-1">${formatNumber(video.views)} views • ${formatNumber(video.likes)} likes</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="text-sm font-semibold ${video.engagement_rate > 5 ? 'text-green-600' : 'text-gray-600'}">
+                        ${video.engagement_rate.toFixed(2)}%
+                    </span>
+                    <p class="text-xs text-gray-500">engagement</p>
+                </div>
+            </div>
+        `).join('');
+        document.getElementById('top-videos').innerHTML = topVideosHtml;
+
+        // Underperforming Videos
+        if (data.underperforming && data.underperforming.length > 0) {
+            const underperformingHtml = data.underperforming.map(video => `
+                <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-900">${video.title}</p>
+                        <p class="text-xs text-gray-500 mt-1">${formatNumber(video.views)} views • ${formatDaysAgo(video.published_at)}</p>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('underperforming-videos').innerHTML = underperformingHtml;
+        } else {
+            document.getElementById('underperforming-section').classList.add('hidden');
+        }
+    }
+
+    function formatNumber(num) {
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        return num.toString();
+    }
+
+    function formatDaysAgo(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const days = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+        return `${days} days ago`;
+    }
+
+    // Load analytics on page load
+    refreshAnalytics();
+</script>
+{% endblock %}

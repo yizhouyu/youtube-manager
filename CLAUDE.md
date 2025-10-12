@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-YouTube Manager is a Python CLI tool designed to optimize video metadata for a Chinese travel YouTube channel, sync to Bilibili, and track analytics. The tool generates bilingual (Chinese-English) SEO-optimized titles, descriptions, tags, and hashtags using the Claude API and updates videos via the YouTube Data API v3.
+YouTube Manager is a Python tool (CLI + Web UI) designed to optimize video metadata for a Chinese travel YouTube channel, sync to Bilibili, and track analytics. The tool generates bilingual (Chinese-English) SEO-optimized titles, descriptions, tags, and hashtags using the Claude API and updates videos via the YouTube Data API v3.
+
+**Two interfaces:**
+- **CLI**: Command-line interface for batch operations and automation
+- **Web UI**: Modern browser-based interface for video uploads and analytics dashboards
 
 ## Architecture
 
@@ -12,8 +16,8 @@ YouTube Manager is a Python CLI tool designed to optimize video metadata for a C
 - Python 3.9+
 - YouTube Data API v3 (OAuth2)
 - Anthropic Claude API
-- Click (CLI framework)
-- Rich (terminal UI)
+- **CLI**: Click (CLI framework), Rich (terminal UI)
+- **Web UI**: Flask (web framework), Tailwind CSS (styling)
 
 **Project Structure:**
 ```
@@ -30,13 +34,21 @@ youtube_manager/
 │   ├── analytics/         # Analytics tracking & reporting
 │   │   ├── tracker.py
 │   │   └── reporter.py
-│   └── cli/               # CLI commands and UI
-│       └── main.py
+│   ├── cli/               # CLI commands and UI
+│   │   └── main.py
+│   └── web/               # Web UI (Flask)
+│       ├── app.py         # Flask application & API endpoints
+│       └── templates/     # HTML templates (Jinja2 + Tailwind CSS)
+│           ├── base.html
+│           ├── index.html
+│           ├── analytics.html
+│           └── upload.html
 ├── config/                # API credentials (gitignored)
 │   ├── .gitkeep
 │   ├── client_secrets.json  (user must provide)
 │   └── token.pickle         (auto-generated)
-├── youtube_manager.py     # Main entry point
+├── youtube_manager.py     # CLI entry point
+├── start_web.py           # Web UI entry point
 ├── requirements.txt
 └── .env                   # API keys (gitignored)
 ```
@@ -59,7 +71,37 @@ pip install -r requirements.txt
 **3. First-time YouTube authentication:**
 The first run will open a browser for OAuth2 authentication. Token is saved to `config/token.pickle` for future use.
 
-## Commands
+## Usage
+
+### Web UI (Recommended for uploads and analytics)
+
+**Start the web server:**
+```bash
+python start_web.py
+```
+
+Then open your browser to:
+- **Home**: http://localhost:5000
+- **Analytics Dashboard**: http://localhost:5000/analytics
+- **Upload Video**: http://localhost:5000/upload
+
+**Web UI Features:**
+1. **Analytics Dashboard**:
+   - Real-time channel metrics (subscribers, views, videos)
+   - 7-day growth tracking
+   - Top performing videos
+   - Engagement analysis
+   - Underperforming video identification
+
+2. **Video Upload Workflow**:
+   - **Step 1**: Select video file + thumbnail from your export folder
+   - **Step 2**: Describe video content → AI generates SEO-optimized metadata
+   - **Step 3**: Review/edit metadata → Upload directly to YouTube
+   - Automatic thumbnail upload
+   - Bilingual title & description generation
+   - Smart tag and hashtag suggestions
+
+### CLI (For batch operations)
 
 **Batch update existing videos:**
 ```bash
@@ -126,6 +168,18 @@ python youtube_manager.py new-video --topic "北京旅游攻略" --locations "�
 - Interactive review mode with side-by-side comparisons
 - Batch processing with parallel SEO generation
 - Rate limiting for Claude API
+
+**src/web/app.py:**
+- Flask web application with REST API endpoints
+- Three main routes:
+  - `/` - Home page with quick stats
+  - `/analytics` - Full analytics dashboard
+  - `/upload` - Video upload workflow
+- API endpoints:
+  - `GET /api/analytics/dashboard` - Fetch channel analytics data
+  - `POST /api/upload/generate-metadata` - Generate SEO metadata via Claude API
+  - `POST /api/upload/video` - Upload video + thumbnail to YouTube
+- Reuses existing auth, SEO optimizer, and analytics components
 
 ## Development Notes
 

@@ -48,6 +48,10 @@ config/token.pickle
 # Processing tracking
 processed_videos.json
 
+# Bilibili sync files
+bilibili_sync_manual.txt
+bilibili_matches.json
+
 # Logs
 *.log
 
