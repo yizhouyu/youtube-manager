@@ -1468,6 +1468,11 @@
             formData.append('recordingDate', filmingDate);
         }
 
+        // Add video location from Step 1 if provided
+        if (locationsInput) {
+            formData.append('videoLocation', locationsInput);
+        }
+
         // Add scheduled publish time if checkbox is checked
         const scheduleCheckbox = document.getElementById('schedule-publish');
         if (scheduleCheckbox.checked) {

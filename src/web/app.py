@@ -396,6 +396,7 @@ def start_upload():
         publish_at = request.form.get('publishAt')  # ISO 8601 format
         recording_date = request.form.get('recordingDate')  # YYYY-MM-DD format
         playlist_id = request.form.get('playlistId')  # Optional playlist ID
+        video_location = request.form.get('videoLocation')  # Video location from step 1
 
         if not title or not description:
             return jsonify({
@@ -446,7 +447,7 @@ def start_upload():
         thread = threading.Thread(
             target=upload_video_background,
             args=(upload_id, video_path, thumbnail_path, title, description,
-                  tags, hashtags, privacy_status, publish_at, recording_date, playlist_id)
+                  tags, hashtags, privacy_status, publish_at, recording_date, playlist_id, video_location)
         )
         thread.daemon = True
         thread.start()
@@ -470,7 +471,7 @@ def start_upload():
 
 
 def upload_video_background(upload_id, video_path, thumbnail_path, title, description,
-                           tags, hashtags, privacy_status, publish_at, recording_date, playlist_id):
+                           tags, hashtags, privacy_status, publish_at, recording_date, playlist_id, video_location):
     """
     Background thread function to upload video to YouTube with progress tracking.
     """
@@ -504,6 +505,8 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
                 'description': full_description,
                 'tags': tags,
                 'categoryId': '19',  # Travel & Events category
+                'defaultLanguage': 'zh-CN',  # Chinese (China) - for video language
+                'defaultAudioLanguage': 'zh-CN',  # Chinese (China) - for audio language
             },
             'status': {
                 'privacyStatus': privacy_status,
@@ -657,23 +660,32 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
         elapsed = time.time() - upload_progress[upload_id]['start_time']
         print(f"[UPLOAD] Video uploaded successfully! ID: {video_id} (took {elapsed:.1f}s)")
 
-        # Update recording date if provided (must be done after upload, not during insert)
-        if recording_date_for_update:
-            print(f"[UPLOAD] Setting recording date: {recording_date_for_update}")
+        # Update recording date and location if provided (must be done after upload, not during insert)
+        if recording_date_for_update or video_location:
+            print(f"[UPLOAD] Setting recording details...")
             upload_progress[upload_id]['phase'] = 'metadata'
-            upload_progress[upload_id]['stage'] = 'Setting recording date...'
+            upload_progress[upload_id]['stage'] = 'Setting recording details...'
             upload_progress[upload_id]['progress'] = 92
+
+            recording_details = {}
+            if recording_date_for_update:
+                recording_details['recordingDate'] = f"{recording_date_for_update}T12:00:00.0Z"
+                print(f"[UPLOAD]   - Recording date: {recording_date_for_update}")
+
+            if video_location:
+                recording_details['location'] = {
+                    'description': video_location
+                }
+                print(f"[UPLOAD]   - Video location: {video_location}")
 
             youtube_service.videos().update(
                 part='recordingDetails',
                 body={
                     'id': video_id,
-                    'recordingDetails': {
-                        'recordingDate': f"{recording_date_for_update}T12:00:00.0Z"
-                    }
+                    'recordingDetails': recording_details
                 }
             ).execute()
-            print(f"[UPLOAD] Recording date set successfully")
+            print(f"[UPLOAD] Recording details set successfully")
 
         # Upload thumbnail if provided
         if thumbnail_path:
