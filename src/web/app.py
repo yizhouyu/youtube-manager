@@ -500,11 +500,9 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
             }
         }
 
-        # Add recording date if provided
-        if recording_date:
-            body['recordingDetails'] = {
-                'recordingDate': f"{recording_date}T12:00:00.0Z"
-            }
+        # Note: recordingDetails must be set AFTER upload, not during insert
+        # Store recording_date for later use
+        recording_date_for_update = recording_date
 
         # Add scheduled publish time if provided
         if publish_at:
@@ -553,12 +551,21 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
                 retry_count = 0
 
             except Exception as chunk_error:
-                retry_count += 1
                 error_msg = str(chunk_error)
 
-                # Check if it's a recoverable error (timeout, connection reset)
+                # Check if it's a client error (4xx) - these are NOT recoverable
+                is_client_error = 'HttpError 4' in error_msg
+
+                # Check if it's a recoverable error (timeout, connection reset, server errors)
                 is_recoverable = any(keyword in error_msg.lower() for keyword in
-                                    ['timeout', 'timed out', 'connection', 'reset', 'broken pipe'])
+                                    ['timeout', 'timed out', 'connection', 'reset', 'broken pipe']) or \
+                                'HttpError 5' in error_msg  # 5xx server errors are retryable
+
+                if is_client_error:
+                    # Client errors (400-499) are not retryable - fail immediately
+                    raise chunk_error
+
+                retry_count += 1
 
                 if is_recoverable and retry_count <= max_retries:
                     print(f"Upload {upload_id}: Chunk failed ({error_msg}), retry {retry_count}/{max_retries}")
@@ -625,6 +632,22 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
                 print(f"Upload {upload_id}: {progress_pct}% complete, phase: {phase}")
 
         video_id = response['id']
+
+        # Update recording date if provided (must be done after upload, not during insert)
+        if recording_date_for_update:
+            upload_progress[upload_id]['phase'] = 'metadata'
+            upload_progress[upload_id]['stage'] = 'Setting recording date...'
+            upload_progress[upload_id]['progress'] = 92
+
+            youtube_service.videos().update(
+                part='recordingDetails',
+                body={
+                    'id': video_id,
+                    'recordingDetails': {
+                        'recordingDate': f"{recording_date_for_update}T12:00:00.0Z"
+                    }
+                }
+            ).execute()
 
         # Upload thumbnail if provided
         if thumbnail_path:
