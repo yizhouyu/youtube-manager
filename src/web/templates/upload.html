@@ -368,6 +368,44 @@
 
         <!-- Upload Progress -->
         <div id="upload-progress" class="hidden mb-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <!-- Phase Indicators -->
+            <div class="flex items-center justify-between mb-4 text-xs">
+                <div id="phase-preparing" class="flex flex-col items-center opacity-30 transition-opacity">
+                    <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center mb-1">
+                        <span class="text-xs">1</span>
+                    </div>
+                    <span>Prepare</span>
+                </div>
+                <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
+                <div id="phase-uploading" class="flex flex-col items-center opacity-30 transition-opacity">
+                    <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center mb-1">
+                        <span class="text-xs">2</span>
+                    </div>
+                    <span>Upload</span>
+                </div>
+                <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
+                <div id="phase-processing" class="flex flex-col items-center opacity-30 transition-opacity">
+                    <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center mb-1">
+                        <span class="text-xs">3</span>
+                    </div>
+                    <span>Process</span>
+                </div>
+                <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
+                <div id="phase-thumbnail" class="flex flex-col items-center opacity-30 transition-opacity">
+                    <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center mb-1">
+                        <span class="text-xs">4</span>
+                    </div>
+                    <span>Thumbnail</span>
+                </div>
+                <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
+                <div id="phase-complete" class="flex flex-col items-center opacity-30 transition-opacity">
+                    <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center mb-1">
+                        <span class="text-xs">✓</span>
+                    </div>
+                    <span>Done</span>
+                </div>
+            </div>
+
             <div class="flex items-center mb-4">
                 <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
                 <div class="flex-1">
@@ -384,6 +422,9 @@
             <div class="flex justify-between text-xs text-gray-500">
                 <span id="upload-size-info">--</span>
                 <span id="upload-eta">Calculating time...</span>
+            </div>
+            <div id="upload-speed" class="text-xs text-gray-500 mt-1 text-right hidden">
+                Speed: <span id="upload-speed-value">--</span> Mbps
             </div>
         </div>
 
@@ -1320,6 +1361,50 @@
         renderEditableHashtags();
     }
 
+    // Store original page title
+    const originalPageTitle = document.title;
+
+    // Function to update phase indicators
+    function updatePhaseIndicators(phase) {
+        // Reset all phases
+        const phases = ['preparing', 'uploading', 'processing', 'thumbnail', 'complete'];
+        phases.forEach(p => {
+            const el = document.getElementById(`phase-${p}`);
+            if (el) {
+                const circle = el.querySelector('div');
+                el.classList.remove('opacity-100', 'opacity-30');
+                circle.classList.remove('bg-blue-600', 'bg-green-600', 'text-white');
+                circle.classList.add('bg-gray-300');
+            }
+        });
+
+        // Highlight current and completed phases
+        let foundCurrent = false;
+        for (let p of phases) {
+            const el = document.getElementById(`phase-${p}`);
+            if (!el) continue;
+            const circle = el.querySelector('div');
+
+            if (p === phase) {
+                // Current phase
+                el.classList.remove('opacity-30');
+                el.classList.add('opacity-100');
+                circle.classList.remove('bg-gray-300');
+                circle.classList.add('bg-blue-600', 'text-white');
+                foundCurrent = true;
+            } else if (!foundCurrent) {
+                // Completed phases
+                el.classList.remove('opacity-30');
+                el.classList.add('opacity-100');
+                circle.classList.remove('bg-gray-300');
+                circle.classList.add('bg-green-600', 'text-white');
+            } else {
+                // Future phases
+                el.classList.add('opacity-30');
+            }
+        }
+    }
+
     async function uploadToYouTube() {
         const uploadBtn = document.getElementById('upload-btn');
         const backBtn = document.getElementById('back-to-step2-btn');
@@ -1337,6 +1422,9 @@
         successDiv.classList.add('hidden');
         errorDiv.classList.add('hidden');
 
+        // Scroll to progress section smoothly
+        progressDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
         const option = generatedOptions[selectedOption];
 
         // Get edited title and description from input fields
@@ -1345,10 +1433,18 @@
 
         // Show file size info
         document.getElementById('upload-size-info').textContent = `Uploading ${formatFileSize(selectedVideoFile.size)}`;
-        document.getElementById('upload-eta').textContent = 'Calculating...';
         document.getElementById('upload-status').textContent = `Preparing upload...`;
         document.getElementById('upload-progress-bar').style.width = '0%';
         document.getElementById('upload-percentage').textContent = '0%';
+
+        // Calculate and show initial estimate
+        const fileSizeMB = selectedVideoFile.size / (1024 * 1024);
+        const avgSpeedMbps = 5; // Conservative estimate
+        const estimatedSeconds = Math.round((fileSizeMB * 8 / avgSpeedMbps) * 1.3);
+        document.getElementById('upload-eta').textContent = `~${formatTime(estimatedSeconds)} estimated`;
+
+        // Initialize phase indicator
+        updatePhaseIndicators('preparing');
 
         // Prepare form data
         const formData = new FormData();
@@ -1427,16 +1523,38 @@
                     document.getElementById('upload-percentage').textContent = progress + '%';
                     document.getElementById('upload-status').textContent = progressData.stage;
 
+                    // Update phase indicators
+                    if (progressData.phase) {
+                        updatePhaseIndicators(progressData.phase);
+                    }
+
+                    // Update tab title with progress
+                    if (progress < 100) {
+                        document.title = `(${progress}%) Uploading | YouTube Manager`;
+                    }
+
                     // Update size info
                     const bytesUploaded = progressData.bytes_uploaded;
                     const totalBytes = progressData.file_size;
                     document.getElementById('upload-size-info').textContent =
                         `${formatFileSize(bytesUploaded)} / ${formatFileSize(totalBytes)}`;
 
-                    // Update ETA
+                    // Update upload speed if available
+                    if (progressData.current_speed_mbps !== null && progressData.current_speed_mbps !== undefined) {
+                        const speedDiv = document.getElementById('upload-speed');
+                        const speedValue = document.getElementById('upload-speed-value');
+                        speedValue.textContent = progressData.current_speed_mbps.toFixed(1);
+                        speedDiv.classList.remove('hidden');
+                    }
+
+                    // Update ETA with better messaging
                     if (progressData.eta_seconds !== null && progressData.eta_seconds !== undefined) {
+                        const etaText = formatTime(progressData.eta_seconds);
+                        document.getElementById('upload-eta').textContent = `${etaText} remaining`;
+                    } else if (progressData.estimated_total_seconds && progress < 5) {
+                        // Show initial estimate during first 5%
                         document.getElementById('upload-eta').textContent =
-                            `${formatTime(progressData.eta_seconds)} remaining`;
+                            `~${formatTime(progressData.estimated_total_seconds)} estimated`;
                     } else {
                         document.getElementById('upload-eta').textContent = 'Calculating...';
                     }
@@ -1445,13 +1563,22 @@
                     if (progressData.status === 'completed') {
                         clearInterval(pollInterval);
 
+                        // Update tab title
+                        document.title = '✓ Upload Complete | YouTube Manager';
+
                         // Show success
                         document.getElementById('upload-eta').textContent = 'Done!';
+                        updatePhaseIndicators('complete');
 
                         setTimeout(() => {
                             progressDiv.classList.add('hidden');
                             successDiv.classList.remove('hidden');
                             document.getElementById('youtube-link').href = progressData.video_url;
+
+                            // Restore original title after 3 seconds
+                            setTimeout(() => {
+                                document.title = originalPageTitle;
+                            }, 3000);
 
                             // Clear unsaved changes flag - upload is complete
                             uploadComplete = true;
@@ -1466,6 +1593,7 @@
                     // Check if error occurred
                     if (progressData.status === 'error') {
                         clearInterval(pollInterval);
+                        document.title = '✗ Upload Failed | YouTube Manager';
                         throw new Error(progressData.error || 'Upload failed');
                     }
 
@@ -1479,6 +1607,9 @@
             progressDiv.classList.add('hidden');
             errorDiv.classList.remove('hidden');
             document.getElementById('upload-error-message').textContent = error.message;
+
+            // Restore original title
+            document.title = originalPageTitle;
 
             // Re-enable buttons
             uploadBtn.disabled = false;

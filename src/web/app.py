@@ -400,17 +400,26 @@ def start_upload():
         # Get file size for progress tracking
         file_size = os.path.getsize(video_path)
 
+        # Calculate initial time estimate based on file size
+        # Assume average upload speed of 5 Mbps (conservative estimate)
+        avg_upload_speed_mbps = 5
+        bytes_per_second = (avg_upload_speed_mbps * 1024 * 1024) / 8  # Convert Mbps to bytes/sec
+        estimated_seconds = int((file_size / bytes_per_second) * 1.3)  # Add 30% buffer for processing
+
         # Initialize progress tracking
         upload_progress[upload_id] = {
             'status': 'starting',
             'progress': 0,
             'stage': 'Preparing upload...',
+            'phase': 'preparing',
             'file_size': file_size,
             'bytes_uploaded': 0,
             'start_time': time.time(),
             'error': None,
             'video_id': None,
-            'video_url': None
+            'video_url': None,
+            'estimated_total_seconds': estimated_seconds,
+            'current_speed_mbps': None
         }
 
         # Start upload in background thread
@@ -495,32 +504,70 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
         )
 
         upload_progress[upload_id]['status'] = 'uploading'
+        upload_progress[upload_id]['phase'] = 'uploading'
         upload_progress[upload_id]['stage'] = 'Uploading video to YouTube...'
 
         response = None
+        last_update_time = time.time()
+        last_bytes_uploaded = 0
+
         while response is None:
             status, response = request_upload.next_chunk()
             if status:
                 progress_pct = int(status.progress() * 100)
                 bytes_uploaded = int(status.progress() * upload_progress[upload_id]['file_size'])
 
+                # Map progress to phases with stage descriptions
+                if progress_pct < 5:
+                    phase = 'preparing'
+                    stage = 'Initializing upload to YouTube...'
+                elif progress_pct < 90:
+                    phase = 'uploading'
+                    stage = f'Uploading video to YouTube... ({progress_pct}%)'
+                elif progress_pct < 95:
+                    phase = 'processing'
+                    stage = 'YouTube is processing your video...'
+                else:
+                    phase = 'uploading'
+                    stage = 'Finalizing video upload...'
+
                 upload_progress[upload_id]['progress'] = progress_pct
                 upload_progress[upload_id]['bytes_uploaded'] = bytes_uploaded
+                upload_progress[upload_id]['phase'] = phase
+                upload_progress[upload_id]['stage'] = stage
 
-                # Calculate time remaining
+                # Calculate current upload speed (update every 2 seconds to reduce jitter)
+                current_time = time.time()
+                time_diff = current_time - last_update_time
+
+                if time_diff >= 2.0 and progress_pct > 5:  # Start speed calc after initial setup
+                    bytes_diff = bytes_uploaded - last_bytes_uploaded
+                    speed_mbps = (bytes_diff * 8) / (time_diff * 1024 * 1024)  # Convert to Mbps
+                    upload_progress[upload_id]['current_speed_mbps'] = round(speed_mbps, 1)
+                    last_update_time = current_time
+                    last_bytes_uploaded = bytes_uploaded
+
+                # Calculate time remaining with improved algorithm
                 elapsed_time = time.time() - upload_progress[upload_id]['start_time']
-                if progress_pct > 0:
-                    total_time = elapsed_time / (progress_pct / 100)
-                    remaining_time = total_time - elapsed_time
-                    upload_progress[upload_id]['eta_seconds'] = int(remaining_time)
+                if progress_pct > 5:  # More accurate after initial setup phase
+                    # Use actual progress rate, excluding the first 5% (slower due to setup)
+                    adjusted_progress = (progress_pct - 5) / 95  # Normalize to 0-1 range
+                    if adjusted_progress > 0:
+                        total_time = elapsed_time / adjusted_progress
+                        remaining_time = total_time - elapsed_time
+                        upload_progress[upload_id]['eta_seconds'] = int(remaining_time)
+                else:
+                    # Use initial estimate for first 5%
+                    upload_progress[upload_id]['eta_seconds'] = upload_progress[upload_id].get('estimated_total_seconds', 0)
 
-                print(f"Upload {upload_id}: {progress_pct}% complete")
+                print(f"Upload {upload_id}: {progress_pct}% complete, phase: {phase}")
 
         video_id = response['id']
 
         # Upload thumbnail if provided
         if thumbnail_path:
-            upload_progress[upload_id]['stage'] = 'Uploading thumbnail...'
+            upload_progress[upload_id]['phase'] = 'thumbnail'
+            upload_progress[upload_id]['stage'] = 'Uploading custom thumbnail...'
             upload_progress[upload_id]['progress'] = 95
 
             youtube_service.thumbnails().set(
@@ -530,7 +577,8 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
 
         # Add to playlist if specified
         if playlist_id:
-            upload_progress[upload_id]['stage'] = 'Adding to playlist...'
+            upload_progress[upload_id]['phase'] = 'playlist'
+            upload_progress[upload_id]['stage'] = 'Adding video to playlist...'
             upload_progress[upload_id]['progress'] = 98
 
             youtube_service.playlistItems().insert(
@@ -548,6 +596,7 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
 
         # Mark as complete
         upload_progress[upload_id]['status'] = 'completed'
+        upload_progress[upload_id]['phase'] = 'complete'
         upload_progress[upload_id]['progress'] = 100
         upload_progress[upload_id]['stage'] = 'Upload complete!'
         upload_progress[upload_id]['video_id'] = video_id
@@ -593,9 +642,12 @@ def get_upload_progress(upload_id):
         'status': progress_data['status'],
         'progress': progress_data['progress'],
         'stage': progress_data['stage'],
+        'phase': progress_data.get('phase', 'preparing'),
         'bytes_uploaded': progress_data['bytes_uploaded'],
         'file_size': progress_data['file_size'],
         'eta_seconds': progress_data.get('eta_seconds', None),
+        'estimated_total_seconds': progress_data.get('estimated_total_seconds', None),
+        'current_speed_mbps': progress_data.get('current_speed_mbps', None),
         'error': progress_data.get('error'),
         'video_id': progress_data.get('video_id'),
         'video_url': progress_data.get('video_url')
