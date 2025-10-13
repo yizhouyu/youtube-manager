@@ -300,10 +300,10 @@
         </div>
     </div>
 
-    <!-- Step 2: Choose from Multiple Options -->
+    <!-- Step 2/3: Choose from Multiple Options -->
     <div id="step2" class="bg-white rounded-xl shadow-lg p-8 hidden">
         <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-gray-900">Step 2: Choose Your Metadata</h2>
+            <h2 id="step2-heading" class="text-2xl font-bold text-gray-900">Step 2: Choose Your Metadata</h2>
             <button
                 id="regenerate-btn"
                 onclick="regenerateMetadata()"
@@ -351,9 +351,9 @@
         </div>
     </div>
 
-    <!-- Step 3: Upload to YouTube -->
+    <!-- Step 3/4: Upload to YouTube -->
     <div id="step3" class="bg-white rounded-xl shadow-lg p-8 hidden">
-        <h2 class="text-2xl font-bold text-gray-900 mb-6">Step 3: Upload to YouTube</h2>
+        <h2 id="step3-heading" class="text-2xl font-bold text-gray-900 mb-6">Step 3: Upload to YouTube</h2>
 
         <!-- Thumbnail Preview -->
         <div class="mb-6 bg-gray-50 rounded-lg p-6">
@@ -856,6 +856,7 @@
             // Go directly to Step 2 (metadata selection)
             document.getElementById('step1').classList.add('hidden');
             document.getElementById('step2').classList.remove('hidden');
+            document.getElementById('step2-heading').textContent = 'Step 2: Choose Your Metadata';
             renderProgressBar(2);
             await generateMetadata();
         }
@@ -970,6 +971,7 @@
         document.getElementById('ai-thumbnail-enabled').checked = false;
         document.getElementById('step-thumbnail').classList.add('hidden');
         document.getElementById('step2').classList.remove('hidden');
+        document.getElementById('step2-heading').textContent = 'Step 2: Choose Your Metadata';
         renderProgressBar(2);  // Back to 3-step workflow
         generateMetadata();
     }
@@ -1051,6 +1053,7 @@
         // Continue to Step 3 (metadata generation) when AI thumbnails enabled
         document.getElementById('step-thumbnail').classList.add('hidden');
         document.getElementById('step2').classList.remove('hidden');
+        document.getElementById('step2-heading').textContent = 'Step 3: Choose Your Metadata';
         renderProgressBar(3);  // Step 3 in 4-step flow
         await generateMetadata();
     }
@@ -1220,6 +1223,7 @@
 
         document.getElementById('step2').classList.add('hidden');
         document.getElementById('step3').classList.remove('hidden');
+        document.getElementById('step3-heading').textContent = aiThumbnailEnabled ? 'Step 4: Upload to YouTube' : 'Step 3: Upload to YouTube';
         renderProgressBar(stepNum);
 
         const option = generatedOptions[selectedOption];
