@@ -19,10 +19,30 @@ from src.analytics.reporter import AnalyticsReporter
 from src.thumbnail_generator.generator import ThumbnailGenerator
 
 
+# Global YouTube service - initialize once and reuse
+_youtube_service = None
+_youtube_service_lock = threading.Lock()
+
+
 def get_authenticated_service():
-    """Get authenticated YouTube service."""
-    auth = YouTubeAuthenticator()
-    return auth.get_youtube_service()
+    """Get authenticated YouTube service (singleton pattern for thread safety)."""
+    global _youtube_service
+
+    with _youtube_service_lock:
+        if _youtube_service is None:
+            import socket
+            # Set socket timeout to prevent hanging
+            default_timeout = socket.getdefaulttimeout()
+            socket.setdefaulttimeout(30)  # 30 second timeout
+            try:
+                print("[DEBUG] Creating new YouTube service instance...")
+                auth = YouTubeAuthenticator()
+                _youtube_service = auth.get_youtube_service()
+                print("[DEBUG] YouTube service created successfully")
+            finally:
+                socket.setdefaulttimeout(default_timeout)
+
+        return _youtube_service
 
 
 app = Flask(__name__)
@@ -157,7 +177,7 @@ def get_playlists():
 
             try:
                 request = youtube_service.playlists().list(**request_params)
-                response = request.execute(timeout=15)  # 15 second timeout per request
+                response = request.execute()  # Remove timeout parameter (not supported by this API)
 
                 for item in response.get('items', []):
                     playlists.append({
@@ -454,7 +474,11 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
     """
     Background thread function to upload video to YouTube with progress tracking.
     """
+    import traceback
     try:
+        print(f"[DEBUG] Upload {upload_id}: Background thread started")
+        print(f"[DEBUG] Video path: {video_path}")
+        print(f"[DEBUG] Thumbnail path: {thumbnail_path}")
         # Prepend hashtags to description (first 3 hashtags appear above video)
         hashtag_str = ' '.join(hashtags[:5])  # Use up to 5 hashtags
         full_description = f"{hashtag_str}\n\n{description}"
@@ -619,6 +643,8 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
             os.remove(thumbnail_path)
 
         print(f"Upload {upload_id} failed: {str(e)}")
+        print(f"[DEBUG] Full traceback:")
+        traceback.print_exc()
 
 
 @app.route('/api/upload/progress/<upload_id>', methods=['GET'])
