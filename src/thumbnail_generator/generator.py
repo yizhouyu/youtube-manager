@@ -183,6 +183,7 @@ Return ONLY a JSON object:
 - Target language: {lang_config['name']}
 - {lang_config['requirement']}
 - Example words: {lang_config['examples']}
+- **YOU MUST FOLLOW THE LANGUAGE REQUIREMENT ABOVE - DO NOT MIX LANGUAGES**
 
 Given this video context:
 - Title: {title}
@@ -195,22 +196,20 @@ Each option should have a different approach/angle.
 Requirements:
 1. **Main Text**: 3-5 words maximum, BOLD and attention-grabbing
    - Use simple, powerful words
-   - Numbers work well (e.g., "5个隐藏景点" for Chinese, "5 HIDDEN GEMS" for English)
+   - Numbers work well (enhance click-through rate)
    - Create curiosity or promise value
-   - **IMPORTANT: For Chinese content, use ONLY Simplified Chinese characters (简体中文)**
-   - Examples of Simplified Chinese: 惊艳, 绝美, 必看, 秘境
-   - DO NOT use Traditional Chinese: 驚艷, 絕美, 必看, 秘境
+   - **MUST be in the target language specified above**
 
 2. **Subtitle** (optional): Short supporting text if needed
    - 2-4 words
    - Adds context or urgency
-   - **Also use Simplified Chinese if main text is Chinese**
+   - **MUST be in the same language as main text**
 
 3. **Best Practices**:
    - Use ALL CAPS for English text
-   - For Chinese, use emotive words like: 惊艳(amazing), 隐藏(hidden), 必看(must-see), 秘境(secret)
    - Avoid clickbait - be authentic
    - Match the video's actual content
+   - Use emotive, attention-grabbing words in the target language
 
 4. **Variety**: Make each option different:
    - Option 1: Bold/dramatic approach
