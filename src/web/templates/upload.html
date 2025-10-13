@@ -1526,10 +1526,24 @@
 
     // Load playlists when page loads
     let playlistsData = [];
+    let playlistLoadAttempts = 0;
+    const MAX_PLAYLIST_LOAD_ATTEMPTS = 2;
+
     async function loadPlaylists() {
         const selector = document.getElementById('playlist-selector');
+        playlistLoadAttempts++;
+
         try {
-            const response = await fetch('/api/playlists');
+            // Set a 20-second client-side timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+            const response = await fetch('/api/playlists', {
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
             const result = await response.json();
 
             if (result.success) {
@@ -1566,22 +1580,64 @@
                 }
 
                 selector.disabled = false;
+
+                // Show warning if partial results
+                if (result.partial) {
+                    console.warn(result.warning);
+                    showToast(`⚠️ ${result.warning}`, 'info');
+                }
+
                 console.log(`Successfully loaded ${result.playlists.length} playlists`);
             } else {
                 const errorMsg = result.error || 'Unknown error';
                 console.error('Failed to load playlists:', errorMsg);
-                selector.innerHTML = `<option value="">Failed to load playlists: ${errorMsg}</option>`;
-                selector.disabled = true;
+
+                if (errorMsg.includes('timed out') || errorMsg.includes('timeout')) {
+                    // Timeout error - offer retry
+                    selector.innerHTML = `<option value="">⏱️ Loading timed out - Click to retry</option>`;
+                    selector.disabled = true;
+
+                    // Show user-friendly error message
+                    if (playlistLoadAttempts < MAX_PLAYLIST_LOAD_ATTEMPTS) {
+                        showToast(`Playlist loading timed out. Retrying (${playlistLoadAttempts}/${MAX_PLAYLIST_LOAD_ATTEMPTS})...`, 'info');
+                        // Auto-retry once after 2 seconds
+                        setTimeout(() => loadPlaylists(), 2000);
+                    } else {
+                        showToast('⚠️ Playlist loading is slow. You can still upload without selecting a playlist, or add the video to a playlist later on YouTube.', 'info');
+                        // Allow upload without playlist
+                        selector.innerHTML = '<option value="">Skip playlist (add later on YouTube)</option>';
+                        selector.disabled = false;
+                    }
+                } else {
+                    selector.innerHTML = `<option value="">Error: ${errorMsg}</option>`;
+                    selector.disabled = true;
+                }
             }
         } catch (err) {
             console.error('Error loading playlists:', err);
-            selector.innerHTML = `<option value="">Error: ${err.message || 'Network error'}</option>`;
-            selector.disabled = true;
+
+            if (err.name === 'AbortError') {
+                // Client-side timeout
+                console.error('Playlist loading timed out (client-side)');
+
+                if (playlistLoadAttempts < MAX_PLAYLIST_LOAD_ATTEMPTS) {
+                    showToast(`Playlist loading timed out. Retrying (${playlistLoadAttempts}/${MAX_PLAYLIST_LOAD_ATTEMPTS})...`, 'info');
+                    selector.innerHTML = '<option value="">⏱️ Retrying...</option>';
+                    setTimeout(() => loadPlaylists(), 2000);
+                } else {
+                    showToast('⚠️ Playlist loading is slow. You can still upload without selecting a playlist, or add the video to a playlist later on YouTube.', 'info');
+                    selector.innerHTML = '<option value="">Skip playlist (add later on YouTube)</option>';
+                    selector.disabled = false;
+                }
+            } else {
+                selector.innerHTML = `<option value="">Error: ${err.message || 'Network error'}</option>`;
+                selector.disabled = true;
+            }
         }
     }
 
-    // Load playlists when page loads
-    loadPlaylists();
+    // Load playlists when page loads (with initial delay to not block page load)
+    setTimeout(() => loadPlaylists(), 500);
 
     // Track if there are unsaved changes
     let hasUnsavedChanges = false;

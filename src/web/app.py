@@ -130,14 +130,22 @@ def get_playlists():
     Returns:
         JSON with list of playlists (id, title, video count)
     """
+    import socket
+    import httplib2
+
     try:
+        # Set shorter timeout for HTTP requests
+        socket.setdefaulttimeout(15)  # 15 second timeout
+
         youtube_service = get_authenticated_service()
 
-        # Fetch all playlists
+        # Fetch all playlists with timeout handling
         playlists = []
         next_page_token = None
+        page_count = 0
+        max_pages = 10  # Limit pagination to prevent long hangs
 
-        while True:
+        while page_count < max_pages:
             request_params = {
                 'part': 'snippet,contentDetails',
                 'mine': True,
@@ -147,19 +155,35 @@ def get_playlists():
             if next_page_token:
                 request_params['pageToken'] = next_page_token
 
-            request = youtube_service.playlists().list(**request_params)
-            response = request.execute()
+            try:
+                request = youtube_service.playlists().list(**request_params)
+                response = request.execute(timeout=15)  # 15 second timeout per request
 
-            for item in response.get('items', []):
-                playlists.append({
-                    'id': item['id'],
-                    'title': item['snippet']['title'],
-                    'videoCount': item['contentDetails']['itemCount']
-                })
+                for item in response.get('items', []):
+                    playlists.append({
+                        'id': item['id'],
+                        'title': item['snippet']['title'],
+                        'videoCount': item['contentDetails']['itemCount']
+                    })
 
-            next_page_token = response.get('nextPageToken')
-            if not next_page_token:
-                break
+                next_page_token = response.get('nextPageToken')
+                if not next_page_token:
+                    break
+
+                page_count += 1
+
+            except socket.timeout:
+                print(f"Timeout loading playlists page {page_count + 1}")
+                # Return partial results if we have some
+                if playlists:
+                    return jsonify({
+                        'success': True,
+                        'playlists': playlists,
+                        'partial': True,
+                        'warning': 'Playlist loading timed out - showing partial results'
+                    })
+                else:
+                    raise Exception('YouTube API request timed out. Please check your internet connection.')
 
         print(f"Successfully loaded {len(playlists)} playlists")
 
@@ -168,14 +192,29 @@ def get_playlists():
             'playlists': playlists
         })
 
+    except socket.timeout:
+        print("Timeout error loading playlists")
+        return jsonify({
+            'success': False,
+            'error': 'Request timed out while loading playlists. Please try again or check your internet connection.'
+        }), 504
     except Exception as e:
         import traceback
         print(f"Error loading playlists: {str(e)}")
         traceback.print_exc()
+        error_msg = str(e)
+        if 'timed out' in error_msg.lower() or 'timeout' in error_msg.lower():
+            return jsonify({
+                'success': False,
+                'error': 'Request timed out. Please check your internet connection and try again.'
+            }), 504
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': error_msg
         }), 500
+    finally:
+        # Reset timeout to default
+        socket.setdefaulttimeout(None)
 
 
 @app.route('/api/thumbnail/generate', methods=['POST'])
