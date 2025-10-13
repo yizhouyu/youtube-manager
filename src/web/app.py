@@ -188,6 +188,7 @@ def generate_thumbnail():
     - title: video title
     - description: video description (optional)
     - location: video location (optional)
+    - position: manual position override (optional: top/center/bottom)
 
     Returns:
         JSON with 3 thumbnail options (base64 encoded images + text details)
@@ -204,6 +205,7 @@ def generate_thumbnail():
         description = request.form.get('description', '')
         location = request.form.get('location', None)
         language = request.form.get('language', 'zh-CN')  # Default to Simplified Chinese
+        manual_position = request.form.get('position', None)  # Manual position override
 
         if not title:
             return jsonify({
@@ -222,7 +224,8 @@ def generate_thumbnail():
             title=title,
             description=description or title,
             location=location,
-            language=language
+            language=language,
+            manual_position=manual_position
         )
 
         return jsonify({

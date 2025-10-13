@@ -498,7 +498,8 @@ Return ONLY a JSON array with 3 objects:
         description,
         location=None,
         style="bold",
-        language="zh-CN"
+        language="zh-CN",
+        manual_position=None
     ):
         """
         Complete workflow: Generate 3 thumbnail options with different text overlays.
@@ -510,6 +511,7 @@ Return ONLY a JSON array with 3 objects:
             location: Optional location
             style: Text style for suggestions
             language: Target language (zh-CN, en, zh-TW)
+            manual_position: Manual override for text position (top/center/bottom)
 
         Returns:
             List of 3 thumbnail options:
@@ -526,9 +528,21 @@ Return ONLY a JSON array with 3 objects:
         import base64
         from copy import deepcopy
 
-        # Analyze image for smart text placement (avoid faces)
-        placement_analysis = self.analyze_image_for_text_placement(image_path)
-        text_position = placement_analysis['position']
+        # Determine text position
+        if manual_position:
+            # Use manual override
+            text_position = manual_position
+            placement_analysis = {
+                'position': manual_position,
+                'reasoning': f'Manual override: User selected {manual_position} position',
+                'has_face': False
+            }
+            print(f"[INFO] Using manual position override: {manual_position}")
+        else:
+            # Analyze image for smart text placement (avoid faces)
+            placement_analysis = self.analyze_image_for_text_placement(image_path)
+            text_position = placement_analysis['position']
+            print(f"[INFO] AI selected position: {text_position} - {placement_analysis['reasoning']}")
 
         # Get 3 text suggestions from Claude (with color suggestions)
         suggestions = self.suggest_thumbnail_text(title, description, location, style, language)

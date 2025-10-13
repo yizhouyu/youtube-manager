@@ -203,8 +203,43 @@
 
     <!-- Step 2: Choose AI-Generated Thumbnail (conditional) -->
     <div id="step-thumbnail" class="bg-white rounded-xl shadow-lg p-8 hidden">
-        <h2 class="text-2xl font-bold text-gray-900 mb-2">Step 2: Choose Your Thumbnail</h2>
+        <div class="flex justify-between items-center mb-2">
+            <h2 class="text-2xl font-bold text-gray-900">Step 2: Choose Your Thumbnail</h2>
+            <button
+                id="regenerate-thumbnail-btn"
+                onclick="regenerateThumbnails()"
+                class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition flex items-center hidden"
+            >
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Regenerate
+            </button>
+        </div>
         <p class="text-gray-600 mb-6">AI generated 3 thumbnail options with different text overlays. Pick the one you like best!</p>
+
+        <!-- Manual Position Override Controls -->
+        <div id="position-override-controls" class="hidden mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-yellow-600 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/>
+                </svg>
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-yellow-900 mb-2">Text covering your face? Override AI placement:</p>
+                    <div class="flex gap-3">
+                        <button onclick="overridePosition('top')" class="px-4 py-2 bg-white border-2 border-yellow-300 text-gray-700 rounded-lg hover:bg-yellow-100 text-sm font-medium transition">
+                            Top
+                        </button>
+                        <button onclick="overridePosition('center')" class="px-4 py-2 bg-white border-2 border-yellow-300 text-gray-700 rounded-lg hover:bg-yellow-100 text-sm font-medium transition">
+                            Center
+                        </button>
+                        <button onclick="overridePosition('bottom')" class="px-4 py-2 bg-white border-2 border-yellow-300 text-gray-700 rounded-lg hover:bg-yellow-100 text-sm font-medium transition">
+                            Bottom
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Generating Message -->
         <div id="thumbnail-generating" class="text-center py-12">
@@ -850,12 +885,17 @@
         }
     }
 
+    // Position override state
+    let manualPositionOverride = null;
+
     async function generateAIThumbnails() {
         try {
             // Show loading state
             document.getElementById('thumbnail-generating').classList.remove('hidden');
             document.getElementById('thumbnail-options-container').classList.add('hidden');
             document.getElementById('thumbnail-error').classList.add('hidden');
+            document.getElementById('position-override-controls').classList.add('hidden');
+            document.getElementById('regenerate-thumbnail-btn').classList.add('hidden');
 
             // Prepare form data
             const formData = new FormData();
@@ -868,6 +908,11 @@
             // Add explicit language selection
             const selectedLanguage = document.getElementById('thumbnail-language').value;
             formData.append('language', selectedLanguage);
+
+            // Add manual position override if set
+            if (manualPositionOverride) {
+                formData.append('position', manualPositionOverride);
+            }
 
             // Call API
             const response = await fetch('/api/thumbnail/generate', {
@@ -884,9 +929,11 @@
             thumbnailOptions = result.options;
             renderThumbnailOptions();
 
-            // Hide loading, show options
+            // Hide loading, show options and controls
             document.getElementById('thumbnail-generating').classList.add('hidden');
             document.getElementById('thumbnail-options-container').classList.remove('hidden');
+            document.getElementById('position-override-controls').classList.remove('hidden');
+            document.getElementById('regenerate-thumbnail-btn').classList.remove('hidden');
 
         } catch (error) {
             console.error('Thumbnail generation error:', error);
@@ -894,7 +941,23 @@
             const errorDiv = document.getElementById('thumbnail-error');
             document.getElementById('thumbnail-error-message').textContent = error.message || 'An unexpected error occurred while generating thumbnails.';
             errorDiv.classList.remove('hidden');
+            document.getElementById('position-override-controls').classList.remove('hidden');
+            document.getElementById('regenerate-thumbnail-btn').classList.remove('hidden');
         }
+    }
+
+    function regenerateThumbnails() {
+        // Reset selection and regenerate
+        selectedThumbnailIndex = null;
+        document.getElementById('continue-with-thumbnail-btn').disabled = true;
+        generateAIThumbnails();
+    }
+
+    function overridePosition(position) {
+        // Set manual override and regenerate
+        manualPositionOverride = position;
+        showToast(`Regenerating with text at ${position}...`, 'info');
+        regenerateThumbnails();
     }
 
     function retryThumbnailGeneration() {
