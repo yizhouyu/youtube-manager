@@ -1287,6 +1287,9 @@
         // Set minimum date to today for the date picker
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('publish-date').setAttribute('min', today);
+
+        // Load playlists now that user reached Step 3 (lazy loading)
+        loadPlaylists();
     }
 
     function toggleSchedule() {
@@ -1658,9 +1661,13 @@
     // Load playlists when page loads
     let playlistsData = [];
     let playlistLoadAttempts = 0;
+    let playlistsLoaded = false;
     const MAX_PLAYLIST_LOAD_ATTEMPTS = 2;
 
     async function loadPlaylists() {
+        // Skip if already loaded or currently loading
+        if (playlistsLoaded) return;
+
         const selector = document.getElementById('playlist-selector');
         playlistLoadAttempts++;
 
@@ -1712,12 +1719,12 @@
 
                 selector.disabled = false;
 
-                // Show warning if partial results
+                // Log warning if partial results (don't toast to avoid spamming)
                 if (result.partial) {
                     console.warn(result.warning);
-                    showToast(`⚠️ ${result.warning}`, 'info');
                 }
 
+                playlistsLoaded = true;
                 console.log(`Successfully loaded ${result.playlists.length} playlists`);
             } else {
                 const errorMsg = result.error || 'Unknown error';
@@ -1728,13 +1735,13 @@
                     selector.innerHTML = `<option value="">⏱️ Loading timed out - Click to retry</option>`;
                     selector.disabled = true;
 
-                    // Show user-friendly error message
+                    // Show user-friendly error message (only if user actually needs playlists)
                     if (playlistLoadAttempts < MAX_PLAYLIST_LOAD_ATTEMPTS) {
-                        showToast(`Playlist loading timed out. Retrying (${playlistLoadAttempts}/${MAX_PLAYLIST_LOAD_ATTEMPTS})...`, 'info');
+                        console.log(`Playlist loading timed out. Retrying (${playlistLoadAttempts}/${MAX_PLAYLIST_LOAD_ATTEMPTS})...`);
                         // Auto-retry once after 2 seconds
                         setTimeout(() => loadPlaylists(), 2000);
                     } else {
-                        showToast('⚠️ Playlist loading is slow. You can still upload without selecting a playlist, or add the video to a playlist later on YouTube.', 'info');
+                        console.warn('Playlist loading is slow. User can upload without selecting a playlist.');
                         // Allow upload without playlist
                         selector.innerHTML = '<option value="">Skip playlist (add later on YouTube)</option>';
                         selector.disabled = false;
@@ -1752,11 +1759,11 @@
                 console.error('Playlist loading timed out (client-side)');
 
                 if (playlistLoadAttempts < MAX_PLAYLIST_LOAD_ATTEMPTS) {
-                    showToast(`Playlist loading timed out. Retrying (${playlistLoadAttempts}/${MAX_PLAYLIST_LOAD_ATTEMPTS})...`, 'info');
+                    console.log(`Playlist loading timed out. Retrying (${playlistLoadAttempts}/${MAX_PLAYLIST_LOAD_ATTEMPTS})...`);
                     selector.innerHTML = '<option value="">⏱️ Retrying...</option>';
                     setTimeout(() => loadPlaylists(), 2000);
                 } else {
-                    showToast('⚠️ Playlist loading is slow. You can still upload without selecting a playlist, or add the video to a playlist later on YouTube.', 'info');
+                    console.warn('Playlist loading is slow. User can upload without selecting a playlist.');
                     selector.innerHTML = '<option value="">Skip playlist (add later on YouTube)</option>';
                     selector.disabled = false;
                 }
@@ -1767,8 +1774,9 @@
         }
     }
 
-    // Load playlists when page loads (with initial delay to not block page load)
-    setTimeout(() => loadPlaylists(), 500);
+    // Don't load playlists on page load - wait until user reaches Step 3
+    // This prevents timeout errors and unnecessary API calls
+    // Playlists will be loaded when goToStep3() is called
 
     // Track if there are unsaved changes
     let hasUnsavedChanges = false;
