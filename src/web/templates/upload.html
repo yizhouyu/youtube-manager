@@ -1277,33 +1277,12 @@
         const editedTitle = document.getElementById('summary-title').value;
         const editedDescription = document.getElementById('summary-description').value;
 
-        // Calculate estimated upload time (rough estimate: 1MB per 2 seconds for typical connection)
-        const videoSizeMB = selectedVideoFile.size / (1024 * 1024);
-        const estimatedSeconds = Math.ceil(videoSizeMB * 2);
-
-        // Show file size and ETA
+        // Show file size info
         document.getElementById('upload-size-info').textContent = `Uploading ${formatFileSize(selectedVideoFile.size)}`;
-        document.getElementById('upload-eta').textContent = `Estimated time: ${formatTime(estimatedSeconds)}`;
-        document.getElementById('upload-status').textContent = `Processing video file...`;
-
-        // Simulate realistic progress during upload
-        let progress = 0;
-        const progressInterval = setInterval(() => {
-            if (progress < 90) {
-                progress += Math.random() * 10;
-                progress = Math.min(progress, 90);
-                document.getElementById('upload-progress-bar').style.width = progress + '%';
-                document.getElementById('upload-percentage').textContent = Math.floor(progress) + '%';
-
-                if (progress < 30) {
-                    document.getElementById('upload-status').textContent = 'Uploading video to YouTube...';
-                } else if (progress < 60) {
-                    document.getElementById('upload-status').textContent = 'Processing thumbnail...';
-                } else if (progress < 90) {
-                    document.getElementById('upload-status').textContent = 'Finalizing upload...';
-                }
-            }
-        }, 1000);
+        document.getElementById('upload-eta').textContent = 'Calculating...';
+        document.getElementById('upload-status').textContent = `Preparing upload...`;
+        document.getElementById('upload-progress-bar').style.width = '0%';
+        document.getElementById('upload-percentage').textContent = '0%';
 
         // Prepare form data
         const formData = new FormData();
@@ -1351,42 +1330,86 @@
         }
 
         try {
-            const response = await fetch('/api/upload/video', {
+            // Start the upload and get upload ID
+            const startResponse = await fetch('/api/upload/start', {
                 method: 'POST',
                 body: formData
             });
 
-            const result = await response.json();
+            const startResult = await startResponse.json();
 
-            // Stop progress simulation
-            clearInterval(progressInterval);
-
-            if (!result.success) {
-                throw new Error(result.error || 'Upload failed');
+            if (!startResult.success) {
+                throw new Error(startResult.error || 'Failed to start upload');
             }
 
-            // Show success
-            document.getElementById('upload-progress-bar').style.width = '100%';
-            document.getElementById('upload-percentage').textContent = '100%';
-            document.getElementById('upload-status').textContent = 'Upload complete!';
-            document.getElementById('upload-eta').textContent = 'Done';
+            const uploadId = startResult.upload_id;
 
-            setTimeout(() => {
-                progressDiv.classList.add('hidden');
-                successDiv.classList.remove('hidden');
-                document.getElementById('youtube-link').href = result.videoUrl;
+            // Poll for progress updates
+            const pollInterval = setInterval(async () => {
+                try {
+                    const progressResponse = await fetch(`/api/upload/progress/${uploadId}`);
+                    const progressData = await progressResponse.json();
 
-                // Clear unsaved changes flag - upload is complete
-                uploadComplete = true;
+                    if (!progressData.success) {
+                        clearInterval(pollInterval);
+                        throw new Error(progressData.error || 'Failed to get progress');
+                    }
 
-                // Show "Upload Another" button
-                uploadBtn.classList.add('hidden');
-                backBtn.classList.add('hidden');
-                document.getElementById('upload-another-btn').classList.remove('hidden');
-            }, 1000);
+                    // Update progress bar
+                    const progress = progressData.progress;
+                    document.getElementById('upload-progress-bar').style.width = progress + '%';
+                    document.getElementById('upload-percentage').textContent = progress + '%';
+                    document.getElementById('upload-status').textContent = progressData.stage;
+
+                    // Update size info
+                    const bytesUploaded = progressData.bytes_uploaded;
+                    const totalBytes = progressData.file_size;
+                    document.getElementById('upload-size-info').textContent =
+                        `${formatFileSize(bytesUploaded)} / ${formatFileSize(totalBytes)}`;
+
+                    // Update ETA
+                    if (progressData.eta_seconds !== null && progressData.eta_seconds !== undefined) {
+                        document.getElementById('upload-eta').textContent =
+                            `${formatTime(progressData.eta_seconds)} remaining`;
+                    } else {
+                        document.getElementById('upload-eta').textContent = 'Calculating...';
+                    }
+
+                    // Check if completed
+                    if (progressData.status === 'completed') {
+                        clearInterval(pollInterval);
+
+                        // Show success
+                        document.getElementById('upload-eta').textContent = 'Done!';
+
+                        setTimeout(() => {
+                            progressDiv.classList.add('hidden');
+                            successDiv.classList.remove('hidden');
+                            document.getElementById('youtube-link').href = progressData.video_url;
+
+                            // Clear unsaved changes flag - upload is complete
+                            uploadComplete = true;
+
+                            // Show "Upload Another" button
+                            uploadBtn.classList.add('hidden');
+                            backBtn.classList.add('hidden');
+                            document.getElementById('upload-another-btn').classList.remove('hidden');
+                        }, 500);
+                    }
+
+                    // Check if error occurred
+                    if (progressData.status === 'error') {
+                        clearInterval(pollInterval);
+                        throw new Error(progressData.error || 'Upload failed');
+                    }
+
+                } catch (pollError) {
+                    clearInterval(pollInterval);
+                    throw pollError;
+                }
+            }, 1000); // Poll every second
 
         } catch (error) {
-            clearInterval(progressInterval);
             progressDiv.classList.add('hidden');
             errorDiv.classList.remove('hidden');
             document.getElementById('upload-error-message').textContent = error.message;

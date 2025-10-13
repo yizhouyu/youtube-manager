@@ -3,9 +3,12 @@
 import os
 import json
 import tempfile
+import uuid
+import time
+import threading
 from pathlib import Path
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, session
 from werkzeug.utils import secure_filename
 
 from src.auth.youtube_auth import YouTubeAuthenticator
@@ -30,6 +33,9 @@ app.secret_key = os.urandom(24)
 # Allowed file extensions
 ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'mov', 'avi', 'mkv', 'webm'}
 ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp'}
+
+# Global dictionary to store upload progress by session
+upload_progress = {}
 
 
 def allowed_file(filename, allowed_extensions):
@@ -129,13 +135,19 @@ def get_playlists():
 
         # Fetch all playlists
         playlists = []
-        request = youtube_service.playlists().list(
-            part='snippet,contentDetails',
-            mine=True,
-            maxResults=50
-        )
+        next_page_token = None
 
-        while request:
+        while True:
+            request_params = {
+                'part': 'snippet,contentDetails',
+                'mine': True,
+                'maxResults': 50
+            }
+
+            if next_page_token:
+                request_params['pageToken'] = next_page_token
+
+            request = youtube_service.playlists().list(**request_params)
             response = request.execute()
 
             for item in response.get('items', []):
@@ -145,7 +157,11 @@ def get_playlists():
                     'videoCount': item['contentDetails']['itemCount']
                 })
 
-            request = youtube_service.playlists().list_next(request, response)
+            next_page_token = response.get('nextPageToken')
+            if not next_page_token:
+                break
+
+        print(f"Successfully loaded {len(playlists)} playlists")
 
         return jsonify({
             'success': True,
@@ -153,6 +169,9 @@ def get_playlists():
         })
 
     except Exception as e:
+        import traceback
+        print(f"Error loading playlists: {str(e)}")
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -269,21 +288,13 @@ def generate_metadata():
         }), 500
 
 
-@app.route('/api/upload/video', methods=['POST'])
-def upload_video():
+@app.route('/api/upload/start', methods=['POST'])
+def start_upload():
     """
-    Handle video and thumbnail upload, then publish to YouTube.
-
-    Expected multipart/form-data:
-    - videoFile: Video file
-    - thumbnailFile: Thumbnail image
-    - title: Video title
-    - description: Video description
-    - tags: JSON array of tags
-    - hashtags: JSON array of hashtags
+    Start video upload in background thread and return upload ID.
 
     Returns:
-        JSON with upload status and video URL
+        JSON with upload_id for progress tracking
     """
     try:
         # Validate files
@@ -341,6 +352,58 @@ def upload_video():
             thumbnail_path = os.path.join(app.config['UPLOAD_FOLDER'], thumbnail_filename)
             thumbnail_file.save(thumbnail_path)
 
+        # Generate unique upload ID
+        upload_id = str(uuid.uuid4())
+
+        # Get file size for progress tracking
+        file_size = os.path.getsize(video_path)
+
+        # Initialize progress tracking
+        upload_progress[upload_id] = {
+            'status': 'starting',
+            'progress': 0,
+            'stage': 'Preparing upload...',
+            'file_size': file_size,
+            'bytes_uploaded': 0,
+            'start_time': time.time(),
+            'error': None,
+            'video_id': None,
+            'video_url': None
+        }
+
+        # Start upload in background thread
+        thread = threading.Thread(
+            target=upload_video_background,
+            args=(upload_id, video_path, thumbnail_path, title, description,
+                  tags, hashtags, privacy_status, publish_at, recording_date, playlist_id)
+        )
+        thread.daemon = True
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'upload_id': upload_id
+        })
+
+    except Exception as e:
+        # Clean up files on error
+        if 'video_path' in locals() and os.path.exists(video_path):
+            os.remove(video_path)
+        if 'thumbnail_path' in locals() and thumbnail_path and os.path.exists(thumbnail_path):
+            os.remove(thumbnail_path)
+
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def upload_video_background(upload_id, video_path, thumbnail_path, title, description,
+                           tags, hashtags, privacy_status, publish_at, recording_date, playlist_id):
+    """
+    Background thread function to upload video to YouTube with progress tracking.
+    """
+    try:
         # Prepend hashtags to description (first 3 hashtags appear above video)
         hashtag_str = ' '.join(hashtags[:5])  # Use up to 5 hashtags
         full_description = f"{hashtag_str}\n\n{description}"
@@ -364,24 +427,23 @@ def upload_video():
 
         # Add recording date if provided
         if recording_date:
-            # Convert YYYY-MM-DD to ISO 8601 format (YYYY-MM-DDTHH:MM:SS.sZ)
             body['recordingDetails'] = {
-                'recordingDate': f"{recording_date}T12:00:00.0Z"  # Use noon UTC as default time
+                'recordingDate': f"{recording_date}T12:00:00.0Z"
             }
 
         # Add scheduled publish time if provided
         if publish_at:
             body['status']['publishAt'] = publish_at
-            body['status']['privacyStatus'] = 'private'  # Must be private for scheduled videos
+            body['status']['privacyStatus'] = 'private'
 
-        # Upload video using YouTube API
+        # Upload video using YouTube API with progress tracking
         from googleapiclient.http import MediaFileUpload
 
         media = MediaFileUpload(
             video_path,
             mimetype='video/*',
             resumable=True,
-            chunksize=1024*1024  # 1MB chunks
+            chunksize=1024*1024*5  # 5MB chunks for better progress updates
         )
 
         request_upload = youtube_service.videos().insert(
@@ -390,16 +452,35 @@ def upload_video():
             media_body=media
         )
 
+        upload_progress[upload_id]['status'] = 'uploading'
+        upload_progress[upload_id]['stage'] = 'Uploading video to YouTube...'
+
         response = None
         while response is None:
             status, response = request_upload.next_chunk()
             if status:
-                print(f"Upload progress: {int(status.progress() * 100)}%")
+                progress_pct = int(status.progress() * 100)
+                bytes_uploaded = int(status.progress() * upload_progress[upload_id]['file_size'])
+
+                upload_progress[upload_id]['progress'] = progress_pct
+                upload_progress[upload_id]['bytes_uploaded'] = bytes_uploaded
+
+                # Calculate time remaining
+                elapsed_time = time.time() - upload_progress[upload_id]['start_time']
+                if progress_pct > 0:
+                    total_time = elapsed_time / (progress_pct / 100)
+                    remaining_time = total_time - elapsed_time
+                    upload_progress[upload_id]['eta_seconds'] = int(remaining_time)
+
+                print(f"Upload {upload_id}: {progress_pct}% complete")
 
         video_id = response['id']
 
         # Upload thumbnail if provided
         if thumbnail_path:
+            upload_progress[upload_id]['stage'] = 'Uploading thumbnail...'
+            upload_progress[upload_id]['progress'] = 95
+
             youtube_service.thumbnails().set(
                 videoId=video_id,
                 media_body=MediaFileUpload(thumbnail_path)
@@ -407,6 +488,9 @@ def upload_video():
 
         # Add to playlist if specified
         if playlist_id:
+            upload_progress[upload_id]['stage'] = 'Adding to playlist...'
+            upload_progress[upload_id]['progress'] = 98
+
             youtube_service.playlistItems().insert(
                 part='snippet',
                 body={
@@ -420,29 +504,60 @@ def upload_video():
                 }
             ).execute()
 
+        # Mark as complete
+        upload_progress[upload_id]['status'] = 'completed'
+        upload_progress[upload_id]['progress'] = 100
+        upload_progress[upload_id]['stage'] = 'Upload complete!'
+        upload_progress[upload_id]['video_id'] = video_id
+        upload_progress[upload_id]['video_url'] = f'https://www.youtube.com/watch?v={video_id}'
+
         # Clean up temporary files
         os.remove(video_path)
         if thumbnail_path:
             os.remove(thumbnail_path)
 
-        return jsonify({
-            'success': True,
-            'videoId': video_id,
-            'videoUrl': f'https://www.youtube.com/watch?v={video_id}',
-            'message': 'Video uploaded successfully! (Set to private - you can publish it in YouTube Studio)'
-        })
-
     except Exception as e:
+        # Handle errors
+        upload_progress[upload_id]['status'] = 'error'
+        upload_progress[upload_id]['error'] = str(e)
+
         # Clean up files on error
-        if 'video_path' in locals() and os.path.exists(video_path):
+        if os.path.exists(video_path):
             os.remove(video_path)
-        if 'thumbnail_path' in locals() and thumbnail_path and os.path.exists(thumbnail_path):
+        if thumbnail_path and os.path.exists(thumbnail_path):
             os.remove(thumbnail_path)
 
+        print(f"Upload {upload_id} failed: {str(e)}")
+
+
+@app.route('/api/upload/progress/<upload_id>', methods=['GET'])
+def get_upload_progress(upload_id):
+    """
+    Get current upload progress for a specific upload ID.
+
+    Returns:
+        JSON with progress information
+    """
+    if upload_id not in upload_progress:
         return jsonify({
             'success': False,
-            'error': str(e)
-        }), 500
+            'error': 'Upload ID not found'
+        }), 404
+
+    progress_data = upload_progress[upload_id]
+
+    return jsonify({
+        'success': True,
+        'status': progress_data['status'],
+        'progress': progress_data['progress'],
+        'stage': progress_data['stage'],
+        'bytes_uploaded': progress_data['bytes_uploaded'],
+        'file_size': progress_data['file_size'],
+        'eta_seconds': progress_data.get('eta_seconds', None),
+        'error': progress_data.get('error'),
+        'video_id': progress_data.get('video_id'),
+        'video_url': progress_data.get('video_url')
+    })
 
 
 @app.route('/api/health', methods=['GET'])
