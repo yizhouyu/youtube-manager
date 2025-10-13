@@ -534,12 +534,50 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
         response = None
         last_update_time = time.time()
         last_bytes_uploaded = 0
+        last_progress_change_time = time.time()
+        retry_count = 0
+        max_retries = 5
+        stall_timeout = 60  # 60 seconds without progress = stalled
+        progress_stall_timeout = 120  # 120 seconds without progress change = stalled
 
         while response is None:
-            status, response = request_upload.next_chunk()
+            try:
+                # Set socket timeout for this chunk
+                import socket
+                socket.setdefaulttimeout(stall_timeout)
+
+                chunk_start_time = time.time()
+                status, response = request_upload.next_chunk()
+
+                # Reset retry count on successful chunk
+                retry_count = 0
+
+            except Exception as chunk_error:
+                retry_count += 1
+                error_msg = str(chunk_error)
+
+                # Check if it's a recoverable error (timeout, connection reset)
+                is_recoverable = any(keyword in error_msg.lower() for keyword in
+                                    ['timeout', 'timed out', 'connection', 'reset', 'broken pipe'])
+
+                if is_recoverable and retry_count <= max_retries:
+                    print(f"Upload {upload_id}: Chunk failed ({error_msg}), retry {retry_count}/{max_retries}")
+                    upload_progress[upload_id]['stage'] = f'Connection issue, retrying... ({retry_count}/{max_retries})'
+                    time.sleep(2 ** retry_count)  # Exponential backoff: 2, 4, 8, 16, 32 seconds
+                    continue
+                else:
+                    # Non-recoverable error or max retries exceeded
+                    raise Exception(f"Upload failed after {retry_count} retries: {error_msg}")
+
             if status:
                 progress_pct = int(status.progress() * 100)
                 bytes_uploaded = int(status.progress() * upload_progress[upload_id]['file_size'])
+
+                # Detect progress stalls
+                if bytes_uploaded > last_bytes_uploaded:
+                    last_progress_change_time = time.time()
+                elif time.time() - last_progress_change_time > progress_stall_timeout:
+                    raise Exception(f"Upload stalled - no progress for {progress_stall_timeout} seconds")
 
                 # Map progress to phases with stage descriptions
                 if progress_pct < 5:
