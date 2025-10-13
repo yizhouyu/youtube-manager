@@ -583,6 +583,25 @@
     let videoDescriptionInput = '';
     let locationsInput = '';
 
+    // Toast notification function
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        const bgColor = type === 'info' ? 'bg-blue-600' : type === 'success' ? 'bg-green-600' : 'bg-red-600';
+
+        toast.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-4 rounded-lg shadow-lg z-50 max-w-md animate-slide-in`;
+        toast.style.whiteSpace = 'pre-line';
+        toast.textContent = message;
+
+        document.body.appendChild(toast);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s';
+            setTimeout(() => toast.remove(), 300);
+        }, 5000);
+    }
+
     // Progress bar management
     function renderProgressBar(currentStep) {
         const aiThumbnailEnabled = document.getElementById('ai-thumbnail-enabled')?.checked || false;
@@ -953,6 +972,15 @@
         const downloadLink = document.createElement('a');
         downloadLink.href = URL.createObjectURL(blob);
         downloadLink.download = newFilename;
+
+        // Show helpful message about where to save
+        const videoFolder = selectedVideoFile.webkitRelativePath
+            ? selectedVideoFile.webkitRelativePath.split('/').slice(0, -1).join('/')
+            : 'the same folder as your video file';
+
+        // Show toast notification
+        showToast(`💾 Downloading thumbnail: ${newFilename}\n\nSuggestion: Save it to ${videoFolder}`, 'info');
+
         document.body.appendChild(downloadLink);
         downloadLink.click();
         document.body.removeChild(downloadLink);
@@ -1410,16 +1438,24 @@
     // Load playlists when page loads
     let playlistsData = [];
     async function loadPlaylists() {
+        const selector = document.getElementById('playlist-selector');
         try {
             const response = await fetch('/api/playlists');
             const result = await response.json();
 
             if (result.success) {
                 playlistsData = result.playlists;
-                const selector = document.getElementById('playlist-selector');
 
                 // Clear loading message
                 selector.innerHTML = '<option value="">None (Don\'t add to playlist)</option>';
+
+                if (result.playlists.length === 0) {
+                    // No playlists found
+                    selector.innerHTML = '<option value="">No playlists found</option>';
+                    selector.disabled = true;
+                    console.log('No playlists found for this channel');
+                    return;
+                }
 
                 // Find "Travel" playlist as default
                 let travelPlaylistId = null;
@@ -1441,12 +1477,17 @@
                 }
 
                 selector.disabled = false;
+                console.log(`Successfully loaded ${result.playlists.length} playlists`);
             } else {
-                document.getElementById('playlist-selector').innerHTML = '<option value="">Failed to load playlists</option>';
+                const errorMsg = result.error || 'Unknown error';
+                console.error('Failed to load playlists:', errorMsg);
+                selector.innerHTML = `<option value="">Failed to load playlists: ${errorMsg}</option>`;
+                selector.disabled = true;
             }
         } catch (err) {
             console.error('Error loading playlists:', err);
-            document.getElementById('playlist-selector').innerHTML = '<option value="">Error loading playlists</option>';
+            selector.innerHTML = `<option value="">Error: ${err.message || 'Network error'}</option>`;
+            selector.disabled = true;
         }
     }
 
@@ -1500,6 +1541,21 @@
         -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;
+    }
+
+    @keyframes slide-in {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    .animate-slide-in {
+        animation: slide-in 0.3s ease-out;
     }
 </style>
 {% endblock %}
