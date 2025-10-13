@@ -476,14 +476,25 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
     """
     import traceback
     try:
-        print(f"[DEBUG] Upload {upload_id}: Background thread started")
-        print(f"[DEBUG] Video path: {video_path}")
-        print(f"[DEBUG] Thumbnail path: {thumbnail_path}")
+        file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
+        print(f"[UPLOAD] Started upload {upload_id}")
+        print(f"[UPLOAD] Video: {os.path.basename(video_path)} ({file_size_mb:.1f} MB)")
+        print(f"[UPLOAD] Thumbnail: {os.path.basename(thumbnail_path) if thumbnail_path else 'None'}")
+        print(f"[UPLOAD] Title: {title}")
+        print(f"[UPLOAD] Privacy: {privacy_status}")
+        if recording_date:
+            print(f"[UPLOAD] Recording date: {recording_date}")
+        if publish_at:
+            print(f"[UPLOAD] Scheduled publish: {publish_at}")
+        if playlist_id:
+            print(f"[UPLOAD] Playlist: {playlist_id}")
+
         # Prepend hashtags to description (first 3 hashtags appear above video)
         hashtag_str = ' '.join(hashtags[:5])  # Use up to 5 hashtags
         full_description = f"{hashtag_str}\n\n{description}"
 
         # Upload to YouTube
+        print(f"[UPLOAD] Authenticating with YouTube API...")
         youtube_service = get_authenticated_service()
 
         # Prepare video metadata
@@ -525,6 +536,7 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
             media_body=media
         )
 
+        print(f"[UPLOAD] Starting resumable upload (chunk size: 5MB)...")
         upload_progress[upload_id]['status'] = 'uploading'
         upload_progress[upload_id]['phase'] = 'uploading'
         upload_progress[upload_id]['stage'] = 'Uploading video to YouTube...'
@@ -552,6 +564,7 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
 
             except Exception as chunk_error:
                 error_msg = str(chunk_error)
+                print(f"[UPLOAD] Chunk upload error: {error_msg}")
 
                 # Check if it's a client error (4xx) - these are NOT recoverable
                 is_client_error = 'HttpError 4' in error_msg
@@ -563,17 +576,20 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
 
                 if is_client_error:
                     # Client errors (400-499) are not retryable - fail immediately
+                    print(f"[UPLOAD] Client error (4xx) - not retryable, failing immediately")
                     raise chunk_error
 
                 retry_count += 1
 
                 if is_recoverable and retry_count <= max_retries:
-                    print(f"Upload {upload_id}: Chunk failed ({error_msg}), retry {retry_count}/{max_retries}")
+                    backoff_seconds = 2 ** retry_count
+                    print(f"[UPLOAD] Recoverable error, retry {retry_count}/{max_retries} (backoff: {backoff_seconds}s)")
                     upload_progress[upload_id]['stage'] = f'Connection issue, retrying... ({retry_count}/{max_retries})'
-                    time.sleep(2 ** retry_count)  # Exponential backoff: 2, 4, 8, 16, 32 seconds
+                    time.sleep(backoff_seconds)  # Exponential backoff: 2, 4, 8, 16, 32 seconds
                     continue
                 else:
                     # Non-recoverable error or max retries exceeded
+                    print(f"[UPLOAD] Max retries exceeded or non-recoverable error")
                     raise Exception(f"Upload failed after {retry_count} retries: {error_msg}")
 
             if status:
@@ -584,6 +600,8 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
                 if bytes_uploaded > last_bytes_uploaded:
                     last_progress_change_time = time.time()
                 elif time.time() - last_progress_change_time > progress_stall_timeout:
+                    stall_duration = int(time.time() - last_progress_change_time)
+                    print(f"[UPLOAD] Progress stalled for {stall_duration}s at {progress_pct}% - failing")
                     raise Exception(f"Upload stalled - no progress for {progress_stall_timeout} seconds")
 
                 # Map progress to phases with stage descriptions
@@ -629,12 +647,19 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
                     # Use initial estimate for first 5%
                     upload_progress[upload_id]['eta_seconds'] = upload_progress[upload_id].get('estimated_total_seconds', 0)
 
-                print(f"Upload {upload_id}: {progress_pct}% complete, phase: {phase}")
+                # Log progress every 10% and major milestones
+                if progress_pct % 10 == 0 or progress_pct in [1, 5, 95, 99]:
+                    speed = upload_progress[upload_id].get('current_speed_mbps', 0)
+                    eta = upload_progress[upload_id].get('eta_seconds', 0)
+                    print(f"[UPLOAD] Progress: {progress_pct}% | {bytes_uploaded/(1024*1024):.1f}/{upload_progress[upload_id]['file_size']/(1024*1024):.1f} MB | Speed: {speed} Mbps | ETA: {eta}s")
 
         video_id = response['id']
+        elapsed = time.time() - upload_progress[upload_id]['start_time']
+        print(f"[UPLOAD] Video uploaded successfully! ID: {video_id} (took {elapsed:.1f}s)")
 
         # Update recording date if provided (must be done after upload, not during insert)
         if recording_date_for_update:
+            print(f"[UPLOAD] Setting recording date: {recording_date_for_update}")
             upload_progress[upload_id]['phase'] = 'metadata'
             upload_progress[upload_id]['stage'] = 'Setting recording date...'
             upload_progress[upload_id]['progress'] = 92
@@ -648,9 +673,11 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
                     }
                 }
             ).execute()
+            print(f"[UPLOAD] Recording date set successfully")
 
         # Upload thumbnail if provided
         if thumbnail_path:
+            print(f"[UPLOAD] Uploading custom thumbnail...")
             upload_progress[upload_id]['phase'] = 'thumbnail'
             upload_progress[upload_id]['stage'] = 'Uploading custom thumbnail...'
             upload_progress[upload_id]['progress'] = 95
@@ -659,9 +686,11 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
                 videoId=video_id,
                 media_body=MediaFileUpload(thumbnail_path)
             ).execute()
+            print(f"[UPLOAD] Thumbnail uploaded successfully")
 
         # Add to playlist if specified
         if playlist_id:
+            print(f"[UPLOAD] Adding video to playlist: {playlist_id}")
             upload_progress[upload_id]['phase'] = 'playlist'
             upload_progress[upload_id]['stage'] = 'Adding video to playlist...'
             upload_progress[upload_id]['progress'] = 98
@@ -678,8 +707,13 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
                     }
                 }
             ).execute()
+            print(f"[UPLOAD] Added to playlist successfully")
 
         # Mark as complete
+        total_time = time.time() - upload_progress[upload_id]['start_time']
+        print(f"[UPLOAD] Upload complete! Video ID: {video_id} | Total time: {total_time:.1f}s")
+        print(f"[UPLOAD] URL: https://www.youtube.com/watch?v={video_id}")
+
         upload_progress[upload_id]['status'] = 'completed'
         upload_progress[upload_id]['phase'] = 'complete'
         upload_progress[upload_id]['progress'] = 100
@@ -688,12 +722,17 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
         upload_progress[upload_id]['video_url'] = f'https://www.youtube.com/watch?v={video_id}'
 
         # Clean up temporary files
+        print(f"[UPLOAD] Cleaning up temporary files...")
         os.remove(video_path)
         if thumbnail_path:
             os.remove(thumbnail_path)
 
     except Exception as e:
         # Handle errors
+        print(f"[UPLOAD] Upload failed: {str(e)}")
+        print(f"[UPLOAD] Full traceback:")
+        traceback.print_exc()
+
         upload_progress[upload_id]['status'] = 'error'
         upload_progress[upload_id]['error'] = str(e)
 
@@ -702,10 +741,6 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
             os.remove(video_path)
         if thumbnail_path and os.path.exists(thumbnail_path):
             os.remove(thumbnail_path)
-
-        print(f"Upload {upload_id} failed: {str(e)}")
-        print(f"[DEBUG] Full traceback:")
-        traceback.print_exc()
 
 
 @app.route('/api/upload/progress/<upload_id>', methods=['GET'])
