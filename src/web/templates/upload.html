@@ -917,6 +917,11 @@
             document.getElementById('step1').classList.add('hidden');
             document.getElementById('step-thumbnail').classList.remove('hidden');
             renderProgressBar(2);
+
+            // Start pre-loading SEO metadata in background while user chooses thumbnail
+            console.log('[PRELOAD] Starting background SEO metadata generation...');
+            metadataPreloadPromise = preloadMetadata();
+
             await generateAIThumbnails();
         } else {
             // Go directly to Step 2 (metadata selection)
@@ -933,6 +938,10 @@
     let selectedThumbnailIndex = null;
     let generatedThumbnailBlob = null;
     let cachedTextSuggestions = null;  // Cache text suggestions to avoid re-generating
+
+    // Pre-loading state for SEO metadata
+    let metadataPreloadPromise = null;  // Promise for background metadata loading
+    let preloadedMetadata = null;  // Cached pre-loaded metadata
 
     function toggleAIThumbnail() {
         const enabled = document.getElementById('ai-thumbnail-enabled').checked;
@@ -1193,8 +1202,97 @@
         return name.replace(/[_-]/g, ' ').trim();
     }
 
+    async function preloadMetadata() {
+        /**
+         * Pre-load SEO metadata in background while user is on Step 2 (thumbnail selection).
+         * This function runs silently without updating the UI.
+         */
+        try {
+            console.log('[PRELOAD] Fetching SEO metadata in background...');
+            const startTime = Date.now();
+
+            // Call API to generate multiple options
+            const response = await fetch('/api/upload/generate-metadata', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    videoDescription: videoDescriptionInput,
+                    locations: locationsInput || '',
+                    numOptions: 3
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to generate metadata');
+            }
+
+            const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
+            console.log(`[PRELOAD] ✓ SEO metadata pre-loaded successfully in ${elapsedTime}s`);
+
+            // Cache the result
+            preloadedMetadata = result.options;
+            return result.options;
+
+        } catch (error) {
+            console.error('[PRELOAD] Failed to pre-load metadata:', error);
+            // Don't show error to user - we'll regenerate when they get to Step 3
+            preloadedMetadata = null;
+            return null;
+        }
+    }
+
     async function generateMetadata() {
-        // Show loading
+        // Check if we have pre-loaded metadata
+        if (preloadedMetadata) {
+            console.log('[PRELOAD] ✓ Using pre-loaded metadata (instant load!)');
+            generatedOptions = preloadedMetadata;
+            renderOptions();
+
+            // Show content immediately without loading state
+            document.getElementById('step2-loading').classList.add('hidden');
+            document.getElementById('step2-content').classList.remove('hidden');
+            document.getElementById('regenerate-btn').disabled = false;
+
+            // Clear pre-loaded data after use
+            preloadedMetadata = null;
+            metadataPreloadPromise = null;
+            return;
+        }
+
+        // If pre-load is still in progress, wait for it
+        if (metadataPreloadPromise) {
+            console.log('[PRELOAD] Waiting for in-progress metadata generation...');
+            document.getElementById('step2-loading').classList.remove('hidden');
+            document.getElementById('step2-content').classList.add('hidden');
+            document.getElementById('regenerate-btn').disabled = true;
+
+            try {
+                const options = await metadataPreloadPromise;
+                if (options) {
+                    console.log('[PRELOAD] ✓ Pre-load completed, using result');
+                    generatedOptions = options;
+                    renderOptions();
+
+                    document.getElementById('step2-loading').classList.add('hidden');
+                    document.getElementById('step2-content').classList.remove('hidden');
+                    document.getElementById('regenerate-btn').disabled = false;
+
+                    // Clear pre-loaded data
+                    preloadedMetadata = null;
+                    metadataPreloadPromise = null;
+                    return;
+                }
+            } catch (error) {
+                console.error('[PRELOAD] Pre-load failed, falling back to fresh generation');
+            }
+        }
+
+        // Fallback: No pre-loaded data, generate fresh
+        console.log('[PRELOAD] No pre-loaded data, generating fresh metadata...');
         document.getElementById('step2-loading').classList.remove('hidden');
         document.getElementById('step2-content').classList.add('hidden');
         document.getElementById('regenerate-btn').disabled = true;
