@@ -907,6 +907,7 @@
     let thumbnailOptions = [];
     let selectedThumbnailIndex = null;
     let generatedThumbnailBlob = null;
+    let cachedTextSuggestions = null;  // Cache text suggestions to avoid re-generating
 
     function toggleAIThumbnail() {
         const enabled = document.getElementById('ai-thumbnail-enabled').checked;
@@ -929,7 +930,7 @@
     // Position override state
     let manualPositionOverride = null;
 
-    async function generateAIThumbnails() {
+    async function generateAIThumbnails(useCache = false) {
         try {
             // Show loading state
             document.getElementById('thumbnail-generating').classList.remove('hidden');
@@ -955,6 +956,12 @@
                 formData.append('position', manualPositionOverride);
             }
 
+            // If repositioning with cache, send cached text suggestions
+            if (useCache && cachedTextSuggestions && manualPositionOverride) {
+                formData.append('cached_suggestions', JSON.stringify(cachedTextSuggestions));
+                console.log('[INFO] Using cached text suggestions for repositioning');
+            }
+
             // Call API
             const response = await fetch('/api/thumbnail/generate', {
                 method: 'POST',
@@ -968,6 +975,22 @@
             }
 
             thumbnailOptions = result.options;
+
+            // Cache text suggestions for future repositioning (only if not already using cache)
+            if (!result.used_cache) {
+                cachedTextSuggestions = thumbnailOptions.map(opt => ({
+                    main_text: opt.main_text,
+                    subtitle: opt.subtitle,
+                    reasoning: opt.reasoning,
+                    text_color: opt.text_color,
+                    outline_color: opt.outline_color,
+                    color_reasoning: opt.color_reasoning
+                }));
+                console.log('[INFO] Cached text suggestions for repositioning');
+            } else {
+                console.log('[INFO] Repositioned without API text generation call');
+            }
+
             renderThumbnailOptions();
 
             // Hide loading, show options and controls
@@ -981,24 +1004,28 @@
             document.getElementById('thumbnail-generating').classList.add('hidden');
             const errorDiv = document.getElementById('thumbnail-error');
             document.getElementById('thumbnail-error-message').textContent = error.message || 'An unexpected error occurred while generating thumbnails.';
-            errorDiv.classList.remove('hidden');
+            errorDiv.classList.add('hidden');
             document.getElementById('position-override-controls').classList.remove('hidden');
             document.getElementById('regenerate-thumbnail-btn').classList.remove('hidden');
         }
     }
 
     function regenerateThumbnails() {
-        // Reset selection and regenerate
+        // Reset selection and regenerate (clear cache - full regeneration)
         selectedThumbnailIndex = null;
+        cachedTextSuggestions = null;  // Clear cache for full regeneration
+        manualPositionOverride = null;  // Reset position override
         document.getElementById('continue-with-thumbnail-btn').disabled = true;
-        generateAIThumbnails();
+        generateAIThumbnails(false);  // Full generation
     }
 
     function overridePosition(position) {
-        // Set manual override and regenerate
+        // Set manual override and regenerate with cached text
         manualPositionOverride = position;
-        showToast(`Regenerating with text at ${position}...`, 'info');
-        regenerateThumbnails();
+        showToast(`Repositioning text to ${position}...`, 'info');
+        selectedThumbnailIndex = null;
+        document.getElementById('continue-with-thumbnail-btn').disabled = true;
+        generateAIThumbnails(true);  // Use cache for repositioning
     }
 
     function retryThumbnailGeneration() {

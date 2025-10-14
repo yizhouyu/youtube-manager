@@ -248,6 +248,7 @@ def generate_thumbnail():
     - description: video description (optional)
     - location: video location (optional)
     - position: manual position override (optional: top/center/bottom)
+    - cached_suggestions: JSON string with cached text suggestions (optional)
 
     Returns:
         JSON with 3 thumbnail options (base64 encoded images + text details)
@@ -265,6 +266,7 @@ def generate_thumbnail():
         location = request.form.get('location', None)
         language = request.form.get('language', 'zh-CN')  # Default to Simplified Chinese
         manual_position = request.form.get('position', None)  # Manual position override
+        cached_suggestions_str = request.form.get('cached_suggestions', None)
 
         if not title:
             return jsonify({
@@ -276,8 +278,31 @@ def generate_thumbnail():
         from io import BytesIO
         image_data = BytesIO(image_file.read())
 
-        # Generate 3 thumbnail options
         generator = ThumbnailGenerator()
+
+        # If cached suggestions provided (repositioning case), skip text generation
+        if cached_suggestions_str and manual_position:
+            try:
+                cached_suggestions = json.loads(cached_suggestions_str)
+                print(f"[INFO] Using cached text suggestions for repositioning to {manual_position}")
+
+                # Reuse existing text suggestions, only regenerate image overlays
+                options = generator.generate_thumbnail_options_with_cached_text(
+                    image_path=image_data,
+                    cached_suggestions=cached_suggestions,
+                    manual_position=manual_position
+                )
+
+                return jsonify({
+                    'success': True,
+                    'options': options,
+                    'used_cache': True
+                })
+            except Exception as cache_error:
+                print(f"[WARN] Failed to use cached suggestions: {cache_error}, falling back to full generation")
+                # Fall through to full generation
+
+        # Full generation (first time or cache failed)
         options = generator.generate_thumbnail_options(
             image_path=image_data,
             title=title,
@@ -289,7 +314,8 @@ def generate_thumbnail():
 
         return jsonify({
             'success': True,
-            'options': options
+            'options': options,
+            'used_cache': False
         })
 
     except Exception as e:

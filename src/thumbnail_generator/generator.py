@@ -600,6 +600,89 @@ Return ONLY a JSON array with 3 objects:
 
         return results
 
+    def generate_thumbnail_options_with_cached_text(
+        self,
+        image_path,
+        cached_suggestions,
+        manual_position
+    ):
+        """
+        Generate thumbnail options reusing cached text suggestions (for repositioning).
+        This avoids unnecessary API calls when only changing text position.
+
+        Args:
+            image_path: Path to base image or BytesIO
+            cached_suggestions: List of 3 text suggestion dicts from previous generation
+            manual_position: Text position (top/center/bottom)
+
+        Returns:
+            List of 3 thumbnail options with new positions but same text
+        """
+        import base64
+
+        text_position = manual_position
+        placement_analysis = {
+            'position': manual_position,
+            'reasoning': f'Manual override: User selected {manual_position} position',
+            'has_face': False
+        }
+
+        print(f"[INFO] Repositioning text to {manual_position} without API call")
+
+        results = []
+
+        # Helper function to convert hex color to RGB tuple
+        def hex_to_rgb(hex_color):
+            """Convert hex color (#RRGGBB) to RGB tuple (R, G, B)"""
+            hex_color = hex_color.lstrip('#')
+            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+        # Generate thumbnail for each cached suggestion
+        for idx, suggestion in enumerate(cached_suggestions):
+            # Read image fresh for each option (if it's a file path)
+            if isinstance(image_path, str):
+                img_copy = image_path
+            else:
+                # For BytesIO, we need to seek back to beginning
+                image_path.seek(0)
+                img_copy = BytesIO(image_path.read())
+                image_path.seek(0)
+
+            # Get colors from cached suggestion
+            text_color = hex_to_rgb(suggestion.get('text_color', '#FFFFFF'))
+            outline_color = hex_to_rgb(suggestion.get('outline_color', '#000000'))
+
+            # Generate thumbnail with cached text but new position
+            result_image = self.add_text_to_image(
+                img_copy,
+                main_text=suggestion['main_text'],
+                subtitle=suggestion.get('subtitle', ''),
+                output_path=None,  # Return BytesIO
+                text_color=text_color,
+                outline_color=outline_color,
+                outline_width=10,
+                position=text_position  # New position
+            )
+
+            # Convert to base64 for web display
+            result_image.seek(0)
+            image_data = base64.b64encode(result_image.read()).decode('utf-8')
+            image_base64 = f"data:image/jpeg;base64,{image_data}"
+
+            results.append({
+                'image_base64': image_base64,
+                'main_text': suggestion['main_text'],
+                'subtitle': suggestion.get('subtitle', ''),
+                'reasoning': suggestion.get('reasoning', ''),
+                'color_reasoning': suggestion.get('color_reasoning', ''),
+                'placement_reasoning': placement_analysis['reasoning'],
+                'text_position': text_position,
+                'text_color': suggestion.get('text_color', '#FFFFFF'),
+                'outline_color': suggestion.get('outline_color', '#000000')
+            })
+
+        return results
+
     def generate_thumbnail(
         self,
         image_path,
