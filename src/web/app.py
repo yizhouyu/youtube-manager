@@ -265,8 +265,18 @@ def generate_thumbnail():
         description = request.form.get('description', '')
         location = request.form.get('location', None)
         language = request.form.get('language', 'zh-CN')  # Default to Simplified Chinese
-        manual_position = request.form.get('position', None)  # Manual position override
+        manual_position_str = request.form.get('position', None)  # Manual position override
         cached_suggestions_str = request.form.get('cached_suggestions', None)
+
+        # Parse manual position (can be "top"/"center"/"bottom" or numeric 0.0-1.0)
+        manual_position = None
+        if manual_position_str:
+            try:
+                # Try to parse as float first
+                manual_position = float(manual_position_str)
+            except ValueError:
+                # If not a number, use as string ("top", "center", "bottom")
+                manual_position = manual_position_str
 
         if not title:
             return jsonify({

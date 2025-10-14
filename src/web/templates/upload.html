@@ -224,17 +224,42 @@
                     <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/>
                 </svg>
                 <div class="flex-1">
-                    <p class="text-sm font-medium text-yellow-900 mb-2">Text covering your face? Override AI placement:</p>
-                    <div class="flex gap-3">
-                        <button onclick="overridePosition('top')" class="px-4 py-2 bg-white border-2 border-yellow-300 text-gray-700 rounded-lg hover:bg-yellow-100 text-sm font-medium transition">
+                    <p class="text-sm font-medium text-yellow-900 mb-3">Adjust text position (Y-axis):</p>
+
+                    <!-- Quick preset buttons -->
+                    <div class="flex gap-2 mb-3">
+                        <button onclick="setPositionPreset(15)" class="px-3 py-1.5 bg-white border-2 border-yellow-300 text-gray-700 rounded text-xs font-medium hover:bg-yellow-100 transition">
                             Top
                         </button>
-                        <button onclick="overridePosition('center')" class="px-4 py-2 bg-white border-2 border-yellow-300 text-gray-700 rounded-lg hover:bg-yellow-100 text-sm font-medium transition">
+                        <button onclick="setPositionPreset(50)" class="px-3 py-1.5 bg-white border-2 border-yellow-300 text-gray-700 rounded text-xs font-medium hover:bg-yellow-100 transition">
                             Center
                         </button>
-                        <button onclick="overridePosition('bottom')" class="px-4 py-2 bg-white border-2 border-yellow-300 text-gray-700 rounded-lg hover:bg-yellow-100 text-sm font-medium transition">
+                        <button onclick="setPositionPreset(75)" class="px-3 py-1.5 bg-white border-2 border-yellow-300 text-gray-700 rounded text-xs font-medium hover:bg-yellow-100 transition">
                             Bottom
                         </button>
+                    </div>
+
+                    <!-- Fine-grained slider -->
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-3">
+                            <label class="text-xs text-gray-600 whitespace-nowrap">Fine tune:</label>
+                            <input
+                                type="range"
+                                id="text-position-slider"
+                                min="5"
+                                max="85"
+                                value="50"
+                                step="5"
+                                class="flex-1 h-2 bg-yellow-200 rounded-lg appearance-none cursor-pointer slider"
+                                oninput="updatePositionPreview(this.value)"
+                                onchange="applyCustomPosition(this.value)"
+                            >
+                            <span id="position-value" class="text-xs font-mono text-gray-700 w-8">50%</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500 px-1">
+                            <span>Top (5%)</span>
+                            <span>Bottom (85%)</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1023,6 +1048,31 @@
         // Set manual override and regenerate with cached text
         manualPositionOverride = position;
         showToast(`Repositioning text to ${position}...`, 'info');
+        selectedThumbnailIndex = null;
+        document.getElementById('continue-with-thumbnail-btn').disabled = true;
+        generateAIThumbnails(true);  // Use cache for repositioning
+    }
+
+    function setPositionPreset(yPercent) {
+        // Update slider to preset value and apply
+        const slider = document.getElementById('text-position-slider');
+        slider.value = yPercent;
+        document.getElementById('position-value').textContent = yPercent + '%';
+        applyCustomPosition(yPercent);
+    }
+
+    function updatePositionPreview(yPercent) {
+        // Update display value as user drags slider (real-time feedback)
+        document.getElementById('position-value').textContent = yPercent + '%';
+    }
+
+    function applyCustomPosition(yPercent) {
+        // Apply the custom Y-axis position (0-100 scale where 0=top, 100=bottom)
+        // Convert to decimal for backend (0.0 to 1.0)
+        const yPosition = parseFloat(yPercent) / 100.0;
+
+        manualPositionOverride = yPosition;
+        showToast(`Repositioning text to ${yPercent}% from top...`, 'info');
         selectedThumbnailIndex = null;
         document.getElementById('continue-with-thumbnail-btn').disabled = true;
         generateAIThumbnails(true);  // Use cache for repositioning
@@ -1872,6 +1922,63 @@
 
     .animate-slide-in {
         animation: slide-in 0.3s ease-out;
+    }
+
+    /* Custom slider styling */
+    input[type="range"].slider {
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+    }
+
+    input[type="range"].slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #7C3AED;
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    input[type="range"].slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #7C3AED;
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    input[type="range"].slider::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 8px;
+        cursor: pointer;
+        background: #FEF3C7;
+        border-radius: 4px;
+    }
+
+    input[type="range"].slider::-moz-range-track {
+        width: 100%;
+        height: 8px;
+        cursor: pointer;
+        background: #FEF3C7;
+        border-radius: 4px;
+    }
+
+    input[type="range"].slider:focus {
+        outline: none;
+    }
+
+    input[type="range"].slider:focus::-webkit-slider-thumb {
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+    }
+
+    input[type="range"].slider:focus::-moz-range-thumb {
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
     }
 </style>
 {% endblock %}

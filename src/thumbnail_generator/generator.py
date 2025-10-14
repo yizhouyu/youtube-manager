@@ -320,7 +320,7 @@ Return ONLY a JSON array with 3 objects:
         text_color=(255, 255, 255),
         outline_color=(0, 0, 0),
         outline_width=8,
-        position="center"
+        position="center"  # Can be "center", "top", "bottom", or float 0.0-1.0 for custom Y position
     ):
         """
         Add text overlay to an image using Pillow.
@@ -449,7 +449,11 @@ Return ONLY a JSON array with 3 objects:
             total_height += draw.textbbox((0, 0), subtitle, font=font_subtitle)[3] + 20
 
         # Determine Y position based on position parameter
-        if position == "top":
+        if isinstance(position, (int, float)):
+            # Custom Y position as percentage (0.0 = top, 1.0 = bottom)
+            # Position value represents where the TOP of the text should be
+            current_y = img_height * position
+        elif position == "top":
             current_y = img_height * 0.15
         elif position == "bottom":
             current_y = img_height * 0.75 - total_height
