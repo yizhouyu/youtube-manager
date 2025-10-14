@@ -317,8 +317,9 @@
             <button
                 id="continue-with-thumbnail-btn"
                 onclick="continueWithSelectedThumbnail()"
-                class="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-medium"
+                class="flex-1 py-3 rounded-lg transition font-medium disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700"
                 disabled
+                title="Please select a thumbnail first"
             >
                 Continue with Selected Thumbnail →
             </button>
@@ -367,8 +368,9 @@
                 <button
                     id="continue-to-step3-btn"
                     onclick="goToStep3()"
-                    class="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-medium"
+                    class="flex-1 py-3 rounded-lg transition font-medium disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700"
                     disabled
+                    title="Please select a metadata option first"
                 >
                     Continue to Upload →
                 </button>
@@ -1049,7 +1051,9 @@
         selectedThumbnailIndex = null;
         cachedTextSuggestions = null;  // Clear cache for full regeneration
         manualPositionOverride = null;  // Reset position override
-        document.getElementById('continue-with-thumbnail-btn').disabled = true;
+        const btn = document.getElementById('continue-with-thumbnail-btn');
+        btn.disabled = true;
+        btn.title = 'Please select a thumbnail first';  // Reset tooltip
         generateAIThumbnails(false);  // Full generation
     }
 
@@ -1083,7 +1087,9 @@
         manualPositionOverride = yPosition;
         showToast(`Repositioning text to ${yPercent}% from top...`, 'info');
         selectedThumbnailIndex = null;
-        document.getElementById('continue-with-thumbnail-btn').disabled = true;
+        const btn = document.getElementById('continue-with-thumbnail-btn');
+        btn.disabled = true;
+        btn.title = 'Please select a thumbnail first';  // Reset tooltip
         generateAIThumbnails(true);  // Use cache for repositioning
     }
 
@@ -1129,7 +1135,9 @@
     function selectThumbnail(idx) {
         selectedThumbnailIndex = idx;
         renderThumbnailOptions();
-        document.getElementById('continue-with-thumbnail-btn').disabled = false;
+        const btn = document.getElementById('continue-with-thumbnail-btn');
+        btn.disabled = false;
+        btn.title = '';  // Clear tooltip when enabled
     }
 
     async function continueWithSelectedThumbnail() {
@@ -1398,12 +1406,16 @@
     function selectOption(idx) {
         selectedOption = idx;
         renderOptions();
-        document.getElementById('continue-to-step3-btn').disabled = false;
+        const btn = document.getElementById('continue-to-step3-btn');
+        btn.disabled = false;
+        btn.title = '';  // Clear tooltip when enabled
     }
 
     async function regenerateMetadata() {
         selectedOption = null;
-        document.getElementById('continue-to-step3-btn').disabled = true;
+        const btn = document.getElementById('continue-to-step3-btn');
+        btn.disabled = true;
+        btn.title = 'Please select a metadata option first';  // Reset tooltip
         await generateMetadata();
     }
 
