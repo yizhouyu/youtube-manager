@@ -141,7 +141,7 @@ Return ONLY a JSON object:
             description: Video description
             location: Optional location/destination
             style: Text style (bold, minimal, dramatic)
-            language: Target language (zh-CN, en, zh-TW)
+            language: Target language (zh-CN or en)
 
         Returns:
             list of 3 dicts with text suggestions:
@@ -160,18 +160,13 @@ Return ONLY a JSON object:
         language_requirements = {
             'zh-CN': {
                 'name': 'Simplified Chinese (简体中文)',
-                'requirement': 'ALL thumbnail text MUST be in Simplified Chinese (简体中文). DO NOT use English. DO NOT use Traditional Chinese (繁體中文).',
-                'examples': '惊艳, 绝美, 必看, 秘境 (NOT: 驚艷, 絕美)'
+                'requirement': 'ALL thumbnail text MUST be in Simplified Chinese (简体中文). DO NOT use English.',
+                'examples': '惊艳, 绝美, 必看, 秘境, 隐藏, 必去'
             },
             'en': {
                 'name': 'English',
                 'requirement': 'ALL thumbnail text MUST be in English. DO NOT use Chinese characters.',
                 'examples': 'AMAZING, MUST-SEE, HIDDEN GEM, SECRET SPOT'
-            },
-            'zh-TW': {
-                'name': 'Traditional Chinese (繁體中文)',
-                'requirement': 'ALL thumbnail text MUST be in Traditional Chinese (繁體中文). DO NOT use English. DO NOT use Simplified Chinese (简体中文).',
-                'examples': '驚艷, 絕美, 必看, 秘境 (NOT: 惊艳, 绝美)'
             }
         }
 
@@ -513,7 +508,7 @@ Return ONLY a JSON array with 3 objects:
             description: Video description
             location: Optional location
             style: Text style for suggestions
-            language: Target language (zh-CN, en, zh-TW)
+            language: Target language (zh-CN or en)
             manual_position: Manual override for text position (top/center/bottom)
 
         Returns:
