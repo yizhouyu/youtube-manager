@@ -268,6 +268,8 @@ def generate_thumbnail():
         manual_position_str = request.form.get('position', None)  # Manual position override
         cached_suggestions_str = request.form.get('cached_suggestions', None)
 
+        print(f"[DEBUG] Received language parameter: {language}")
+
         # Parse manual position (can be "top"/"center"/"bottom" or numeric 0.0-1.0)
         manual_position = None
         if manual_position_str:

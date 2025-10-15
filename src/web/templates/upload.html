@@ -948,6 +948,7 @@
     function toggleAIThumbnail() {
         const enabled = document.getElementById('ai-thumbnail-enabled').checked;
         const languageSelector = document.getElementById('thumbnail-language-selector');
+        const languageElement = document.getElementById('thumbnail-language');
 
         if (enabled) {
             if (!selectedThumbnailFile) {
@@ -957,6 +958,9 @@
             }
             // Show language selector when AI is enabled
             languageSelector.classList.remove('hidden');
+
+            // Debug: Log the current language value
+            console.log('[DEBUG] AI thumbnail enabled, current language:', languageElement.value);
         } else {
             // Hide language selector when AI is disabled
             languageSelector.classList.add('hidden');
@@ -983,8 +987,10 @@
             if (locationsInput) {
                 formData.append('location', locationsInput);
             }
-            // Add explicit language selection
-            const selectedLanguage = document.getElementById('thumbnail-language').value;
+            // Add explicit language selection (with fallback to zh-CN)
+            const languageElement = document.getElementById('thumbnail-language');
+            const selectedLanguage = languageElement ? (languageElement.value || 'zh-CN') : 'zh-CN';
+            console.log('[DEBUG] Thumbnail language:', selectedLanguage);
             formData.append('language', selectedLanguage);
 
             // Add manual position override if set
@@ -1977,6 +1983,23 @@
     // Set hasUnsavedChanges to true when files are selected or metadata is generated
     function markAsUnsaved() {
         hasUnsavedChanges = true;
+    }
+
+    // Initialize thumbnail language selector to default value
+    function initializeThumbnailLanguage() {
+        const languageElement = document.getElementById('thumbnail-language');
+        if (languageElement) {
+            // Explicitly set to zh-CN (Simplified Chinese) as default
+            languageElement.value = 'zh-CN';
+            console.log('[INIT] Thumbnail language initialized to:', languageElement.value);
+        }
+    }
+
+    // Call initialization when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeThumbnailLanguage);
+    } else {
+        initializeThumbnailLanguage();
     }
 
     // Warn user before leaving page if there are unsaved changes
