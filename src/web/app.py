@@ -47,8 +47,15 @@ def get_authenticated_service():
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB max file size
+app.config['MAX_FORM_MEMORY_SIZE'] = 50 * 1024 * 1024  # 50MB for form data (handles large base64 thumbnails)
+app.config['MAX_FORM_PARTS'] = 1000  # Increase max form parts for large uploads
 app.config['UPLOAD_FOLDER'] = tempfile.mkdtemp()
 app.secret_key = os.urandom(24)
+
+# Configure Werkzeug to handle large file uploads more efficiently
+# This prevents the entire file from being loaded into memory
+import werkzeug
+werkzeug.formparser.DEFAULT_STREAM_FACTORY = lambda *args, **kwargs: tempfile.TemporaryFile()
 
 # Allowed file extensions
 ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'mov', 'avi', 'mkv', 'webm'}
