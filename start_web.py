@@ -26,12 +26,4 @@ if __name__ == '__main__':
     print("=" * 80)
     print()
 
-    # Use threaded mode and configure werkzeug for large uploads
-    app.run(
-        debug=True,
-        host='0.0.0.0',
-        port=5001,
-        threaded=True,
-        # Increase request timeout for large file uploads
-        use_reloader=True
-    )
+    app.run(debug=True, host='0.0.0.0', port=5001)
