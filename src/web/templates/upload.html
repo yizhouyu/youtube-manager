@@ -239,10 +239,10 @@
                         </button>
                     </div>
 
-                    <!-- Fine-grained slider -->
+                    <!-- Fine-grained position slider -->
                     <div class="space-y-2">
                         <div class="flex items-center gap-3">
-                            <label class="text-xs text-gray-600 whitespace-nowrap">Fine tune:</label>
+                            <label class="text-xs text-gray-600 whitespace-nowrap">Position:</label>
                             <input
                                 type="range"
                                 id="text-position-slider"
@@ -259,6 +259,29 @@
                         <div class="flex justify-between text-xs text-gray-500 px-1">
                             <span>Top (5%)</span>
                             <span>Bottom (85%)</span>
+                        </div>
+                    </div>
+
+                    <!-- Text size slider -->
+                    <div class="space-y-2 mt-4">
+                        <div class="flex items-center gap-3">
+                            <label class="text-xs text-gray-600 whitespace-nowrap">Text size:</label>
+                            <input
+                                type="range"
+                                id="text-size-slider"
+                                min="60"
+                                max="180"
+                                value="120"
+                                step="10"
+                                class="flex-1 h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                                oninput="updateTextSizePreview(this.value)"
+                                onchange="applyCustomTextSize(this.value)"
+                            >
+                            <span id="text-size-value" class="text-xs font-mono text-gray-700 w-12">120px</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500 px-1">
+                            <span>Small (60px)</span>
+                            <span>Large (180px)</span>
                         </div>
                     </div>
                 </div>
@@ -940,6 +963,7 @@
     let selectedThumbnailIndex = null;
     let generatedThumbnailBlob = null;
     let cachedTextSuggestions = null;  // Cache text suggestions to avoid re-generating
+    let manualTextSizeOverride = null;  // Custom text size (in pixels, 60-180)
 
     // Pre-loading state for SEO metadata
     let metadataPreloadPromise = null;  // Promise for background metadata loading
@@ -998,8 +1022,13 @@
                 formData.append('position', manualPositionOverride);
             }
 
+            // Add manual text size override if set
+            if (manualTextSizeOverride) {
+                formData.append('text_size', manualTextSizeOverride);
+            }
+
             // If repositioning with cache, send cached text suggestions
-            if (useCache && cachedTextSuggestions && manualPositionOverride) {
+            if (useCache && cachedTextSuggestions && (manualPositionOverride || manualTextSizeOverride)) {
                 formData.append('cached_suggestions', JSON.stringify(cachedTextSuggestions));
                 console.log('[INFO] Using cached text suggestions for repositioning');
             }
@@ -1092,6 +1121,24 @@
 
         manualPositionOverride = yPosition;
         showToast(`Repositioning text to ${yPercent}% from top...`, 'info');
+        selectedThumbnailIndex = null;
+        const btn = document.getElementById('continue-with-thumbnail-btn');
+        btn.disabled = true;
+        btn.title = 'Please select a thumbnail first';  // Reset tooltip
+        generateAIThumbnails(true);  // Use cache for repositioning
+    }
+
+    function updateTextSizePreview(sizePixels) {
+        // Update display value as user drags slider (real-time feedback)
+        document.getElementById('text-size-value').textContent = sizePixels + 'px';
+    }
+
+    function applyCustomTextSize(sizePixels) {
+        // Apply the custom text size
+        const size = parseInt(sizePixels);
+
+        manualTextSizeOverride = size;
+        showToast(`Changing text size to ${size}px...`, 'info');
         selectedThumbnailIndex = null;
         const btn = document.getElementById('continue-with-thumbnail-btn');
         btn.disabled = true;

@@ -497,7 +497,8 @@ Return ONLY a JSON array with 3 objects:
         location=None,
         style="bold",
         language="zh-CN",
-        manual_position=None
+        manual_position=None,
+        manual_text_size=None
     ):
         """
         Complete workflow: Generate 3 thumbnail options with different text overlays.
@@ -568,12 +569,22 @@ Return ONLY a JSON array with 3 objects:
             text_color = hex_to_rgb(suggestion.get('text_color', '#FFFFFF'))
             outline_color = hex_to_rgb(suggestion.get('outline_color', '#000000'))
 
+            # Calculate font sizes (use manual override if provided, otherwise use defaults)
+            if manual_text_size:
+                font_size_main = manual_text_size
+                font_size_subtitle = manual_text_size // 2  # Subtitle is half the main text size
+            else:
+                font_size_main = 120
+                font_size_subtitle = 60
+
             # Generate thumbnail with this text, Claude's suggested colors, and smart positioning
             result_image = self.add_text_to_image(
                 img_copy,
                 main_text=suggestion['main_text'],
                 subtitle=suggestion.get('subtitle', ''),
                 output_path=None,  # Return BytesIO
+                font_size_main=font_size_main,
+                font_size_subtitle=font_size_subtitle,
                 text_color=text_color,
                 outline_color=outline_color,
                 outline_width=10,  # Fixed outline width for consistency
@@ -603,7 +614,8 @@ Return ONLY a JSON array with 3 objects:
         self,
         image_path,
         cached_suggestions,
-        manual_position
+        manual_position,
+        manual_text_size=None
     ):
         """
         Generate thumbnail options reusing cached text suggestions (for repositioning).
@@ -651,12 +663,22 @@ Return ONLY a JSON array with 3 objects:
             text_color = hex_to_rgb(suggestion.get('text_color', '#FFFFFF'))
             outline_color = hex_to_rgb(suggestion.get('outline_color', '#000000'))
 
-            # Generate thumbnail with cached text but new position
+            # Calculate font sizes (use manual override if provided, otherwise use defaults)
+            if manual_text_size:
+                font_size_main = manual_text_size
+                font_size_subtitle = manual_text_size // 2  # Subtitle is half the main text size
+            else:
+                font_size_main = 120
+                font_size_subtitle = 60
+
+            # Generate thumbnail with cached text but new position/size
             result_image = self.add_text_to_image(
                 img_copy,
                 main_text=suggestion['main_text'],
                 subtitle=suggestion.get('subtitle', ''),
                 output_path=None,  # Return BytesIO
+                font_size_main=font_size_main,
+                font_size_subtitle=font_size_subtitle,
                 text_color=text_color,
                 outline_color=outline_color,
                 outline_width=10,

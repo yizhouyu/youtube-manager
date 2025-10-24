@@ -266,6 +266,7 @@ def generate_thumbnail():
         location = request.form.get('location', None)
         language = request.form.get('language', 'zh-CN')  # Default to Simplified Chinese
         manual_position_str = request.form.get('position', None)  # Manual position override
+        manual_text_size_str = request.form.get('text_size', None)  # Manual text size override
         cached_suggestions_str = request.form.get('cached_suggestions', None)
 
         print(f"[DEBUG] Received language parameter: {language}")
@@ -280,6 +281,16 @@ def generate_thumbnail():
                 # If not a number, use as string ("top", "center", "bottom")
                 manual_position = manual_position_str
 
+        # Parse manual text size (60-180 pixels)
+        manual_text_size = None
+        if manual_text_size_str:
+            try:
+                manual_text_size = int(manual_text_size_str)
+                # Clamp to valid range
+                manual_text_size = max(60, min(180, manual_text_size))
+            except ValueError:
+                manual_text_size = None
+
         if not title:
             return jsonify({
                 'success': False,
@@ -292,17 +303,18 @@ def generate_thumbnail():
 
         generator = ThumbnailGenerator()
 
-        # If cached suggestions provided (repositioning case), skip text generation
-        if cached_suggestions_str and manual_position:
+        # If cached suggestions provided (repositioning/resizing case), skip text generation
+        if cached_suggestions_str and (manual_position or manual_text_size):
             try:
                 cached_suggestions = json.loads(cached_suggestions_str)
-                print(f"[INFO] Using cached text suggestions for repositioning to {manual_position}")
+                print(f"[INFO] Using cached text suggestions for repositioning to {manual_position} with size {manual_text_size}")
 
                 # Reuse existing text suggestions, only regenerate image overlays
                 options = generator.generate_thumbnail_options_with_cached_text(
                     image_path=image_data,
                     cached_suggestions=cached_suggestions,
-                    manual_position=manual_position
+                    manual_position=manual_position,
+                    manual_text_size=manual_text_size
                 )
 
                 return jsonify({
@@ -321,7 +333,8 @@ def generate_thumbnail():
             description=description or title,
             location=location,
             language=language,
-            manual_position=manual_position
+            manual_position=manual_position,
+            manual_text_size=manual_text_size
         )
 
         return jsonify({
