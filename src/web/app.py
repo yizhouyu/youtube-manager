@@ -757,26 +757,44 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
             ).execute()
             print(f"[UPLOAD] Thumbnail uploaded successfully")
 
-        # Add to playlist if specified
-        if playlist_id:
-            print(f"[UPLOAD] Adding video to playlist: {playlist_id}")
+        # Add to playlist(s) if specified
+        # Check if there are multiple playlists (from swap feature)
+        all_playlists = upload_progress[upload_id].get('all_playlist_ids', [])
+        if all_playlists:
+            # Use all playlists from the original video
+            playlists_to_add = all_playlists
+            print(f"[UPLOAD] Adding video to {len(playlists_to_add)} playlist(s) from original video")
+        elif playlist_id:
+            # Use single playlist specified
+            playlists_to_add = [playlist_id]
+        else:
+            playlists_to_add = []
+
+        if playlists_to_add:
             upload_progress[upload_id]['phase'] = 'playlist'
-            upload_progress[upload_id]['stage'] = 'Adding video to playlist...'
             upload_progress[upload_id]['progress'] = 98
 
-            youtube_service.playlistItems().insert(
-                part='snippet',
-                body={
-                    'snippet': {
-                        'playlistId': playlist_id,
-                        'resourceId': {
-                            'kind': 'youtube#video',
-                            'videoId': video_id
+            for idx, pl_id in enumerate(playlists_to_add):
+                try:
+                    upload_progress[upload_id]['stage'] = f'Adding to playlist {idx + 1}/{len(playlists_to_add)}...'
+                    print(f"[UPLOAD] Adding video to playlist: {pl_id}")
+
+                    youtube_service.playlistItems().insert(
+                        part='snippet',
+                        body={
+                            'snippet': {
+                                'playlistId': pl_id,
+                                'resourceId': {
+                                    'kind': 'youtube#video',
+                                    'videoId': video_id
+                                }
+                            }
                         }
-                    }
-                }
-            ).execute()
-            print(f"[UPLOAD] Added to playlist successfully")
+                    ).execute()
+                    print(f"[UPLOAD] Added to playlist {pl_id} successfully")
+                except Exception as playlist_error:
+                    print(f"[UPLOAD] Failed to add to playlist {pl_id}: {playlist_error}")
+                    # Continue with other playlists
 
         # Mark as complete
         total_time = time.time() - upload_progress[upload_id]['start_time']
@@ -927,6 +945,21 @@ def swap_video_upload():
         tags = original_metadata.get('tags', [])
         category_id = original_metadata.get('categoryId', '19')
 
+        # Extract recording details if available
+        recording_date = None
+        recording_location = None
+        if 'recordingDate' in original_metadata:
+            # Recording date is in ISO format: 2024-10-24T12:00:00.0Z
+            # We need just the date part: 2024-10-24
+            recording_date_full = original_metadata['recordingDate']
+            if recording_date_full:
+                recording_date = recording_date_full.split('T')[0]
+                print(f"[SWAP] Found recording date: {recording_date}")
+
+        if 'recordingLocation' in original_metadata:
+            recording_location = original_metadata['recordingLocation']
+            print(f"[SWAP] Found recording location: {recording_location}")
+
         # Extract hashtags from description (they're at the beginning)
         hashtags = []
         description_lines = description.split('\n')
@@ -940,6 +973,47 @@ def swap_video_upload():
                         hashtags.append(word)
             elif line:  # Non-empty line that doesn't start with #
                 break  # Stop looking for hashtags
+
+        # Find which playlists the original video is in
+        playlist_ids = []
+        try:
+            print(f"[SWAP] Searching for playlists containing video {original_video_id}...")
+            # Get all playlists
+            playlists_request = youtube_service.playlists().list(
+                part='id',
+                mine=True,
+                maxResults=50
+            )
+            playlists_response = playlists_request.execute()
+
+            all_playlist_ids = [item['id'] for item in playlists_response.get('items', [])]
+
+            # Check each playlist to see if it contains the original video
+            for playlist_id in all_playlist_ids:
+                try:
+                    playlist_items_request = youtube_service.playlistItems().list(
+                        part='contentDetails',
+                        playlistId=playlist_id,
+                        videoId=original_video_id,
+                        maxResults=1
+                    )
+                    playlist_items_response = playlist_items_request.execute()
+
+                    if playlist_items_response.get('items'):
+                        playlist_ids.append(playlist_id)
+                        print(f"[SWAP] Found video in playlist: {playlist_id}")
+                except Exception as playlist_check_error:
+                    # Some playlists might not be accessible, skip them
+                    continue
+
+            if playlist_ids:
+                print(f"[SWAP] Video is in {len(playlist_ids)} playlist(s)")
+            else:
+                print(f"[SWAP] Video is not in any playlists")
+
+        except Exception as playlist_error:
+            print(f"[SWAP] Could not check playlists: {playlist_error}")
+            # Continue without playlist info
 
         # Save video file temporarily
         video_filename = secure_filename(video_file.filename)
@@ -1007,10 +1081,17 @@ def swap_video_upload():
         }
 
         # Start upload in background thread
+        # Pass the first playlist ID if available, or None
+        # The upload_video_background function will add to all playlists we found
+        primary_playlist_id = playlist_ids[0] if playlist_ids else None
+
+        # Store all playlist IDs in the upload progress tracking for later use
+        upload_progress[upload_id]['all_playlist_ids'] = playlist_ids
+
         thread = threading.Thread(
             target=upload_video_background,
             args=(upload_id, video_path, thumbnail_path, title, description,
-                  tags, hashtags, 'private', None, None, None, None)  # Upload as private by default
+                  tags, hashtags, 'private', None, recording_date, primary_playlist_id, recording_location)
         )
         thread.daemon = True
         thread.start()

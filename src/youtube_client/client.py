@@ -128,14 +128,14 @@ class YouTubeClient:
         """
         try:
             request = self.youtube.videos().list(
-                part='snippet,statistics,contentDetails',
+                part='snippet,statistics,contentDetails,recordingDetails',
                 id=video_id
             )
             response = request.execute()
 
             if 'items' in response and len(response['items']) > 0:
                 item = response['items'][0]
-                return {
+                video_data = {
                     'id': item['id'],
                     'title': item['snippet']['title'],
                     'description': item['snippet']['description'],
@@ -148,6 +148,15 @@ class YouTubeClient:
                     'viewCount': item['statistics'].get('viewCount', '0'),
                     'likeCount': item['statistics'].get('likeCount', '0'),
                 }
+
+                # Add recording details if available
+                if 'recordingDetails' in item:
+                    recording_details = item['recordingDetails']
+                    video_data['recordingDate'] = recording_details.get('recordingDate')
+                    if 'location' in recording_details:
+                        video_data['recordingLocation'] = recording_details['location'].get('description')
+
+                return video_data
             else:
                 raise Exception(f"Video not found: {video_id}")
 
