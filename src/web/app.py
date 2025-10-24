@@ -81,6 +81,12 @@ def upload_page():
     return render_template('upload.html')
 
 
+@app.route('/swap')
+def swap_page():
+    """Video swap page."""
+    return render_template('swap.html')
+
+
 @app.route('/api/analytics/dashboard', methods=['GET'])
 def get_analytics_dashboard():
     """
@@ -839,6 +845,194 @@ def get_upload_progress(upload_id):
     })
 
 
+@app.route('/api/swap/videos', methods=['GET'])
+def get_swap_videos():
+    """
+    Fetch all videos from the user's channel for swapping.
+
+    Returns:
+        JSON with list of videos (id, title, views, published date)
+    """
+    try:
+        youtube_service = get_authenticated_service()
+        youtube_client = YouTubeClient(youtube_service)
+
+        # Get all videos from the channel
+        videos = youtube_client.get_all_channel_videos()
+
+        # Sort by published date (newest first)
+        videos.sort(key=lambda x: x['publishedAt'], reverse=True)
+
+        return jsonify({
+            'success': True,
+            'videos': videos
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/swap/upload', methods=['POST'])
+def swap_video_upload():
+    """
+    Upload a new video with metadata copied from an existing video.
+
+    Expected multipart form data:
+    - videoFile: new video file
+    - originalVideoId: ID of the video to copy metadata from
+
+    Returns:
+        JSON with upload_id for progress tracking
+    """
+    try:
+        # Validate files
+        if 'videoFile' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No video file provided'
+            }), 400
+
+        video_file = request.files['videoFile']
+        original_video_id = request.form.get('originalVideoId')
+
+        if not original_video_id:
+            return jsonify({
+                'success': False,
+                'error': 'Original video ID is required'
+            }), 400
+
+        if video_file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'No video file selected'
+            }), 400
+
+        if not allowed_file(video_file.filename, ALLOWED_VIDEO_EXTENSIONS):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid video file format'
+            }), 400
+
+        # Get metadata from original video
+        youtube_service = get_authenticated_service()
+        youtube_client = YouTubeClient(youtube_service)
+        original_metadata = youtube_client.get_video_details(original_video_id)
+
+        # Extract metadata
+        title = original_metadata['title']
+        description = original_metadata['description']
+        tags = original_metadata.get('tags', [])
+        category_id = original_metadata.get('categoryId', '19')
+
+        # Extract hashtags from description (they're at the beginning)
+        hashtags = []
+        description_lines = description.split('\n')
+        for line in description_lines:
+            line = line.strip()
+            if line.startswith('#'):
+                # Extract all hashtags from this line
+                words = line.split()
+                for word in words:
+                    if word.startswith('#'):
+                        hashtags.append(word)
+            elif line:  # Non-empty line that doesn't start with #
+                break  # Stop looking for hashtags
+
+        # Save video file temporarily
+        video_filename = secure_filename(video_file.filename)
+        video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
+        video_file.save(video_path)
+
+        # Check if original video has a custom thumbnail
+        thumbnail_path = None
+        try:
+            # Try to download the thumbnail from the original video
+            # YouTube returns multiple thumbnail sizes, we'll use maxres or high
+            thumbnails_request = youtube_service.videos().list(
+                part='snippet',
+                id=original_video_id
+            )
+            thumbnails_response = thumbnails_request.execute()
+
+            if thumbnails_response.get('items'):
+                thumbnails = thumbnails_response['items'][0]['snippet'].get('thumbnails', {})
+
+                # Try to get the best quality thumbnail
+                thumbnail_url = None
+                for quality in ['maxres', 'high', 'medium']:
+                    if quality in thumbnails:
+                        thumbnail_url = thumbnails[quality]['url']
+                        break
+
+                if thumbnail_url:
+                    # Download thumbnail
+                    import urllib.request
+                    thumbnail_filename = f"thumb_{original_video_id}.jpg"
+                    thumbnail_path = os.path.join(app.config['UPLOAD_FOLDER'], thumbnail_filename)
+                    urllib.request.urlretrieve(thumbnail_url, thumbnail_path)
+                    print(f"[SWAP] Downloaded thumbnail from original video")
+
+        except Exception as thumb_error:
+            print(f"[SWAP] Could not download thumbnail: {thumb_error}")
+            # Continue without thumbnail
+
+        # Generate unique upload ID
+        upload_id = str(uuid.uuid4())
+
+        # Get file size for progress tracking
+        file_size = os.path.getsize(video_path)
+
+        # Calculate initial time estimate
+        avg_upload_speed_mbps = 5
+        bytes_per_second = (avg_upload_speed_mbps * 1024 * 1024) / 8
+        estimated_seconds = int((file_size / bytes_per_second) * 1.3)
+
+        # Initialize progress tracking
+        upload_progress[upload_id] = {
+            'status': 'starting',
+            'progress': 0,
+            'stage': 'Preparing upload...',
+            'phase': 'preparing',
+            'file_size': file_size,
+            'bytes_uploaded': 0,
+            'start_time': time.time(),
+            'error': None,
+            'video_id': None,
+            'video_url': None,
+            'estimated_total_seconds': estimated_seconds,
+            'current_speed_mbps': None
+        }
+
+        # Start upload in background thread
+        thread = threading.Thread(
+            target=upload_video_background,
+            args=(upload_id, video_path, thumbnail_path, title, description,
+                  tags, hashtags, 'private', None, None, None, None)  # Upload as private by default
+        )
+        thread.daemon = True
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'upload_id': upload_id
+        })
+
+    except Exception as e:
+        # Clean up files on error
+        if 'video_path' in locals() and os.path.exists(video_path):
+            os.remove(video_path)
+        if 'thumbnail_path' in locals() and thumbnail_path and os.path.exists(thumbnail_path):
+            os.remove(thumbnail_path)
+
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
@@ -853,4 +1047,5 @@ if __name__ == '__main__':
     print("📊 Access at: http://localhost:5000")
     print("   - Analytics: http://localhost:5000/analytics")
     print("   - Upload: http://localhost:5000/upload")
+    print("   - Swap Video: http://localhost:5000/swap")
     app.run(debug=True, host='0.0.0.0', port=5000)
