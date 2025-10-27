@@ -313,9 +313,12 @@ Return ONLY a JSON array with 3 objects:
 ]"""
 
         try:
+            # Use higher token limit for Chinese text (Chinese uses more tokens than English)
+            max_tokens = 1200 if language == 'zh-CN' else 800
+
             message = self.client.messages.create(
                 model="claude-sonnet-4-5-20250929",
-                max_tokens=500,
+                max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}]
             )
 
@@ -329,9 +332,7 @@ Return ONLY a JSON array with 3 objects:
             elif "```" in response_text:
                 response_text = response_text.split("```")[1].split("```")[0].strip()
 
-            print(f"[DEBUG] Claude text generation response: {response_text[:500]}...")
             result = json.loads(response_text)
-            print(f"[DEBUG] Generated {len(result)} text suggestions, first one: {result[0]['main_text']}")
             return result
 
         except Exception as e:
