@@ -154,31 +154,92 @@ Return ONLY a JSON object:
                 ...
             ]
         """
-        location_context = f"\n- Location: {location}" if location else ""
+        location_context = f"\n- 地点: {location}" if location and language == 'zh-CN' else (f"\n- Location: {location}" if location else "")
 
-        # Map language codes to language names and requirements
-        language_requirements = {
-            'zh-CN': {
-                'name': 'Simplified Chinese (简体中文)',
-                'requirement': 'ALL thumbnail text MUST be in Simplified Chinese (简体中文). DO NOT use English.',
-                'examples': '惊艳, 绝美, 必看, 秘境, 隐藏, 必去'
-            },
-            'en': {
-                'name': 'English',
-                'requirement': 'ALL thumbnail text MUST be in English. DO NOT use Chinese characters.',
-                'examples': 'AMAZING, MUST-SEE, HIDDEN GEM, SECRET SPOT'
-            }
-        }
+        # Use language-specific prompts for better adherence
+        if language == 'zh-CN':
+            prompt = f"""你是一位专精于旅游内容的 YouTube 封面文字专家。
 
-        lang_config = language_requirements.get(language, language_requirements['zh-CN'])
+**严格语言要求：**
+- 目标语言：简体中文
+- **所有封面文字必须使用简体中文，绝对不能使用英文**
+- 示例词汇：惊艳、绝美、必看、秘境、隐藏、必去、震撼、顶级
 
-        prompt = f"""You are a YouTube thumbnail text expert specializing in travel content.
+视频信息：
+- 标题：{title}
+- 描述：{description[:500]}{location_context}
+- 风格：{style}
+
+请为这个视频建议 3 个不同的封面文字方案，以最大化点击率。每个方案应该采用不同的角度/方法。
+
+要求：
+1. **主文字**：最多 3-5 个词，醒目、吸引眼球
+   - 使用简洁有力的词语
+   - 数字效果好（提升点击率）
+   - 制造好奇心或承诺价值
+   - **必须使用简体中文**
+
+2. **副标题**（可选）：简短的辅助文字
+   - 2-4 个词
+   - 增加上下文或紧迫感
+   - **必须使用简体中文**
+
+3. **最佳实践**：
+   - 避免标题党 - 保持真实
+   - 符合视频的实际内容
+   - 使用情感化、吸引眼球的中文词汇
+
+4. **多样性**：让每个方案都不同：
+   - 方案 1：大胆/戏剧性的方法
+   - 方案 2：好奇心/问题式方法
+   - 方案 3：价值/收益式方法
+
+5. **颜色设计**：为每个方案建议文字和描边颜色：
+   - 符合视频的情绪和主题
+   - 确保高可见度和对比度
+   - 创造情感冲击
+   - 示例：
+     * 日落/冒险：橙色文字 (#FFA500) + 红色描边 (#FF4500)
+     * 海洋/平静：青色文字 (#00FFFF) + 蓝色描边 (#0066FF)
+     * 自然/清新：绿色文字 (#00FF00) + 深绿描边 (#006400)
+     * 活力/激动：黄色文字 (#FFFF00) + 橙色描边 (#FF6600)
+     * 奢华/高端：金色文字 (#FFD700) + 黑色描边 (#000000)
+     * 神秘/暗黑：白色文字 (#FFFFFF) + 紫色描边 (#800080)
+
+**只返回 JSON 数组**，包含 3 个对象：
+[
+    {{
+        "main_text": "方案1文字",
+        "subtitle": "可选副标题或空字符串",
+        "reasoning": "为什么这个方案有效的简短解释",
+        "text_color": "#RRGGBB 主文字的十六进制颜色",
+        "outline_color": "#RRGGBB 描边的十六进制颜色",
+        "color_reasoning": "为什么这些颜色适合这个视频"
+    }},
+    {{
+        "main_text": "方案2文字",
+        "subtitle": "可选副标题或空字符串",
+        "reasoning": "为什么这个方案有效的简短解释",
+        "text_color": "#RRGGBB 颜色",
+        "outline_color": "#RRGGBB 颜色",
+        "color_reasoning": "为什么这些颜色有效"
+    }},
+    {{
+        "main_text": "方案3文字",
+        "subtitle": "可选副标题或空字符串",
+        "reasoning": "为什么这个方案有效的简短解释",
+        "text_color": "#RRGGBB 颜色",
+        "outline_color": "#RRGGBB 颜色",
+        "color_reasoning": "为什么这些颜色有效"
+    }}
+]"""
+        else:  # English
+            prompt = f"""You are a YouTube thumbnail text expert specializing in travel content.
 
 **CRITICAL LANGUAGE REQUIREMENT:**
-- Target language: {lang_config['name']}
-- {lang_config['requirement']}
-- Example words: {lang_config['examples']}
-- **YOU MUST FOLLOW THE LANGUAGE REQUIREMENT ABOVE - DO NOT MIX LANGUAGES**
+- Target language: English
+- **ALL thumbnail text MUST be in English. DO NOT use Chinese characters.**
+- Example words: AMAZING, MUST-SEE, HIDDEN GEM, SECRET SPOT, STUNNING, TOP-TIER
 
 Given this video context:
 - Title: {title}
@@ -193,18 +254,18 @@ Requirements:
    - Use simple, powerful words
    - Numbers work well (enhance click-through rate)
    - Create curiosity or promise value
-   - **MUST be in the target language specified above**
+   - **MUST be in English with ALL CAPS**
 
 2. **Subtitle** (optional): Short supporting text if needed
    - 2-4 words
    - Adds context or urgency
-   - **MUST be in the same language as main text**
+   - **MUST be in English**
 
 3. **Best Practices**:
-   - Use ALL CAPS for English text
+   - Use ALL CAPS for maximum impact
    - Avoid clickbait - be authentic
    - Match the video's actual content
-   - Use emotive, attention-grabbing words in the target language
+   - Use emotive, attention-grabbing English words
 
 4. **Variety**: Make each option different:
    - Option 1: Bold/dramatic approach
