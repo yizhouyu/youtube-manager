@@ -200,6 +200,84 @@
         </button>
     </div>
 
+    <!-- Edit Text Modal -->
+    <div id="edit-text-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <!-- Modal Header -->
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-2xl font-bold text-gray-900">Edit Thumbnail Text</h3>
+                    <button onclick="closeEditTextModal()" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Current Thumbnail Preview -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Current Thumbnail:</label>
+                    <img id="edit-modal-current-thumbnail" src="" alt="Current thumbnail" class="w-full rounded-lg shadow-md border-2 border-gray-200">
+                </div>
+
+                <!-- Edit Form -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Main Text *
+                        </label>
+                        <input
+                            type="text"
+                            id="edit-main-text"
+                            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="Enter main text (3-5 words)"
+                        >
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Subtitle (Optional)
+                        </label>
+                        <input
+                            type="text"
+                            id="edit-subtitle"
+                            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="Enter subtitle (2-4 words)"
+                        >
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="edit-modal-loading" class="hidden text-center py-8">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-purple-600 mx-auto mb-4"></div>
+                    <p class="text-gray-600 font-medium">Regenerating thumbnail...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="edit-modal-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+                    <p class="text-red-700 text-sm" id="edit-modal-error-message"></p>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-3 mt-6">
+                    <button
+                        onclick="closeEditTextModal()"
+                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-medium"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onclick="applyTextEdit()"
+                        id="apply-text-edit-btn"
+                        class="flex-1 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-medium"
+                    >
+                        Apply Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Step 2: Choose AI-Generated Thumbnail (conditional) -->
     <div id="step-thumbnail" class="bg-white rounded-xl shadow-lg p-8 hidden">
         <div class="flex justify-between items-center mb-2">
@@ -1166,8 +1244,8 @@
         const container = document.getElementById('thumbnail-options-container');
 
         container.innerHTML = thumbnailOptions.map((option, idx) => `
-            <div class="border-2 ${selectedThumbnailIndex === idx ? 'border-purple-500 bg-purple-50' : 'border-gray-200'} rounded-lg p-4 hover:border-purple-300 transition cursor-pointer" onclick="selectThumbnail(${idx})">
-                <div class="mb-3">
+            <div class="border-2 ${selectedThumbnailIndex === idx ? 'border-purple-500 bg-purple-50' : 'border-gray-200'} rounded-lg p-4 hover:border-purple-300 transition">
+                <div class="mb-3 relative group cursor-pointer" onclick="selectThumbnail(${idx})">
                     <img src="${option.image_base64}" alt="Thumbnail option ${idx + 1}" class="w-full rounded-lg shadow-md">
                 </div>
                 <div class="flex items-start mb-2">
@@ -1181,6 +1259,15 @@
                         </div>
                     </div>
                 </div>
+                <button
+                    onclick="event.stopPropagation(); openEditTextModal(${idx})"
+                    class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-2 px-3 rounded-lg transition flex items-center justify-center gap-2"
+                >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    Edit Text
+                </button>
             </div>
         `).join('');
     }
@@ -1191,6 +1278,114 @@
         const btn = document.getElementById('continue-with-thumbnail-btn');
         btn.disabled = false;
         btn.title = '';  // Clear tooltip when enabled
+    }
+
+    // Modal state
+    let editingThumbnailIndex = null;
+
+    function openEditTextModal(idx) {
+        editingThumbnailIndex = idx;
+        const option = thumbnailOptions[idx];
+
+        // Populate modal with current values
+        document.getElementById('edit-main-text').value = option.main_text;
+        document.getElementById('edit-subtitle').value = option.subtitle || '';
+        document.getElementById('edit-modal-current-thumbnail').src = option.image_base64;
+
+        // Hide error and loading states
+        document.getElementById('edit-modal-error').classList.add('hidden');
+        document.getElementById('edit-modal-loading').classList.add('hidden');
+
+        // Show modal
+        document.getElementById('edit-text-modal').classList.remove('hidden');
+    }
+
+    function closeEditTextModal() {
+        document.getElementById('edit-text-modal').classList.add('hidden');
+        editingThumbnailIndex = null;
+    }
+
+    async function applyTextEdit() {
+        const mainText = document.getElementById('edit-main-text').value.trim();
+        const subtitle = document.getElementById('edit-subtitle').value.trim();
+
+        if (!mainText) {
+            document.getElementById('edit-modal-error-message').textContent = 'Main text is required';
+            document.getElementById('edit-modal-error').classList.remove('hidden');
+            return;
+        }
+
+        try {
+            // Show loading state
+            document.getElementById('edit-modal-loading').classList.remove('hidden');
+            document.getElementById('edit-modal-error').classList.add('hidden');
+            document.getElementById('apply-text-edit-btn').disabled = true;
+
+            // Get current option to preserve colors and settings
+            const currentOption = thumbnailOptions[editingThumbnailIndex];
+
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('image', selectedThumbnailFile);
+            formData.append('main_text', mainText);
+            formData.append('subtitle', subtitle);
+            formData.append('text_color', currentOption.text_color);
+            formData.append('outline_color', currentOption.outline_color);
+
+            // Preserve position and size settings
+            if (manualPositionOverride !== null) {
+                formData.append('position', manualPositionOverride);
+            } else if (currentOption.text_position) {
+                formData.append('position', currentOption.text_position);
+            }
+
+            if (manualTextSizeOverride !== null) {
+                formData.append('text_size', manualTextSizeOverride);
+            }
+
+            // Call API to regenerate with custom text
+            const response = await fetch('/api/thumbnail/regenerate-with-text', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to regenerate thumbnail');
+            }
+
+            // Update the thumbnail option with new data
+            thumbnailOptions[editingThumbnailIndex] = {
+                ...thumbnailOptions[editingThumbnailIndex],
+                image_base64: result.image_base64,
+                main_text: mainText,
+                subtitle: subtitle,
+                reasoning: `Custom text: ${mainText}${subtitle ? ' - ' + subtitle : ''}`
+            };
+
+            // Update cached suggestions if they exist
+            if (cachedTextSuggestions && cachedTextSuggestions[editingThumbnailIndex]) {
+                cachedTextSuggestions[editingThumbnailIndex].main_text = mainText;
+                cachedTextSuggestions[editingThumbnailIndex].subtitle = subtitle;
+            }
+
+            // Re-render thumbnails
+            renderThumbnailOptions();
+
+            // Close modal
+            closeEditTextModal();
+
+            showToast('Thumbnail text updated successfully!', 'success');
+
+        } catch (error) {
+            console.error('Error applying text edit:', error);
+            document.getElementById('edit-modal-error-message').textContent = error.message || 'Failed to update thumbnail';
+            document.getElementById('edit-modal-error').classList.remove('hidden');
+        } finally {
+            document.getElementById('edit-modal-loading').classList.add('hidden');
+            document.getElementById('apply-text-edit-btn').disabled = false;
+        }
     }
 
     async function continueWithSelectedThumbnail() {

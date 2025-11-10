@@ -358,6 +358,110 @@ def generate_thumbnail():
         }), 500
 
 
+@app.route('/api/thumbnail/regenerate-with-text', methods=['POST'])
+def regenerate_thumbnail_with_text():
+    """
+    Regenerate a single thumbnail with custom text (for editing).
+
+    Expected multipart form data:
+    - image: image file
+    - main_text: custom main text
+    - subtitle: custom subtitle (optional)
+    - text_color: hex color for text (optional, default: #FFFFFF)
+    - outline_color: hex color for outline (optional, default: #000000)
+    - position: text position (optional: top/center/bottom or 0.0-1.0)
+    - text_size: text size in pixels (optional: 60-180)
+
+    Returns:
+        JSON with regenerated thumbnail (base64 encoded image)
+    """
+    try:
+        if 'image' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No image file provided'
+            }), 400
+
+        image_file = request.files['image']
+        main_text = request.form.get('main_text', '')
+        subtitle = request.form.get('subtitle', '')
+        text_color = request.form.get('text_color', '#FFFFFF')
+        outline_color = request.form.get('outline_color', '#000000')
+        position_str = request.form.get('position', 'center')
+        text_size_str = request.form.get('text_size', '120')
+
+        if not main_text:
+            return jsonify({
+                'success': False,
+                'error': 'Main text is required'
+            }), 400
+
+        # Parse position
+        position = None
+        if position_str:
+            try:
+                # Try to parse as float first
+                position = float(position_str)
+            except ValueError:
+                # If not a number, use as string ("top", "center", "bottom")
+                position = position_str
+
+        # Parse text size
+        try:
+            text_size = int(text_size_str)
+            text_size = max(60, min(180, text_size))  # Clamp to valid range
+        except ValueError:
+            text_size = 120  # Default
+
+        # Convert hex colors to RGB tuples
+        def hex_to_rgb(hex_color):
+            """Convert hex color (#RRGGBB) to RGB tuple (R, G, B)"""
+            hex_color = hex_color.lstrip('#')
+            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+        text_color_rgb = hex_to_rgb(text_color)
+        outline_color_rgb = hex_to_rgb(outline_color)
+
+        # Save image temporarily
+        from io import BytesIO
+        import base64
+        image_data = BytesIO(image_file.read())
+
+        generator = ThumbnailGenerator()
+
+        # Generate single thumbnail with custom text
+        result_image = generator.add_text_to_image(
+            image_path=image_data,
+            main_text=main_text,
+            subtitle=subtitle,
+            output_path=None,  # Return BytesIO
+            font_size_main=text_size,
+            font_size_subtitle=text_size // 2,
+            text_color=text_color_rgb,
+            outline_color=outline_color_rgb,
+            outline_width=10,
+            position=position
+        )
+
+        # Convert to base64 for web display
+        result_image.seek(0)
+        image_base64_data = base64.b64encode(result_image.read()).decode('utf-8')
+        image_base64 = f"data:image/jpeg;base64,{image_base64_data}"
+
+        return jsonify({
+            'success': True,
+            'image_base64': image_base64
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @app.route('/api/upload/generate-metadata', methods=['POST'])
 def generate_metadata():
     """
