@@ -834,9 +834,9 @@ def upload_video_background(upload_id, video_path, thumbnail_path, title, descri
                 print(f"[UPLOAD]   - Recording date: {recording_date_for_update}")
 
             if video_location:
-                recording_details['location'] = {
-                    'description': video_location
-                }
+                # Note: locationDescription is deprecated but still accepted by YouTube API
+                # It should be a simple string, not nested in a 'location' object
+                recording_details['locationDescription'] = video_location
                 print(f"[UPLOAD]   - Video location: {video_location}")
 
             youtube_service.videos().update(
