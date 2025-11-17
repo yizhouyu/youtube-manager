@@ -392,8 +392,19 @@
             return;
         }
 
-        const mainText = document.getElementById('standalone-main-text').value.trim();
-        const filename = `thumbnail_${mainText.substring(0, 20).replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, '_')}_${Date.now()}.png`;
+        // Generate filename based on original image name
+        let filename = 'thumbnail.png';
+        if (standaloneImageFile && standaloneImageFile.name) {
+            const originalName = standaloneImageFile.name;
+            const lastDotIndex = originalName.lastIndexOf('.');
+            if (lastDotIndex > 0) {
+                const baseName = originalName.substring(0, lastDotIndex);
+                const extension = originalName.substring(lastDotIndex);
+                filename = `${baseName}_thumbnail${extension}`;
+            } else {
+                filename = `${originalName}_thumbnail.png`;
+            }
+        }
 
         const url = URL.createObjectURL(standaloneResultBlob);
         const a = document.createElement('a');
