@@ -352,7 +352,7 @@
 
             // Add position (convert percentage to decimal 0.0-1.0)
             const position = document.getElementById('standalone-position-slider').value;
-            formData.append('y_position', parseFloat(position) / 100);
+            formData.append('position', parseFloat(position) / 100);
 
             // Call API (reuse existing endpoint)
             const response = await fetch('/api/thumbnail/regenerate-with-text', {
