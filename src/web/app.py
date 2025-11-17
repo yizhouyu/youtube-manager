@@ -87,6 +87,12 @@ def swap_page():
     return render_template('swap.html')
 
 
+@app.route('/thumbnail')
+def thumbnail_page():
+    """Thumbnail text tool page."""
+    return render_template('thumbnail.html')
+
+
 @app.route('/api/analytics/dashboard', methods=['GET'])
 def get_analytics_dashboard():
     """

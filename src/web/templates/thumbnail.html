@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Add Text to Thumbnail - YouTube Manager{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h1 class="text-4xl font-bold text-gray-900">Add AI Text to Thumbnail</h1>
+        <p class="text-gray-600 mt-2">Add eye-catching text overlay to thumbnails for already-uploaded videos</p>
+    </div>
+
+    <!-- Thumbnail Tool -->
+    <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl shadow-lg p-8 border-2 border-indigo-200">
+        <!-- Step 1: Upload Image -->
+        <div id="standalone-step1" class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                1. Select Base Thumbnail Image
+            </label>
+            <div class="border-2 border-dashed border-indigo-300 rounded-lg p-6 text-center hover:border-indigo-500 transition cursor-pointer bg-white" onclick="document.getElementById('standalone-image-input').click()">
+                <svg class="w-10 h-10 text-indigo-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                <p class="text-gray-600 mb-1">Click to select a thumbnail image</p>
+                <p class="text-xs text-gray-500">JPG, PNG (1280x720 recommended)</p>
+                <input
+                    type="file"
+                    id="standalone-image-input"
+                    class="hidden"
+                    accept="image/*"
+                    onchange="handleStandaloneImageSelect(event)"
+                >
+            </div>
+            <div id="standalone-image-preview" class="hidden mt-4">
+                <img id="standalone-image-preview-img" src="" alt="Preview" class="w-full max-w-md mx-auto rounded-lg shadow-md border-2 border-gray-200">
+            </div>
+        </div>
+
+        <!-- Step 2: Enter Text -->
+        <div id="standalone-step2" class="mb-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    2. Enter Title and Subtitle
+                </label>
+                <input
+                    type="text"
+                    id="standalone-main-text"
+                    placeholder="Main Title (e.g., YouTube视频管理工具)"
+                    class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 mb-3"
+                >
+                <input
+                    type="text"
+                    id="standalone-subtitle"
+                    placeholder="Subtitle (optional, e.g., 完整使用教程)"
+                    class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500"
+                >
+            </div>
+
+            <!-- Position Control -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    3. Vertical Position (Optional)
+                </label>
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <button onclick="standaloneSetPosition(20)" class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition text-sm">Top (20%)</button>
+                    <button onclick="standaloneSetPosition(40)" class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition text-sm">Upper (40%)</button>
+                    <button onclick="standaloneSetPosition(60)" class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition text-sm">Lower (60%)</button>
+                    <button onclick="standaloneSetPosition(80)" class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition text-sm">Bottom (80%)</button>
+                </div>
+                <div>
+                    <input
+                        type="range"
+                        id="standalone-position-slider"
+                        min="10"
+                        max="90"
+                        value="50"
+                        class="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer"
+                        oninput="updateStandalonePositionPreview(this.value)"
+                    >
+                    <p class="text-xs text-gray-500 text-center mt-1">Custom: <span id="standalone-position-value">50</span>% from top</p>
+                </div>
+            </div>
+
+            <!-- Generate Button -->
+            <button
+                id="standalone-generate-btn"
+                onclick="generateStandaloneThumbnail()"
+                class="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition font-medium text-lg"
+            >
+                ✨ Generate Thumbnail with Text
+            </button>
+        </div>
+
+        <!-- Step 3: Preview and Download -->
+        <div id="standalone-result" class="hidden">
+            <div class="border-t border-indigo-200 pt-6 mt-6">
+                <h3 class="text-lg font-bold text-gray-900 mb-4">Generated Thumbnail:</h3>
+
+                <!-- Loading State -->
+                <div id="standalone-loading" class="text-center py-12 hidden">
+                    <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto mb-4"></div>
+                    <p class="text-lg font-medium text-gray-900">Generating thumbnail...</p>
+                </div>
+
+                <!-- Result Preview -->
+                <div id="standalone-preview" class="hidden">
+                    <img id="standalone-result-img" src="" alt="Generated thumbnail" class="w-full max-w-2xl mx-auto rounded-lg shadow-lg border-2 border-indigo-300 mb-4">
+
+                    <div class="flex justify-center space-x-4">
+                        <button
+                            id="standalone-download-btn"
+                            onclick="downloadStandaloneThumbnail()"
+                            class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-medium"
+                        >
+                            📥 Download Thumbnail
+                        </button>
+                        <button
+                            onclick="resetStandaloneTool()"
+                            class="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition font-medium"
+                        >
+                            🔄 Create Another
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Error State -->
+                <div id="standalone-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p class="text-red-700"><span id="standalone-error-message"></span></p>
+                    <button onclick="generateStandaloneThumbnail()" class="mt-3 text-red-600 hover:text-red-800 font-medium">Try Again</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let standaloneImageFile = null;
+    let standaloneResultBlob = null;
+
+    function handleStandaloneImageSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            return;
+        }
+
+        standaloneImageFile = file;
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('standalone-image-preview-img').src = e.target.result;
+            document.getElementById('standalone-image-preview').classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function updateStandalonePositionPreview(value) {
+        document.getElementById('standalone-position-value').textContent = value;
+    }
+
+    function standaloneSetPosition(yPercent) {
+        const slider = document.getElementById('standalone-position-slider');
+        slider.value = yPercent;
+        updateStandalonePositionPreview(yPercent);
+    }
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        const bgColor = type === 'info' ? 'bg-blue-600' : type === 'success' ? 'bg-green-600' : 'bg-red-600';
+        toast.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-4 rounded-lg shadow-lg z-50 max-w-md`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 5000);
+    }
+
+    async function generateStandaloneThumbnail() {
+        try {
+            // Validation
+            if (!standaloneImageFile) {
+                alert('Please select a thumbnail image first');
+                return;
+            }
+
+            const mainText = document.getElementById('standalone-main-text').value.trim();
+            if (!mainText) {
+                alert('Please enter a title');
+                return;
+            }
+
+            // Show loading state
+            document.getElementById('standalone-result').classList.remove('hidden');
+            document.getElementById('standalone-loading').classList.remove('hidden');
+            document.getElementById('standalone-preview').classList.add('hidden');
+            document.getElementById('standalone-error').classList.add('hidden');
+            document.getElementById('standalone-generate-btn').disabled = true;
+
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('image', standaloneImageFile);
+            formData.append('main_text', mainText);
+
+            const subtitle = document.getElementById('standalone-subtitle').value.trim();
+            if (subtitle) {
+                formData.append('subtitle', subtitle);
+            }
+
+            // Auto-detect language from text (Chinese if contains Chinese characters, else English)
+            const hasChinese = /[\u4e00-\u9fff]/.test(mainText + subtitle);
+            formData.append('language', hasChinese ? 'zh-CN' : 'en');
+
+            const position = document.getElementById('standalone-position-slider').value;
+            formData.append('y_position', position);
+
+            // Call API (reuse existing endpoint)
+            const response = await fetch('/api/thumbnail/regenerate-with-text', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to generate thumbnail');
+            }
+
+            // Show result
+            document.getElementById('standalone-result-img').src = result.image_base64;
+            document.getElementById('standalone-loading').classList.add('hidden');
+            document.getElementById('standalone-preview').classList.remove('hidden');
+
+            // Store blob for download
+            standaloneResultBlob = await (await fetch(result.image_base64)).blob();
+
+            showToast('Thumbnail generated successfully!', 'success');
+
+        } catch (error) {
+            console.error('Error generating standalone thumbnail:', error);
+            document.getElementById('standalone-loading').classList.add('hidden');
+            document.getElementById('standalone-error-message').textContent = error.message || 'An unexpected error occurred';
+            document.getElementById('standalone-error').classList.remove('hidden');
+        } finally {
+            document.getElementById('standalone-generate-btn').disabled = false;
+        }
+    }
+
+    function downloadStandaloneThumbnail() {
+        if (!standaloneResultBlob) {
+            alert('No thumbnail to download');
+            return;
+        }
+
+        const mainText = document.getElementById('standalone-main-text').value.trim();
+        const filename = `thumbnail_${mainText.substring(0, 20).replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, '_')}_${Date.now()}.png`;
+
+        const url = URL.createObjectURL(standaloneResultBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast('Thumbnail downloaded!', 'success');
+    }
+
+    function resetStandaloneTool() {
+        // Reset form
+        document.getElementById('standalone-image-input').value = '';
+        document.getElementById('standalone-main-text').value = '';
+        document.getElementById('standalone-subtitle').value = '';
+        document.getElementById('standalone-position-slider').value = 50;
+        document.getElementById('standalone-position-value').textContent = '50';
+
+        // Hide previews
+        document.getElementById('standalone-image-preview').classList.add('hidden');
+        document.getElementById('standalone-result').classList.add('hidden');
+
+        // Reset state
+        standaloneImageFile = null;
+        standaloneResultBlob = null;
+
+        showToast('Ready for a new thumbnail!', 'info');
+    }
+</script>
+{% endblock %}
