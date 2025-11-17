@@ -56,10 +56,64 @@
                 >
             </div>
 
+            <!-- Color Selection -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    3. Text Colors
+                </label>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Text Color</label>
+                        <div class="flex items-center space-x-2">
+                            <input
+                                type="color"
+                                id="standalone-text-color"
+                                value="#FFFFFF"
+                                class="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                            >
+                            <input
+                                type="text"
+                                id="standalone-text-color-hex"
+                                value="#FFFFFF"
+                                placeholder="#FFFFFF"
+                                class="flex-1 border border-gray-300 rounded-lg p-2 text-sm font-mono"
+                                oninput="updateColorPicker('text', this.value)"
+                            >
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Outline Color</label>
+                        <div class="flex items-center space-x-2">
+                            <input
+                                type="color"
+                                id="standalone-outline-color"
+                                value="#000000"
+                                class="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                            >
+                            <input
+                                type="text"
+                                id="standalone-outline-color-hex"
+                                value="#000000"
+                                placeholder="#000000"
+                                class="flex-1 border border-gray-300 rounded-lg p-2 text-sm font-mono"
+                                oninput="updateColorPicker('outline', this.value)"
+                            >
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button onclick="setColorPreset('#FFFFFF', '#000000')" class="px-3 py-1 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 transition">White/Black</button>
+                    <button onclick="setColorPreset('#FFFF00', '#FF6600')" class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded text-xs hover:bg-yellow-200 transition">Yellow/Orange</button>
+                    <button onclick="setColorPreset('#00FFFF', '#0066FF')" class="px-3 py-1 bg-cyan-100 text-cyan-700 rounded text-xs hover:bg-cyan-200 transition">Cyan/Blue</button>
+                    <button onclick="setColorPreset('#FF69B4', '#8B008B')" class="px-3 py-1 bg-pink-100 text-pink-700 rounded text-xs hover:bg-pink-200 transition">Pink/Purple</button>
+                    <button onclick="setColorPreset('#00FF00', '#006400')" class="px-3 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 transition">Green/Dark Green</button>
+                </div>
+            </div>
+
             <!-- Position Control -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    3. Vertical Position (Optional)
+                    4. Vertical Position (Optional)
                 </label>
                 <div class="flex flex-wrap gap-2 mb-3">
                     <button onclick="standaloneSetPosition(20)" class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition text-sm">Top (20%)</button>
@@ -169,6 +223,45 @@
         updateStandalonePositionPreview(yPercent);
     }
 
+    // Color management functions
+    function updateColorPicker(type, hexValue) {
+        // Validate hex format
+        if (/^#[0-9A-F]{6}$/i.test(hexValue)) {
+            if (type === 'text') {
+                document.getElementById('standalone-text-color').value = hexValue;
+            } else if (type === 'outline') {
+                document.getElementById('standalone-outline-color').value = hexValue;
+            }
+        }
+    }
+
+    function setColorPreset(textColor, outlineColor) {
+        document.getElementById('standalone-text-color').value = textColor;
+        document.getElementById('standalone-text-color-hex').value = textColor;
+        document.getElementById('standalone-outline-color').value = outlineColor;
+        document.getElementById('standalone-outline-color-hex').value = outlineColor;
+    }
+
+    // Sync color picker with hex input
+    document.addEventListener('DOMContentLoaded', function() {
+        const textColorPicker = document.getElementById('standalone-text-color');
+        const textColorHex = document.getElementById('standalone-text-color-hex');
+        const outlineColorPicker = document.getElementById('standalone-outline-color');
+        const outlineColorHex = document.getElementById('standalone-outline-color-hex');
+
+        if (textColorPicker && textColorHex) {
+            textColorPicker.addEventListener('input', function() {
+                textColorHex.value = this.value.toUpperCase();
+            });
+        }
+
+        if (outlineColorPicker && outlineColorHex) {
+            outlineColorPicker.addEventListener('input', function() {
+                outlineColorHex.value = this.value.toUpperCase();
+            });
+        }
+    });
+
     function showToast(message, type = 'info') {
         const toast = document.createElement('div');
         const bgColor = type === 'info' ? 'bg-blue-600' : type === 'success' ? 'bg-green-600' : 'bg-red-600';
@@ -213,8 +306,15 @@
             const hasChinese = /[\u4e00-\u9fff]/.test(mainText + subtitle);
             formData.append('language', hasChinese ? 'zh-CN' : 'en');
 
+            // Add color parameters
+            const textColor = document.getElementById('standalone-text-color-hex').value;
+            const outlineColor = document.getElementById('standalone-outline-color-hex').value;
+            formData.append('text_color', textColor);
+            formData.append('outline_color', outlineColor);
+
+            // Add position (convert percentage to decimal 0.0-1.0)
             const position = document.getElementById('standalone-position-slider').value;
-            formData.append('y_position', position);
+            formData.append('y_position', parseFloat(position) / 100);
 
             // Call API (reuse existing endpoint)
             const response = await fetch('/api/thumbnail/regenerate-with-text', {
@@ -276,6 +376,12 @@
         document.getElementById('standalone-subtitle').value = '';
         document.getElementById('standalone-position-slider').value = 50;
         document.getElementById('standalone-position-value').textContent = '50';
+
+        // Reset colors to defaults
+        document.getElementById('standalone-text-color').value = '#FFFFFF';
+        document.getElementById('standalone-text-color-hex').value = '#FFFFFF';
+        document.getElementById('standalone-outline-color').value = '#000000';
+        document.getElementById('standalone-outline-color-hex').value = '#000000';
 
         // Hide previews
         document.getElementById('standalone-image-preview').classList.add('hidden');
