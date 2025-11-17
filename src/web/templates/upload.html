@@ -118,7 +118,7 @@
                 <!-- AI Thumbnail Generation Option -->
                 <div class="mt-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
                     <label class="flex items-start cursor-pointer mb-3">
-                        <input type="checkbox" id="ai-thumbnail-enabled" class="mt-1 mr-3 rounded" onchange="toggleAIThumbnail()">
+                        <input type="checkbox" id="ai-thumbnail-enabled" class="mt-1 mr-3 rounded" checked onchange="toggleAIThumbnail()">
                         <div>
                             <span class="font-medium text-gray-900">
                                 ✨ Generate AI-Powered Thumbnail
@@ -673,9 +673,9 @@
                         Privacy Status
                     </label>
                     <select id="privacy-status" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500">
-                        <option value="private" selected>Private (Only you can see)</option>
+                        <option value="private">Private (Only you can see)</option>
                         <option value="unlisted">Unlisted (Anyone with link)</option>
-                        <option value="public">Public (Everyone can see)</option>
+                        <option value="public" selected>Public (Everyone can see)</option>
                     </select>
                 </div>
 
