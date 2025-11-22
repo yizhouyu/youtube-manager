@@ -4,21 +4,21 @@ google-auth-oauthlib==1.2.1
 google-auth-httplib2==0.2.0
 
 # Anthropic Claude API
-anthropic>=0.40.0
+anthropic>=0.38.0
 
 # CLI
 click==8.1.7
 rich>=13.0.0
 
 # Web UI
-flask==3.0.0
-werkzeug==3.0.1
+flask>=2.2.0
+werkzeug>=2.2.0
 
 # Environment variables
-python-dotenv>=1.0.0
+python-dotenv>=0.21.0
 
 # Utilities
 requests>=2.31.0
 
 # Image Processing
-pillow>=10.0.0
+pillow>=9.0.0

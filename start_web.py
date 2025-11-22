@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env /usr/local/bin/python3.11
 """Startup script for YouTube Manager Web UI."""
 
 import os
