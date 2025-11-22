@@ -13,32 +13,35 @@ YouTube Manager is a Python tool (CLI + Web UI) designed to optimize video metad
 ## Architecture
 
 **Tech Stack:**
-- Python 3.9+
+- Python 3.11+ (required for latest dependencies)
 - YouTube Data API v3 (OAuth2)
-- Anthropic Claude API
+- Anthropic Claude API (>=0.38.0)
 - **CLI**: Click (CLI framework), Rich (terminal UI)
 - **Web UI**: Flask (web framework), Tailwind CSS (styling)
+- **Image Processing**: Pillow (thumbnail generation)
 
 **Project Structure:**
 ```
 youtube_manager/
 ├── src/
-│   ├── auth/              # YouTube OAuth2 authentication
+│   ├── auth/                   # YouTube OAuth2 authentication
 │   │   └── youtube_auth.py
-│   ├── youtube_client/    # YouTube API client for video operations
+│   ├── youtube_client/         # YouTube API client for video operations
 │   │   └── client.py
-│   ├── seo_optimizer/     # Claude API-powered bilingual metadata generator
+│   ├── seo_optimizer/          # Claude API-powered bilingual metadata generator
 │   │   └── optimizer.py
-│   ├── bilibili_client/   # Bilibili API integration
+│   ├── thumbnail_generator/    # AI thumbnail text overlay generator
+│   │   └── generator.py
+│   ├── bilibili_client/        # Bilibili API integration
 │   │   └── client.py
-│   ├── analytics/         # Analytics tracking & reporting
+│   ├── analytics/              # Analytics tracking & reporting
 │   │   ├── tracker.py
 │   │   └── reporter.py
-│   ├── cli/               # CLI commands and UI
+│   ├── cli/                    # CLI commands and UI
 │   │   └── main.py
-│   └── web/               # Web UI (Flask)
-│       ├── app.py         # Flask application & API endpoints
-│       └── templates/     # HTML templates (Jinja2 + Tailwind CSS)
+│   └── web/                    # Web UI (Flask)
+│       ├── app.py              # Flask application & API endpoints
+│       └── templates/          # HTML templates (Jinja2 + Tailwind CSS)
 │           ├── base.html
 │           ├── index.html
 │           ├── analytics.html
@@ -57,10 +60,13 @@ youtube_manager/
 
 **1. Install dependencies:**
 ```bash
-python3 -m venv venv
+# Requires Python 3.11+
+python3.11 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
+
+**Note**: Python 3.11+ is required. The default system Python (3.7) is too old for modern dependencies.
 
 **2. Configure API credentials:**
 - Copy `.env.example` to `.env`
@@ -81,9 +87,9 @@ python start_web.py
 ```
 
 Then open your browser to:
-- **Home**: http://localhost:5000
-- **Analytics Dashboard**: http://localhost:5000/analytics
-- **Upload Video**: http://localhost:5000/upload
+- **Home**: http://localhost:5001
+- **Analytics Dashboard**: http://localhost:5001/analytics
+- **Upload Video**: http://localhost:5001/upload
 
 **Web UI Features:**
 1. **Analytics Dashboard**:
@@ -94,10 +100,14 @@ Then open your browser to:
    - Underperforming video identification
 
 2. **Video Upload Workflow**:
-   - **Step 1**: Select video file + thumbnail from your export folder
-   - **Step 2**: Describe video content → AI generates SEO-optimized metadata
-   - **Step 3**: Review/edit metadata → Upload directly to YouTube
-   - Automatic thumbnail upload
+   - **Step 1**: Select video file + thumbnail, describe content
+   - **Step 2**: AI generates 3 thumbnail options with text overlays (optional)
+     - Claude analyzes video and creates compelling bilingual text
+     - Choose from 3 design variations
+     - Customize text position, size, and content
+     - Supports Chinese and English text
+   - **Step 3**: AI generates SEO-optimized metadata (3 options)
+   - **Step 4**: Review/edit metadata → Upload directly to YouTube
    - Bilingual title & description generation
    - Smart tag and hashtag suggestions
 
@@ -169,6 +179,14 @@ python youtube_manager.py new-video --topic "北京旅游攻略" --locations "�
 - Batch processing with parallel SEO generation
 - Rate limiting for Claude API
 
+**src/thumbnail_generator/generator.py:**
+- `ThumbnailGenerator` class for AI-powered thumbnail text overlays
+- `generate_thumbnail_text()`: Uses Claude API to generate compelling bilingual text
+- `add_text_to_image()`: Adds text overlay with customizable position, size, color
+- `generate_multiple_thumbnails()`: Creates 3 design variations
+- Supports Chinese and English text with appropriate fonts
+- Customizable text positioning (top, center, bottom) and sizing
+
 **src/web/app.py:**
 - Flask web application with REST API endpoints
 - Three main routes:
@@ -177,9 +195,10 @@ python youtube_manager.py new-video --topic "北京旅游攻略" --locations "�
   - `/upload` - Video upload workflow
 - API endpoints:
   - `GET /api/analytics/dashboard` - Fetch channel analytics data
+  - `POST /api/thumbnail/generate` - Generate AI thumbnail text overlays
   - `POST /api/upload/generate-metadata` - Generate SEO metadata via Claude API
   - `POST /api/upload/video` - Upload video + thumbnail to YouTube
-- Reuses existing auth, SEO optimizer, and analytics components
+- Reuses existing auth, SEO optimizer, analytics, and thumbnail generator components
 
 ## Development Notes
 
