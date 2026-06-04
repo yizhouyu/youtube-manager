@@ -59,3 +59,6 @@ bilibili_matches.json
 .DS_Store
 Thumbs.db
 .DS_Store
+
+# Publish-video session working dirs (user media)
+sessions/

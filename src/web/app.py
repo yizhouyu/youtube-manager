@@ -13,10 +13,11 @@ from werkzeug.utils import secure_filename
 
 from src.auth.youtube_auth import YouTubeAuthenticator
 from src.youtube_client.client import YouTubeClient
-from src.seo_optimizer.optimizer import BilingualSEOOptimizer
 from src.analytics.tracker import AnalyticsTracker
 from src.analytics.reporter import AnalyticsReporter
-from src.thumbnail_generator.generator import ThumbnailGenerator
+from src.thumbnail_generator.compositor import render_session
+from src.uploader import start_upload
+from src.uploader.uploader import upload_progress  # shared progress registry
 
 
 # Global YouTube service - initialize once and reuse
@@ -54,8 +55,9 @@ app.secret_key = os.urandom(24)
 ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'mov', 'avi', 'mkv', 'webm'}
 ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp'}
 
-# Global dictionary to store upload progress by session
-upload_progress = {}
+# Where the publish-video skill writes session dirs (session.json + thumb_N.jpg).
+SESSIONS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))), 'sessions')
 
 
 def allowed_file(filename, allowed_extensions):
@@ -76,21 +78,16 @@ def analytics_page():
 
 
 @app.route('/upload')
-def upload_page():
-    """Video upload page."""
-    return render_template('upload.html')
+@app.route('/review')
+def review_page():
+    """Review & publish page (fed by the publish-video skill's sessions)."""
+    return render_template('review.html')
 
 
 @app.route('/swap')
 def swap_page():
     """Video swap page."""
     return render_template('swap.html')
-
-
-@app.route('/thumbnail')
-def thumbnail_page():
-    """Thumbnail text tool page."""
-    return render_template('thumbnail.html')
 
 
 @app.route('/api/analytics/dashboard', methods=['GET'])
@@ -249,697 +246,6 @@ def get_playlists():
         socket.setdefaulttimeout(None)
 
 
-@app.route('/api/thumbnail/generate', methods=['POST'])
-def generate_thumbnail():
-    """
-    Generate 3 AI-powered thumbnail options with text overlays.
-
-    Expected multipart form data:
-    - image: image file
-    - title: video title
-    - description: video description (optional)
-    - location: video location (optional)
-    - position: manual position override (optional: top/center/bottom)
-    - cached_suggestions: JSON string with cached text suggestions (optional)
-
-    Returns:
-        JSON with 3 thumbnail options (base64 encoded images + text details)
-    """
-    try:
-        if 'image' not in request.files:
-            return jsonify({
-                'success': False,
-                'error': 'No image file provided'
-            }), 400
-
-        image_file = request.files['image']
-        title = request.form.get('title', '')
-        description = request.form.get('description', '')
-        location = request.form.get('location', None)
-        language = request.form.get('language', 'zh-CN')  # Default to Simplified Chinese
-        manual_position_str = request.form.get('position', None)  # Manual position override
-        manual_text_size_str = request.form.get('text_size', None)  # Manual text size override
-        cached_suggestions_str = request.form.get('cached_suggestions', None)
-
-        print(f"[DEBUG] Received language parameter: {language}")
-
-        # Parse manual position (can be "top"/"center"/"bottom" or numeric 0.0-1.0)
-        manual_position = None
-        if manual_position_str:
-            try:
-                # Try to parse as float first
-                manual_position = float(manual_position_str)
-            except ValueError:
-                # If not a number, use as string ("top", "center", "bottom")
-                manual_position = manual_position_str
-
-        # Parse manual text size (60-180 pixels)
-        manual_text_size = None
-        if manual_text_size_str:
-            try:
-                manual_text_size = int(manual_text_size_str)
-                # Clamp to valid range
-                manual_text_size = max(60, min(180, manual_text_size))
-            except ValueError:
-                manual_text_size = None
-
-        if not title:
-            return jsonify({
-                'success': False,
-                'error': 'Title is required'
-            }), 400
-
-        # Save image temporarily
-        from io import BytesIO
-        image_data = BytesIO(image_file.read())
-
-        generator = ThumbnailGenerator()
-
-        # If cached suggestions provided (repositioning/resizing case), skip text generation
-        if cached_suggestions_str and (manual_position or manual_text_size):
-            try:
-                cached_suggestions = json.loads(cached_suggestions_str)
-                print(f"[INFO] Using cached text suggestions for repositioning to {manual_position} with size {manual_text_size}")
-
-                # Reuse existing text suggestions, only regenerate image overlays
-                options = generator.generate_thumbnail_options_with_cached_text(
-                    image_path=image_data,
-                    cached_suggestions=cached_suggestions,
-                    manual_position=manual_position,
-                    manual_text_size=manual_text_size
-                )
-
-                return jsonify({
-                    'success': True,
-                    'options': options,
-                    'used_cache': True
-                })
-            except Exception as cache_error:
-                print(f"[WARN] Failed to use cached suggestions: {cache_error}, falling back to full generation")
-                # Fall through to full generation
-
-        # Full generation (first time or cache failed)
-        options = generator.generate_thumbnail_options(
-            image_path=image_data,
-            title=title,
-            description=description or title,
-            location=location,
-            language=language,
-            manual_position=manual_position,
-            manual_text_size=manual_text_size
-        )
-
-        return jsonify({
-            'success': True,
-            'options': options,
-            'used_cache': False
-        })
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/thumbnail/regenerate-with-text', methods=['POST'])
-def regenerate_thumbnail_with_text():
-    """
-    Regenerate a single thumbnail with custom text (for editing).
-
-    Expected multipart form data:
-    - image: image file
-    - main_text: custom main text
-    - subtitle: custom subtitle (optional)
-    - text_color: hex color for text (optional, default: #FFFFFF)
-    - outline_color: hex color for outline (optional, default: #000000)
-    - position: text position (optional: top/center/bottom or 0.0-1.0)
-    - text_size: text size in pixels (optional: 60-180)
-
-    Returns:
-        JSON with regenerated thumbnail (base64 encoded image)
-    """
-    try:
-        if 'image' not in request.files:
-            return jsonify({
-                'success': False,
-                'error': 'No image file provided'
-            }), 400
-
-        image_file = request.files['image']
-        main_text = request.form.get('main_text', '')
-        subtitle = request.form.get('subtitle', '')
-        text_color = request.form.get('text_color', '#FFFFFF')
-        outline_color = request.form.get('outline_color', '#000000')
-        position_str = request.form.get('position', 'center')
-        text_size_str = request.form.get('text_size', '120')
-
-        if not main_text:
-            return jsonify({
-                'success': False,
-                'error': 'Main text is required'
-            }), 400
-
-        # Parse position
-        position = None
-        if position_str:
-            try:
-                # Try to parse as float first
-                position = float(position_str)
-            except ValueError:
-                # If not a number, use as string ("top", "center", "bottom")
-                position = position_str
-
-        # Parse text size
-        try:
-            text_size = int(text_size_str)
-            text_size = max(60, min(180, text_size))  # Clamp to valid range
-        except ValueError:
-            text_size = 120  # Default
-
-        # Convert hex colors to RGB tuples
-        def hex_to_rgb(hex_color):
-            """Convert hex color (#RRGGBB) to RGB tuple (R, G, B)"""
-            hex_color = hex_color.lstrip('#')
-            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-
-        text_color_rgb = hex_to_rgb(text_color)
-        outline_color_rgb = hex_to_rgb(outline_color)
-
-        # Save image temporarily
-        from io import BytesIO
-        import base64
-        image_data = BytesIO(image_file.read())
-
-        generator = ThumbnailGenerator()
-
-        # Generate single thumbnail with custom text
-        result_image = generator.add_text_to_image(
-            image_path=image_data,
-            main_text=main_text,
-            subtitle=subtitle,
-            output_path=None,  # Return BytesIO
-            font_size_main=text_size,
-            font_size_subtitle=text_size // 2,
-            text_color=text_color_rgb,
-            outline_color=outline_color_rgb,
-            outline_width=10,
-            position=position
-        )
-
-        # Convert to base64 for web display
-        result_image.seek(0)
-        image_base64_data = base64.b64encode(result_image.read()).decode('utf-8')
-        image_base64 = f"data:image/jpeg;base64,{image_base64_data}"
-
-        return jsonify({
-            'success': True,
-            'image_base64': image_base64
-        })
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/upload/generate-metadata', methods=['POST'])
-def generate_metadata():
-    """
-    Generate multiple SEO-optimized metadata options for a new video.
-
-    Expected JSON body:
-    {
-        "videoDescription": "What you talked about in the video",
-        "locations": "Optional: locations featured",
-        "numOptions": 3  // Optional: number of options to generate
-    }
-
-    Returns:
-        JSON with multiple metadata options
-    """
-    try:
-        data = request.get_json()
-        video_description = data.get('videoDescription', '')
-        locations = data.get('locations', '')
-        num_options = data.get('numOptions', 3)
-
-        if not video_description:
-            return jsonify({
-                'success': False,
-                'error': 'Video description is required'
-            }), 400
-
-        # Initialize SEO optimizer
-        optimizer = BilingualSEOOptimizer()
-
-        # Generate multiple metadata options
-        result = optimizer.generate_multiple_options(
-            topic=video_description,
-            locations=locations if locations else None,
-            num_options=num_options
-        )
-
-        return jsonify({
-            'success': True,
-            'options': result.get('options', [])
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/upload/start', methods=['POST'])
-def start_upload():
-    """
-    Start video upload in background thread and return upload ID.
-
-    Returns:
-        JSON with upload_id for progress tracking
-    """
-    try:
-        # Validate files
-        if 'videoFile' not in request.files:
-            return jsonify({
-                'success': False,
-                'error': 'No video file provided'
-            }), 400
-
-        video_file = request.files['videoFile']
-        thumbnail_file = request.files.get('thumbnailFile')
-
-        if video_file.filename == '':
-            return jsonify({
-                'success': False,
-                'error': 'No video file selected'
-            }), 400
-
-        if not allowed_file(video_file.filename, ALLOWED_VIDEO_EXTENSIONS):
-            return jsonify({
-                'success': False,
-                'error': 'Invalid video file format'
-            }), 400
-
-        if thumbnail_file and not allowed_file(thumbnail_file.filename, ALLOWED_IMAGE_EXTENSIONS):
-            return jsonify({
-                'success': False,
-                'error': 'Invalid thumbnail file format'
-            }), 400
-
-        # Get metadata
-        title = request.form.get('title')
-        description = request.form.get('description')
-        tags = json.loads(request.form.get('tags', '[]'))
-        hashtags = json.loads(request.form.get('hashtags', '[]'))
-        privacy_status = request.form.get('privacyStatus', 'private')
-        publish_at = request.form.get('publishAt')  # ISO 8601 format
-        recording_date = request.form.get('recordingDate')  # YYYY-MM-DD format
-        playlist_id = request.form.get('playlistId')  # Optional playlist ID
-        video_location = request.form.get('videoLocation')  # Video location from step 1
-
-        if not title or not description:
-            return jsonify({
-                'success': False,
-                'error': 'Title and description are required'
-            }), 400
-
-        # Save files temporarily
-        video_filename = secure_filename(video_file.filename)
-        video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
-        video_file.save(video_path)
-
-        thumbnail_path = None
-        if thumbnail_file:
-            thumbnail_filename = secure_filename(thumbnail_file.filename)
-            thumbnail_path = os.path.join(app.config['UPLOAD_FOLDER'], thumbnail_filename)
-            thumbnail_file.save(thumbnail_path)
-
-        # Generate unique upload ID
-        upload_id = str(uuid.uuid4())
-
-        # Get file size for progress tracking
-        file_size = os.path.getsize(video_path)
-
-        # Calculate initial time estimate based on file size
-        # Assume average upload speed of 5 Mbps (conservative estimate)
-        avg_upload_speed_mbps = 5
-        bytes_per_second = (avg_upload_speed_mbps * 1024 * 1024) / 8  # Convert Mbps to bytes/sec
-        estimated_seconds = int((file_size / bytes_per_second) * 1.3)  # Add 30% buffer for processing
-
-        # Initialize progress tracking
-        upload_progress[upload_id] = {
-            'status': 'starting',
-            'progress': 0,
-            'stage': 'Preparing upload...',
-            'phase': 'preparing',
-            'file_size': file_size,
-            'bytes_uploaded': 0,
-            'start_time': time.time(),
-            'error': None,
-            'video_id': None,
-            'video_url': None,
-            'estimated_total_seconds': estimated_seconds,
-            'current_speed_mbps': None
-        }
-
-        # Start upload in background thread
-        thread = threading.Thread(
-            target=upload_video_background,
-            args=(upload_id, video_path, thumbnail_path, title, description,
-                  tags, hashtags, privacy_status, publish_at, recording_date, playlist_id, video_location)
-        )
-        thread.daemon = True
-        thread.start()
-
-        return jsonify({
-            'success': True,
-            'upload_id': upload_id
-        })
-
-    except Exception as e:
-        # Clean up files on error
-        if 'video_path' in locals() and os.path.exists(video_path):
-            os.remove(video_path)
-        if 'thumbnail_path' in locals() and thumbnail_path and os.path.exists(thumbnail_path):
-            os.remove(thumbnail_path)
-
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-def upload_video_background(upload_id, video_path, thumbnail_path, title, description,
-                           tags, hashtags, privacy_status, publish_at, recording_date, playlist_id, video_location):
-    """
-    Background thread function to upload video to YouTube with progress tracking.
-    """
-    import traceback
-    try:
-        file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
-        print(f"[UPLOAD] Started upload {upload_id}")
-        print(f"[UPLOAD] Video: {os.path.basename(video_path)} ({file_size_mb:.1f} MB)")
-        print(f"[UPLOAD] Thumbnail: {os.path.basename(thumbnail_path) if thumbnail_path else 'None'}")
-        print(f"[UPLOAD] Title: {title}")
-        print(f"[UPLOAD] Privacy: {privacy_status}")
-        if recording_date:
-            print(f"[UPLOAD] Recording date: {recording_date}")
-        if publish_at:
-            print(f"[UPLOAD] Scheduled publish: {publish_at}")
-        if playlist_id:
-            print(f"[UPLOAD] Playlist: {playlist_id}")
-
-        # Prepend hashtags to description (first 3 hashtags appear above video)
-        hashtag_str = ' '.join(hashtags[:5])  # Use up to 5 hashtags
-        full_description = f"{hashtag_str}\n\n{description}"
-
-        # Upload to YouTube
-        print(f"[UPLOAD] Authenticating with YouTube API...")
-        youtube_service = get_authenticated_service()
-
-        # Prepare video metadata
-        body = {
-            'snippet': {
-                'title': title,
-                'description': full_description,
-                'tags': tags,
-                'categoryId': '19',  # Travel & Events category
-                'defaultLanguage': 'zh-CN',  # Chinese (China) - for video language
-                'defaultAudioLanguage': 'zh-CN',  # Chinese (China) - for audio language
-            },
-            'status': {
-                'privacyStatus': privacy_status,
-                'selfDeclaredMadeForKids': False,
-            }
-        }
-
-        # Note: recordingDetails must be set AFTER upload, not during insert
-        # Store recording_date for later use
-        recording_date_for_update = recording_date
-
-        # Add scheduled publish time if provided
-        if publish_at:
-            body['status']['publishAt'] = publish_at
-            body['status']['privacyStatus'] = 'private'
-
-        # Upload video using YouTube API with progress tracking
-        from googleapiclient.http import MediaFileUpload
-
-        media = MediaFileUpload(
-            video_path,
-            mimetype='video/*',
-            resumable=True,
-            chunksize=1024*1024*5  # 5MB chunks for better progress updates
-        )
-
-        request_upload = youtube_service.videos().insert(
-            part='snippet,status',
-            body=body,
-            media_body=media
-        )
-
-        print(f"[UPLOAD] Starting resumable upload (chunk size: 5MB)...")
-        upload_progress[upload_id]['status'] = 'uploading'
-        upload_progress[upload_id]['phase'] = 'uploading'
-        upload_progress[upload_id]['stage'] = 'Uploading video to YouTube...'
-
-        response = None
-        last_update_time = time.time()
-        last_bytes_uploaded = 0
-        last_progress_change_time = time.time()
-        retry_count = 0
-        max_retries = 5
-        stall_timeout = 60  # 60 seconds without progress = stalled
-        progress_stall_timeout = 120  # 120 seconds without progress change = stalled
-
-        while response is None:
-            try:
-                # Set socket timeout for this chunk
-                import socket
-                socket.setdefaulttimeout(stall_timeout)
-
-                chunk_start_time = time.time()
-                status, response = request_upload.next_chunk()
-
-                # Reset retry count on successful chunk
-                retry_count = 0
-
-            except Exception as chunk_error:
-                error_msg = str(chunk_error)
-                print(f"[UPLOAD] Chunk upload error: {error_msg}")
-
-                # Check if it's a client error (4xx) - these are NOT recoverable
-                is_client_error = 'HttpError 4' in error_msg
-
-                # Check if it's a recoverable error (timeout, connection reset, server errors)
-                is_recoverable = any(keyword in error_msg.lower() for keyword in
-                                    ['timeout', 'timed out', 'connection', 'reset', 'broken pipe']) or \
-                                'HttpError 5' in error_msg  # 5xx server errors are retryable
-
-                if is_client_error:
-                    # Client errors (400-499) are not retryable - fail immediately
-                    print(f"[UPLOAD] Client error (4xx) - not retryable, failing immediately")
-                    raise chunk_error
-
-                retry_count += 1
-
-                if is_recoverable and retry_count <= max_retries:
-                    backoff_seconds = 2 ** retry_count
-                    print(f"[UPLOAD] Recoverable error, retry {retry_count}/{max_retries} (backoff: {backoff_seconds}s)")
-                    upload_progress[upload_id]['stage'] = f'Connection issue, retrying... ({retry_count}/{max_retries})'
-                    time.sleep(backoff_seconds)  # Exponential backoff: 2, 4, 8, 16, 32 seconds
-                    continue
-                else:
-                    # Non-recoverable error or max retries exceeded
-                    print(f"[UPLOAD] Max retries exceeded or non-recoverable error")
-                    raise Exception(f"Upload failed after {retry_count} retries: {error_msg}")
-
-            if status:
-                progress_pct = int(status.progress() * 100)
-                bytes_uploaded = int(status.progress() * upload_progress[upload_id]['file_size'])
-
-                # Detect progress stalls
-                if bytes_uploaded > last_bytes_uploaded:
-                    last_progress_change_time = time.time()
-                elif time.time() - last_progress_change_time > progress_stall_timeout:
-                    stall_duration = int(time.time() - last_progress_change_time)
-                    print(f"[UPLOAD] Progress stalled for {stall_duration}s at {progress_pct}% - failing")
-                    raise Exception(f"Upload stalled - no progress for {progress_stall_timeout} seconds")
-
-                # Map progress to phases with stage descriptions
-                if progress_pct < 5:
-                    phase = 'preparing'
-                    stage = 'Initializing upload to YouTube...'
-                elif progress_pct < 90:
-                    phase = 'uploading'
-                    stage = f'Uploading video to YouTube... ({progress_pct}%)'
-                elif progress_pct < 95:
-                    phase = 'processing'
-                    stage = 'YouTube is processing your video...'
-                else:
-                    phase = 'uploading'
-                    stage = 'Finalizing video upload...'
-
-                upload_progress[upload_id]['progress'] = progress_pct
-                upload_progress[upload_id]['bytes_uploaded'] = bytes_uploaded
-                upload_progress[upload_id]['phase'] = phase
-                upload_progress[upload_id]['stage'] = stage
-
-                # Calculate current upload speed (update every 2 seconds to reduce jitter)
-                current_time = time.time()
-                time_diff = current_time - last_update_time
-
-                if time_diff >= 2.0 and progress_pct > 5:  # Start speed calc after initial setup
-                    bytes_diff = bytes_uploaded - last_bytes_uploaded
-                    speed_mbps = (bytes_diff * 8) / (time_diff * 1024 * 1024)  # Convert to Mbps
-                    upload_progress[upload_id]['current_speed_mbps'] = round(speed_mbps, 1)
-                    last_update_time = current_time
-                    last_bytes_uploaded = bytes_uploaded
-
-                # Calculate time remaining with improved algorithm
-                elapsed_time = time.time() - upload_progress[upload_id]['start_time']
-                if progress_pct > 5:  # More accurate after initial setup phase
-                    # Use actual progress rate, excluding the first 5% (slower due to setup)
-                    adjusted_progress = (progress_pct - 5) / 95  # Normalize to 0-1 range
-                    if adjusted_progress > 0:
-                        total_time = elapsed_time / adjusted_progress
-                        remaining_time = total_time - elapsed_time
-                        upload_progress[upload_id]['eta_seconds'] = int(remaining_time)
-                else:
-                    # Use initial estimate for first 5%
-                    upload_progress[upload_id]['eta_seconds'] = upload_progress[upload_id].get('estimated_total_seconds', 0)
-
-                # Log progress every 10% and major milestones
-                if progress_pct % 10 == 0 or progress_pct in [1, 5, 95, 99]:
-                    speed = upload_progress[upload_id].get('current_speed_mbps', 0)
-                    eta = upload_progress[upload_id].get('eta_seconds', 0)
-                    print(f"[UPLOAD] Progress: {progress_pct}% | {bytes_uploaded/(1024*1024):.1f}/{upload_progress[upload_id]['file_size']/(1024*1024):.1f} MB | Speed: {speed} Mbps | ETA: {eta}s")
-
-        video_id = response['id']
-        elapsed = time.time() - upload_progress[upload_id]['start_time']
-        print(f"[UPLOAD] Video uploaded successfully! ID: {video_id} (took {elapsed:.1f}s)")
-
-        # Update recording date and location if provided (must be done after upload, not during insert)
-        if recording_date_for_update or video_location:
-            print(f"[UPLOAD] Setting recording details...")
-            upload_progress[upload_id]['phase'] = 'metadata'
-            upload_progress[upload_id]['stage'] = 'Setting recording details...'
-            upload_progress[upload_id]['progress'] = 92
-
-            recording_details = {}
-            if recording_date_for_update:
-                recording_details['recordingDate'] = f"{recording_date_for_update}T12:00:00.0Z"
-                print(f"[UPLOAD]   - Recording date: {recording_date_for_update}")
-
-            if video_location:
-                # Note: locationDescription is deprecated but still accepted by YouTube API
-                # It should be a simple string, not nested in a 'location' object
-                recording_details['locationDescription'] = video_location
-                print(f"[UPLOAD]   - Video location: {video_location}")
-
-            youtube_service.videos().update(
-                part='recordingDetails',
-                body={
-                    'id': video_id,
-                    'recordingDetails': recording_details
-                }
-            ).execute()
-            print(f"[UPLOAD] Recording details set successfully")
-
-        # Upload thumbnail if provided
-        if thumbnail_path:
-            print(f"[UPLOAD] Uploading custom thumbnail...")
-            upload_progress[upload_id]['phase'] = 'thumbnail'
-            upload_progress[upload_id]['stage'] = 'Uploading custom thumbnail...'
-            upload_progress[upload_id]['progress'] = 95
-
-            youtube_service.thumbnails().set(
-                videoId=video_id,
-                media_body=MediaFileUpload(thumbnail_path)
-            ).execute()
-            print(f"[UPLOAD] Thumbnail uploaded successfully")
-
-        # Add to playlist(s) if specified
-        # Check if there are multiple playlists (from swap feature)
-        all_playlists = upload_progress[upload_id].get('all_playlist_ids', [])
-        if all_playlists:
-            # Use all playlists from the original video
-            playlists_to_add = all_playlists
-            print(f"[UPLOAD] Adding video to {len(playlists_to_add)} playlist(s) from original video")
-        elif playlist_id:
-            # Use single playlist specified
-            playlists_to_add = [playlist_id]
-        else:
-            playlists_to_add = []
-
-        if playlists_to_add:
-            upload_progress[upload_id]['phase'] = 'playlist'
-            upload_progress[upload_id]['progress'] = 98
-
-            for idx, pl_id in enumerate(playlists_to_add):
-                try:
-                    upload_progress[upload_id]['stage'] = f'Adding to playlist {idx + 1}/{len(playlists_to_add)}...'
-                    print(f"[UPLOAD] Adding video to playlist: {pl_id}")
-
-                    youtube_service.playlistItems().insert(
-                        part='snippet',
-                        body={
-                            'snippet': {
-                                'playlistId': pl_id,
-                                'resourceId': {
-                                    'kind': 'youtube#video',
-                                    'videoId': video_id
-                                }
-                            }
-                        }
-                    ).execute()
-                    print(f"[UPLOAD] Added to playlist {pl_id} successfully")
-                except Exception as playlist_error:
-                    print(f"[UPLOAD] Failed to add to playlist {pl_id}: {playlist_error}")
-                    # Continue with other playlists
-
-        # Mark as complete
-        total_time = time.time() - upload_progress[upload_id]['start_time']
-        print(f"[UPLOAD] Upload complete! Video ID: {video_id} | Total time: {total_time:.1f}s")
-        print(f"[UPLOAD] URL: https://www.youtube.com/watch?v={video_id}")
-
-        upload_progress[upload_id]['status'] = 'completed'
-        upload_progress[upload_id]['phase'] = 'complete'
-        upload_progress[upload_id]['progress'] = 100
-        upload_progress[upload_id]['stage'] = 'Upload complete!'
-        upload_progress[upload_id]['video_id'] = video_id
-        upload_progress[upload_id]['video_url'] = f'https://www.youtube.com/watch?v={video_id}'
-
-        # Clean up temporary files
-        print(f"[UPLOAD] Cleaning up temporary files...")
-        os.remove(video_path)
-        if thumbnail_path:
-            os.remove(thumbnail_path)
-
-    except Exception as e:
-        # Handle errors
-        print(f"[UPLOAD] Upload failed: {str(e)}")
-        print(f"[UPLOAD] Full traceback:")
-        traceback.print_exc()
-
-        upload_progress[upload_id]['status'] = 'error'
-        upload_progress[upload_id]['error'] = str(e)
-
-        # Clean up files on error
-        if os.path.exists(video_path):
-            os.remove(video_path)
-        if thumbnail_path and os.path.exists(thumbnail_path):
-            os.remove(thumbnail_path)
-
-
 @app.route('/api/upload/progress/<upload_id>', methods=['GET'])
 def get_upload_progress(upload_id):
     """
@@ -971,6 +277,169 @@ def get_upload_progress(upload_id):
         'video_id': progress_data.get('video_id'),
         'video_url': progress_data.get('video_url')
     })
+
+
+# ---------------------------------------------------------------------------
+# Review surface — fed by the publish-video skill, which writes session dirs
+# under sessions/<id>/ (session.json + thumb_N.jpg) and opens /review.
+# ---------------------------------------------------------------------------
+
+def _session_path(session_id):
+    return os.path.join(SESSIONS_DIR, secure_filename(session_id))
+
+
+def _latest_session_id():
+    """Most recently modified session dir that contains a session.json."""
+    if not os.path.isdir(SESSIONS_DIR):
+        return None
+    candidates = []
+    for name in os.listdir(SESSIONS_DIR):
+        meta = os.path.join(SESSIONS_DIR, name, 'session.json')
+        if os.path.isfile(meta):
+            candidates.append((os.path.getmtime(meta), name))
+    if not candidates:
+        return None
+    return sorted(candidates, reverse=True)[0][1]
+
+
+def _load_session(session_id):
+    with open(os.path.join(_session_path(session_id), 'session.json'), encoding='utf-8') as f:
+        return json.load(f)
+
+
+def _save_session(session_id, data):
+    with open(os.path.join(_session_path(session_id), 'session.json'), 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _thumb_url(session_id, idx):
+    """Cache-busted URL for a composited thumbnail."""
+    path = os.path.join(_session_path(session_id), f'thumb_{idx}.jpg')
+    bust = int(os.path.getmtime(path)) if os.path.exists(path) else 0
+    return f'/session/{session_id}/thumb_{idx}.jpg?t={bust}'
+
+
+@app.route('/api/review/current', methods=['GET'])
+def review_current():
+    """Return the current (or ?id=) session: metadata + thumbnail options."""
+    session_id = request.args.get('id') or _latest_session_id()
+    if not session_id or not os.path.isfile(
+            os.path.join(_session_path(session_id), 'session.json')):
+        return jsonify({'success': False, 'error': 'No publish session found. '
+                        'Run /publish-video first.'}), 404
+
+    data = _load_session(session_id)
+    thumbnails = []
+    for idx, opt in enumerate(data.get('thumbnail_options', [])):
+        thumbnails.append({**opt, 'image_url': _thumb_url(session_id, idx)})
+
+    meta_path = os.path.join(_session_path(session_id), 'session.json')
+    return jsonify({
+        'success': True,
+        'id': session_id,
+        'updated_at': int(os.path.getmtime(meta_path)),
+        'video_filename': os.path.basename(data.get('video_path', '')),
+        'metadata_options': data.get('metadata_options', []),
+        'thumbnail_options': thumbnails,
+    })
+
+
+@app.route('/session/<session_id>/<path:filename>', methods=['GET'])
+def serve_session_file(session_id, filename):
+    """Serve composited thumbnails / base image from a session dir."""
+    return send_from_directory(_session_path(session_id), filename)
+
+
+@app.route('/api/review/recompose', methods=['POST'])
+def review_recompose():
+    """Re-composite one thumbnail with new position/size/text (no LLM).
+
+    Backs the position/size sliders and manual text edits. Persists the edited
+    option back to session.json so confirm uploads exactly what's shown.
+    """
+    body = request.get_json() or {}
+    session_id = body.get('id') or _latest_session_id()
+    idx = int(body.get('thumbnail_idx', 0))
+
+    if not session_id:
+        return jsonify({'success': False, 'error': 'No session'}), 404
+
+    data = _load_session(session_id)
+    options = data.get('thumbnail_options', [])
+    if idx >= len(options):
+        return jsonify({'success': False, 'error': 'Bad thumbnail index'}), 400
+
+    # Apply only the fields that were sent.
+    for key in ('position', 'font_size_main', 'main_text', 'subtitle',
+                'text_color', 'outline_color'):
+        if body.get(key) is not None:
+            options[idx][key] = body[key]
+    # 'text_size' is the slider's name for font_size_main.
+    if body.get('text_size') is not None:
+        options[idx]['font_size_main'] = int(body['text_size'])
+
+    _save_session(session_id, data)
+    render_session(_session_path(session_id), only_index=idx)
+
+    return jsonify({'success': True, 'image_url': _thumb_url(session_id, idx)})
+
+
+@app.route('/api/review/request', methods=['POST'])
+def review_request():
+    """Queue a regenerate request for the live skill's wait-loop to pick up."""
+    body = request.get_json() or {}
+    session_id = body.get('id') or _latest_session_id()
+    if not session_id:
+        return jsonify({'success': False, 'error': 'No session'}), 404
+
+    action = body.get('action')  # 'regenerate_titles' | 'regenerate_thumbnail_text'
+    req = {'action': action, 'feedback': body.get('feedback', ''), 'ts': time.time()}
+    with open(os.path.join(_session_path(session_id), 'request.json'), 'w',
+              encoding='utf-8') as f:
+        json.dump(req, f, ensure_ascii=False)
+    return jsonify({'success': True})
+
+
+@app.route('/api/review/confirm', methods=['POST'])
+def review_confirm():
+    """Upload the chosen metadata + thumbnail; signal the skill loop to stop."""
+    body = request.get_json() or {}
+    session_id = body.get('id') or _latest_session_id()
+    if not session_id:
+        return jsonify({'success': False, 'error': 'No session'}), 404
+
+    data = _load_session(session_id)
+    session_dir = _session_path(session_id)
+    video_path = data.get('video_path')
+    if not video_path or not os.path.exists(video_path):
+        return jsonify({'success': False, 'error': f'Video not found: {video_path}'}), 400
+
+    thumb_idx = int(body.get('thumbnail_idx', 0))
+    thumbnail_path = os.path.join(session_dir, f'thumb_{thumb_idx}.jpg')
+    if not os.path.exists(thumbnail_path):
+        thumbnail_path = None
+
+    publish_at = body.get('publishAt') or None
+    upload_id = start_upload(
+        video_path=video_path,
+        thumbnail_path=thumbnail_path,
+        title=body.get('title', ''),
+        description=body.get('description', ''),
+        tags=body.get('tags', []),
+        hashtags=body.get('hashtags', []),
+        privacy_status=body.get('privacyStatus', 'private'),
+        publish_at=publish_at,
+        recording_date=body.get('recordingDate') or None,
+        playlist_id=body.get('playlistId') or None,
+        video_location=body.get('videoLocation') or None,
+        cleanup=False,  # never delete the user's source video / session thumbnails
+    )
+
+    # Signal the skill's wait-loop that the session is done.
+    with open(os.path.join(session_dir, 'done.json'), 'w', encoding='utf-8') as f:
+        json.dump({'upload_id': upload_id, 'ts': time.time()}, f)
+
+    return jsonify({'success': True, 'upload_id': upload_id})
 
 
 @app.route('/api/swap/videos', methods=['GET'])
@@ -1163,48 +632,24 @@ def swap_video_upload():
             print(f"[SWAP] Could not download thumbnail: {thumb_error}")
             # Continue without thumbnail
 
-        # Generate unique upload ID
-        upload_id = str(uuid.uuid4())
-
-        # Get file size for progress tracking
-        file_size = os.path.getsize(video_path)
-
-        # Calculate initial time estimate
-        avg_upload_speed_mbps = 5
-        bytes_per_second = (avg_upload_speed_mbps * 1024 * 1024) / 8
-        estimated_seconds = int((file_size / bytes_per_second) * 1.3)
-
-        # Initialize progress tracking
-        upload_progress[upload_id] = {
-            'status': 'starting',
-            'progress': 0,
-            'stage': 'Preparing upload...',
-            'phase': 'preparing',
-            'file_size': file_size,
-            'bytes_uploaded': 0,
-            'start_time': time.time(),
-            'error': None,
-            'video_id': None,
-            'video_url': None,
-            'estimated_total_seconds': estimated_seconds,
-            'current_speed_mbps': None
-        }
-
-        # Start upload in background thread
-        # Pass the first playlist ID if available, or None
-        # The upload_video_background function will add to all playlists we found
+        # Start upload via the shared uploader engine. Swap adds the new video to
+        # every playlist the original belonged to (all_playlist_ids). cleanup=True
+        # since the saved video + downloaded thumbnail are throwaway temp copies.
         primary_playlist_id = playlist_ids[0] if playlist_ids else None
-
-        # Store all playlist IDs in the upload progress tracking for later use
-        upload_progress[upload_id]['all_playlist_ids'] = playlist_ids
-
-        thread = threading.Thread(
-            target=upload_video_background,
-            args=(upload_id, video_path, thumbnail_path, title, description,
-                  tags, hashtags, 'private', None, recording_date, primary_playlist_id, recording_location)
+        upload_id = start_upload(
+            video_path=video_path,
+            thumbnail_path=thumbnail_path,
+            title=title,
+            description=description,
+            tags=tags,
+            hashtags=hashtags,
+            privacy_status='private',
+            recording_date=recording_date,
+            playlist_id=primary_playlist_id,
+            all_playlist_ids=playlist_ids,
+            video_location=recording_location,
+            cleanup=True,
         )
-        thread.daemon = True
-        thread.start()
 
         return jsonify({
             'success': True,
