@@ -1,9 +1,15 @@
-"""SEO optimizer using Claude API for bilingual Chinese-English metadata."""
+"""SEO optimizer for bilingual Chinese-English metadata.
 
-import os
+Generation runs through the local Claude Code CLI (`claude -p`) via
+`src.llm.generate`, so it uses the Claude Code subscription rather than a
+separately-billed Anthropic API key.
+"""
+
 import re
 from typing import Dict, Optional
-from anthropic import Anthropic
+
+from src.llm import generate as claude_generate
+from src.llm import generate_json as claude_generate_json
 
 
 class BilingualSEOOptimizer:
@@ -14,15 +20,12 @@ class BilingualSEOOptimizer:
         Initialize the SEO optimizer.
 
         Args:
-            api_key: Anthropic API key (if None, reads from ANTHROPIC_API_KEY env var)
+            api_key: Deprecated/ignored. Kept for backwards compatibility with
+                existing call sites. Generation now goes through the Claude Code
+                CLI, which uses your logged-in subscription (no API key needed).
         """
-        self.api_key = api_key or os.getenv('ANTHROPIC_API_KEY')
-        if not self.api_key:
-            raise ValueError(
-                "Anthropic API key not found. Set ANTHROPIC_API_KEY environment variable "
-                "or pass it to the constructor."
-            )
-        self.client = Anthropic(api_key=self.api_key)
+        # No API key required anymore; generation routes through `claude -p`.
+        self.api_key = api_key
 
     def _detect_primary_language(
         self,
@@ -262,17 +265,7 @@ Generate SEO-optimized metadata following these requirements:
 Please generate the optimized metadata now. Return ONLY the JSON output, nothing else."""
 
         try:
-            response = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=2048,
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
-            )
-
-            # Extract JSON from response
-            response_text = response.content[0].text.strip()
+            response_text = claude_generate(prompt)
 
             # Remove markdown code blocks if present
             if response_text.startswith('```'):
@@ -365,16 +358,7 @@ Create compelling, SEO-optimized metadata from scratch.
 Return ONLY the JSON output."""
 
         try:
-            response = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=2048,
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
-            )
-
-            response_text = response.content[0].text.strip()
+            response_text = claude_generate(prompt)
 
             # Clean up markdown code blocks
             if response_text.startswith('```'):
@@ -461,38 +445,8 @@ Create compelling, SEO-optimized metadata from scratch.
 Return ONLY the JSON output."""
 
         try:
-            response = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=2048,
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
-            )
-
-            response_text = response.content[0].text.strip()
-
-            # Clean up markdown code blocks
-            if response_text.startswith('```'):
-                lines = response_text.split('\n')
-                response_text = '\n'.join(lines[1:-1]) if len(lines) > 2 else response_text
-                if response_text.startswith('json'):
-                    response_text = response_text[4:].strip()
-
-            import json
-            import re
-
-            # Additional cleaning
-            response_text = re.sub(r',(\s*[}\]])', r'\1', response_text)
-            json_match = re.search(r'\{[\s\S]*\}', response_text)
-            if json_match:
-                response_text = json_match.group(0)
-
-            metadata = json.loads(response_text)
-            return metadata
-
-        except json.JSONDecodeError as e:
-            raise Exception(f"Error parsing JSON from Claude API (line {e.lineno}, col {e.colno}): {e.msg}")
+            # Robust parse with retry (handles occasional malformed JSON).
+            return claude_generate_json(prompt)
         except Exception as e:
             raise Exception(f"Error generating metadata with Claude API: {e}")
 
@@ -596,16 +550,7 @@ Generate {num_options} different variations of metadata. Each option should have
 Return ONLY the JSON output with all {num_options} options."""
 
         try:
-            response = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=4096,  # Increased for multiple options
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
-            )
-
-            response_text = response.content[0].text.strip()
+            response_text = claude_generate(prompt)
 
             # Clean up markdown code blocks
             if response_text.startswith('```'):
@@ -697,16 +642,7 @@ Return ONLY the JSON output with all {num_options} options."""
 **Output:** Return ONLY the compressed description, nothing else. No explanations, no JSON, just the compressed text."""
 
         try:
-            response = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=1024,
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
-            )
-
-            compressed = response.content[0].text.strip()
+            compressed = claude_generate(prompt)
 
             # Safety check: if Claude exceeded limit, do hard truncation
             if len(compressed) > max_length:
@@ -729,7 +665,7 @@ Return ONLY the JSON output with all {num_options} options."""
 
         except Exception as e:
             # Fallback to simple truncation if LLM fails
-            console.print(f"[yellow]Warning: LLM compression failed ({e}), falling back to simple truncation[/yellow]")
+            print(f"Warning: LLM compression failed ({e}), falling back to simple truncation")
             return self._simple_truncate(description, max_length)
 
     def _simple_truncate(self, text: str, max_length: int) -> str:

@@ -3,16 +3,20 @@ AI-powered YouTube thumbnail generator using Claude + Pillow
 """
 
 import os
-import anthropic
+import tempfile
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import textwrap
+
+from src.llm import generate as claude_generate
+from src.llm import generate_json as claude_generate_json
 
 
 class ThumbnailGenerator:
     """
     Generates YouTube thumbnails by:
-    1. Using Claude to suggest compelling text based on video context
+    1. Using Claude (via the Claude Code CLI) to suggest compelling text based on
+       video context
     2. Using Pillow to overlay text on user-provided base images
     """
 
@@ -21,9 +25,10 @@ class ThumbnailGenerator:
         Initialize the thumbnail generator.
 
         Args:
-            api_key: Anthropic API key (defaults to ANTHROPIC_API_KEY env var)
+            api_key: Deprecated/ignored. Generation now routes through the Claude
+                Code CLI (your subscription), so no API key is needed.
         """
-        self.client = anthropic.Anthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
+        self.api_key = api_key
 
     def analyze_image_for_text_placement(self, image_data):
         """
@@ -61,29 +66,15 @@ class ThumbnailGenerator:
 
         print(f"[DEBUG] Detected image format: {image_format}, using media_type: {media_type}")
 
-        # Convert image to base64
+        # Write the image to a temp file so the Claude Code CLI can Read it.
         image_data.seek(0)
-        image_base64 = base64.b64encode(image_data.read()).decode('utf-8')
+        suffix = '.jpg' if image_format in ('jpeg', 'jpg') else f'.{image_format}'
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(image_data.read())
+            tmp_path = tmp.name
         image_data.seek(0)
 
-        try:
-            message = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=300,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,  # Use detected media type
-                                "data": image_base64
-                            }
-                        },
-                        {
-                            "type": "text",
-                            "text": """Analyze this image for YouTube thumbnail text placement.
+        prompt = """Analyze this image for YouTube thumbnail text placement.
 
 **Your task:**
 1. Detect if there are any FACES or PEOPLE in the image
@@ -103,22 +94,9 @@ Return ONLY a JSON object:
     "has_face": true|false,
     "reasoning": "Brief explanation (e.g., 'Face detected in center, place text at bottom')"
 }"""
-                        }
-                    ]
-                }]
-            )
 
-            # Parse response
-            import json
-            response_text = message.content[0].text.strip()
-
-            # Extract JSON
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
-
-            result = json.loads(response_text)
+        try:
+            result = claude_generate_json(prompt, image_path=tmp_path)
             print(f"[DEBUG] Vision Analysis Result: {result}")
             return result
 
@@ -131,6 +109,11 @@ Return ONLY a JSON object:
                 "has_face": False,
                 "reasoning": "Fallback to bottom position (error occurred)"
             }
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     def suggest_thumbnail_text(self, title, description, location=None, style="bold", language="zh-CN"):
         """
@@ -313,31 +296,12 @@ Return ONLY a JSON array with 3 objects:
 ]"""
 
         try:
-            # Use higher token limit for Chinese text (Chinese uses more tokens than English)
-            max_tokens = 1200 if language == 'zh-CN' else 800
-
-            message = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=max_tokens,
-                messages=[{"role": "user", "content": prompt}]
-            )
-
-            # Parse Claude's JSON response
-            import json
-            response_text = message.content[0].text.strip()
-
-            # Extract JSON from response (handle markdown code blocks)
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
-
-            result = json.loads(response_text)
+            # Robust parse with retry (handles occasional malformed JSON).
+            result = claude_generate_json(prompt)
             return result
 
         except Exception as e:
             print(f"[ERROR] Error generating thumbnail text: {e}")
-            print(f"[ERROR] Raw response: {response_text if 'response_text' in locals() else 'N/A'}")
             # Fallback to simple text based on title with default colors
             return [
                 {
