@@ -1,24 +1,14 @@
-# YouTube API
+# YouTube Data API (auth, upload, captions, playlists, analytics)
 google-api-python-client==2.147.0
 google-auth-oauthlib==1.2.1
 google-auth-httplib2==0.2.0
 
-# Anthropic Claude API
-anthropic>=0.38.0
+# Thumbnail rendering / polish
+pillow>=9.0.0
 
-# CLI
-click==8.1.7
-rich>=13.0.0
-
-# Web UI
-flask>=2.2.0
-werkzeug>=2.2.0
-
-# Environment variables
+# Env + HTTP utilities
 python-dotenv>=0.21.0
-
-# Utilities
 requests>=2.31.0
 
-# Image Processing
-pillow>=9.0.0
+# External tools (not pip): ffmpeg, whisper.cpp (whisper-cli) + a ggml model under models/.
+# The agent (Claude Code) drives the publish flow — see .claude/skills/publish-video-chat/.

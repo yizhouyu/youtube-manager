@@ -225,10 +225,12 @@ PY
 **Captions** (after the video exists, so its `videoId` is known). **Accuracy matters** — the
 `small` model is too error-prone (it mangled dish names: hushpuppies→"conch fritters",
 "土豆+洋葱圈"→"火腿通心粉"). Use a strong model and ground the cleanup in the glossary:
-1. Generate an SRT with **`ggml-large-v3-turbo`** (NOT small):
-   `whisper-cli -m models/ggml-large-v3-turbo-q5_0.bin -f audio_16k.wav -l zh -osrt -of /tmp/captions`.
-   (You can't ingest audio directly, so model quality is the lever; for hard segments, optionally
-   cross-validate a second model and reconcile.)
+1. Write a per-video `02 - Export/glossary.txt` (proper nouns: places, dishes, brands), then
+   run **`scripts/transcribe_accurate.sh "NN - Name"`** — it uses **`ggml-large-v3-turbo`** +
+   the glossary as `--prompt` (`--carry-initial-prompt`) + **VAD** (kills hallucinated
+   repetition) and writes `captions_raw.srt`. (You can't ingest audio directly, so model +
+   glossary is the lever; for hard segments, optionally cross-validate a second model. Run with
+   `-ng`/CPU — Metal can crash on exit cleanup.)
 2. **LLM cleanup pass** — fix proper nouns using the **confirmed glossary** from Step 2, and
    **double-check every dish/food name** (ASR mangles them). Keep timecodes byte-identical. Save
    `02 - Export/captions.srt`. Don't whack-a-mole individual errors later — re-transcribe.

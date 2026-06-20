@@ -1,250 +1,44 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code working in this repository.
 
-## Project Overview
+## What this is
 
-YouTube Manager is a Python tool (CLI + Web UI) designed to optimize video metadata for a Chinese travel YouTube channel, sync to Bilibili, and track analytics. The tool generates bilingual (Chinese-English) SEO-optimized titles, descriptions, tags, and hashtags using the Claude API and updates videos via the YouTube Data API v3.
+An **agent-first** YouTube publishing toolkit. There is no web UI and no CLI — the
+procedure is a **skill** the agent runs conversationally:
+**[`.claude/skills/publish-video-chat/SKILL.md`](.claude/skills/publish-video-chat/SKILL.md)**.
+That skill is the source of truth for *how* to publish; this file just describes the code it
+leans on. (The repo used to be a Flask app + CLI + Anthropic-API generation; that was all
+removed — the agent now does the generating, looking, and listening itself.)
 
-**Two interfaces:**
-- **CLI**: Command-line interface for batch operations and automation
-- **Web UI**: Modern browser-based interface for video uploads and analytics dashboards
+## Code the skill uses
 
-## Architecture
+- **`src/auth/youtube_auth.py`** — `YouTubeAuthenticator().get_youtube_service()`; OAuth2,
+  token persisted to `config/token.pickle` (auto-refresh). Captions need the
+  `youtube.force-ssl` scope.
+- **`src/youtube_client/client.py`** — `YouTubeClient(svc).get_all_channel_videos()` to learn
+  a channel's existing title/tag/description style.
+- **`src/uploader/uploader.py`** — `start_upload(...)`: resumable upload + custom thumbnail +
+  playlist; poll `upload_progress[uid]`. Sets category 19, `defaultLanguage=zh-CN`. Note:
+  `locationDescription` is NOT settable via the API (set it manually in Studio); the
+  hashtag prepend can duplicate the description's hashtag line — push DESCRIPTION as-is.
+- **`src/thumbnail_generator/`** — `generator.add_text_to_image` (pure Pillow, 1280×720 crop +
+  outlined text), `compositor.render_option` (the thin wrapper), and `polish.render`
+  (color-grade + vignette + dual-stroke text — the nicer renderer).
+- **`src/analytics/`** — channel metrics; kept for the self-evolving packaging loop.
+- **`scripts/`** — `preprocess_video.sh` (frame scan + whisper transcript + export QA),
+  `transcribe_accurate.sh` (large-v3-turbo + glossary `--prompt` + VAD), `upload_captions.py`
+  (`captions.insert`).
 
-**Tech Stack:**
-- Python 3.11+ (required for latest dependencies)
-- YouTube Data API v3 (OAuth2)
-- Anthropic Claude API (>=0.38.0)
-- **CLI**: Click (CLI framework), Rich (terminal UI)
-- **Web UI**: Flask (web framework), Tailwind CSS (styling)
-- **Image Processing**: Pillow (thumbnail generation)
+## Setup / tools
 
-**Project Structure:**
-```
-youtube_manager/
-├── src/
-│   ├── auth/                   # YouTube OAuth2 authentication
-│   │   └── youtube_auth.py
-│   ├── youtube_client/         # YouTube API client for video operations
-│   │   └── client.py
-│   ├── seo_optimizer/          # Claude API-powered bilingual metadata generator
-│   │   └── optimizer.py
-│   ├── thumbnail_generator/    # AI thumbnail text overlay generator
-│   │   └── generator.py
-│   ├── bilibili_client/        # Bilibili API integration
-│   │   └── client.py
-│   ├── analytics/              # Analytics tracking & reporting
-│   │   ├── tracker.py
-│   │   └── reporter.py
-│   ├── cli/                    # CLI commands and UI
-│   │   └── main.py
-│   └── web/                    # Web UI (Flask)
-│       ├── app.py              # Flask application & API endpoints
-│       └── templates/          # HTML templates (Jinja2 + Tailwind CSS)
-│           ├── base.html
-│           ├── index.html
-│           ├── analytics.html
-│           └── upload.html
-├── config/                # API credentials (gitignored)
-│   ├── .gitkeep
-│   ├── client_secrets.json  (user must provide)
-│   └── token.pickle         (auto-generated)
-├── youtube_manager.py     # CLI entry point
-├── start_web.py           # Web UI entry point
-├── requirements.txt
-└── .env                   # API keys (gitignored)
-```
+- `python3 -m venv venv && pip install -r requirements.txt` (Python 3.9+ works).
+- External: `ffmpeg` + `whisper-cli` (whisper.cpp) with a ggml model in `models/` (gitignored).
+- `config/client_secrets.json` (you provide) + `config/token.pickle` (auto).
 
-## Setup and Configuration
+## Conventions
 
-**1. Install dependencies:**
-```bash
-# Requires Python 3.11+
-python3.11 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-**Note**: Python 3.11+ is required. The default system Python (3.7) is too old for modern dependencies.
-
-**2. Configure API credentials:**
-- Copy `.env.example` to `.env`
-- Add Anthropic API key to `.env`
-- Download YouTube OAuth2 client secrets from Google Cloud Console
-- Place `client_secrets.json` in `config/` directory
-
-**3. First-time YouTube authentication:**
-The first run will open a browser for OAuth2 authentication. Token is saved to `config/token.pickle` for future use.
-
-## Usage
-
-### Web UI (Recommended for uploads and analytics)
-
-**Start the web server:**
-```bash
-python start_web.py
-```
-
-Then open your browser to:
-- **Home**: http://localhost:5001
-- **Analytics Dashboard**: http://localhost:5001/analytics
-- **Upload Video**: http://localhost:5001/upload
-
-**Web UI Features:**
-1. **Analytics Dashboard**:
-   - Real-time channel metrics (subscribers, views, videos)
-   - 7-day growth tracking
-   - Top performing videos
-   - Engagement analysis
-   - Underperforming video identification
-
-2. **Video Upload Workflow**:
-   - **Step 1**: Select video file + thumbnail, describe content
-   - **Step 2**: AI generates 3 thumbnail options with text overlays (optional)
-     - Claude analyzes video and creates compelling bilingual text
-     - Choose from 3 design variations
-     - Customize text position, size, and content
-     - Supports Chinese and English text
-   - **Step 3**: AI generates SEO-optimized metadata (3 options)
-   - **Step 4**: Review/edit metadata → Upload directly to YouTube
-   - Bilingual title & description generation
-   - Smart tag and hashtag suggestions
-
-### CLI (For batch operations)
-
-**Batch update existing videos:**
-```bash
-python youtube_manager.py batch-update
-python youtube_manager.py batch-update --limit 5           # Process first 5 videos
-python youtube_manager.py batch-update --video-id VIDEO_ID # Process specific video
-python youtube_manager.py batch-update --auto-apply        # Skip manual approval
-```
-
-**Generate metadata for new videos:**
-```bash
-python youtube_manager.py new-video
-python youtube_manager.py new-video --topic "北京旅游攻略" --locations "故宫,长城" --save metadata.txt
-```
-
-## Key Components
-
-**src/auth/youtube_auth.py:**
-- Handles OAuth2 flow for YouTube API
-- Manages token persistence and refresh
-- Provides authenticated YouTube service object
-
-**src/youtube_client/client.py:**
-- `get_all_channel_videos()`: Fetches all videos from authenticated user's channel
-- `get_video_details(video_id)`: Gets metadata for a specific video
-- `update_video_metadata()`: Updates title, description, tags via API
-
-**src/seo_optimizer/optimizer.py:**
-- `generate_metadata()`: Optimizes existing video metadata (bilingual)
-- `generate_new_video_metadata()`: Creates metadata from scratch for new videos
-- Implements SEO best practices:
-  - Chinese titles (60 chars optimal)
-  - Bilingual descriptions (Chinese 250+ words, English 150+ words)
-  - Mixed Chinese/English tags (8-12 total)
-  - Bilingual hashtags (2-3)
-
-**src/bilibili_client/client.py:**
-- `get_user_videos()`: Fetches all videos from authenticated Bilibili account
-- `get_video_details()`: Gets metadata for specific video
-- `update_video_metadata()`: Updates video metadata (experimental - see BILIBILI_API_NOTES.md)
-- `generate_update_data()`: Helper for manual sync workflow
-- Cookie-based authentication (SESSDATA, bili_jct)
-
-**src/analytics/tracker.py:**
-- `fetch_channel_analytics()`: Fetches channel-level metrics
-- `fetch_video_analytics()`: Fetches per-video performance data
-- `save_snapshot()`: Stores historical analytics data
-- `get_growth_metrics()`: Calculates week-over-week growth
-- `get_top_performing_videos()`: Identifies best performers
-- `get_underperforming_videos()`: Flags videos needing attention
-
-**src/analytics/reporter.py:**
-- `generate_dashboard_report()`: Creates comprehensive visual dashboard
-- `format_number()`, `format_change()`: Pretty formatting utilities
-- Displays: channel overview, recent performance, top videos, insights
-
-**src/cli/main.py:**
-- CLI interface using Click and Rich
-- Eight main commands:
-  - `batch-update`, `new-video` (SEO optimization)
-  - `match-bilibili`, `sync-to-bilibili`, `generate-bilibili-descriptions` (Bilibili sync)
-  - `analytics-dashboard` (Analytics tracking)
-  - `mark-tool-generated`, `backfill-metadata` (Utilities)
-- Interactive review mode with side-by-side comparisons
-- Batch processing with parallel SEO generation
-- Rate limiting for Claude API
-
-**src/thumbnail_generator/generator.py:**
-- `ThumbnailGenerator` class for AI-powered thumbnail text overlays
-- `generate_thumbnail_text()`: Uses Claude API to generate compelling bilingual text
-- `add_text_to_image()`: Adds text overlay with customizable position, size, color
-- `generate_multiple_thumbnails()`: Creates 3 design variations
-- Supports Chinese and English text with appropriate fonts
-- Customizable text positioning (top, center, bottom) and sizing
-
-**src/web/app.py:**
-- Flask web application with REST API endpoints
-- Three main routes:
-  - `/` - Home page with quick stats
-  - `/analytics` - Full analytics dashboard
-  - `/upload` - Video upload workflow
-- API endpoints:
-  - `GET /api/analytics/dashboard` - Fetch channel analytics data
-  - `POST /api/thumbnail/generate` - Generate AI thumbnail text overlays
-  - `POST /api/upload/generate-metadata` - Generate SEO metadata via Claude API
-  - `POST /api/upload/video` - Upload video + thumbnail to YouTube
-- Reuses existing auth, SEO optimizer, analytics, and thumbnail generator components
-
-## Development Notes
-
-**API Quotas:**
-- YouTube Data API: 10,000 units/day
-- `videos.list`: 1 unit per call
-- `videos.update`: 50 units per call
-- Budget ~60 videos = ~3,060 units (safe for daily quota)
-
-**Bilingual SEO Strategy:**
-- Titles: Primarily Chinese for native audience
-- Descriptions: Chinese section first, then English translation
-- Tags: Balanced mix (Chinese: 中国旅行, 旅游攻略; English: China travel, travel guide)
-- Focus: Travel content, destinations, cultural experiences
-
-**Error Handling:**
-- OAuth2 token auto-refresh on expiration
-- Graceful handling of API errors with user-friendly messages
-- Individual video error recovery in batch mode
-
-## Testing
-
-**Manual testing workflow:**
-1. Test authentication: Run any command to trigger OAuth2 flow
-2. Test single video: `python youtube_manager.py batch-update --video-id <ID> --limit 1`
-3. Test metadata generation: `python youtube_manager.py new-video --topic "测试"`
-4. Review mode: Check side-by-side comparisons before applying changes
-5. Verify updates in YouTube Studio
-
-## Troubleshooting
-
-**"Client secrets file not found":**
-- Ensure `client_secrets.json` is in `config/` directory
-- Download from Google Cloud Console > APIs & Services > Credentials
-
-**"ANTHROPIC_API_KEY not found":**
-- Check `.env` file exists and contains `ANTHROPIC_API_KEY=<your-key>`
-- Ensure `python-dotenv` is installed
-
-**YouTube API quota exceeded:**
-- Each update costs 50 units; daily limit is 10,000
-- Wait 24 hours or request quota increase in Google Cloud Console
-
-**OAuth2 authentication loop:**
-- Delete `config/token.pickle` and re-authenticate
-- Check OAuth2 consent screen is configured properly
-
-**Notification system:**
-- For long-running tasks, Claude Code uses `~/.claude_notify_helper.sh` (see global profile in `~/.claude/CLAUDE.md` for details)
+- Keep the skill **PII-free** so the repo can ship publicly.
+- Video projects: `NN - Name/02 - Export/<name>.mov`; never touch `01 - Unedited/`; scratch
+  (frames, contact sheets) goes to `/tmp`.
+- Every human correction during a publish should become a durable preference/memory.
