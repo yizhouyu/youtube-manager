@@ -1,6 +1,19 @@
 # YouTube Manager
 
-A Python tool for content creators to optimize video metadata with bilingual (Chinese-English) SEO, upload videos with AI-powered metadata generation, sync to Bilibili, and track analytics. Available as both a **Web UI** and **CLI tool**.
+A Python tool for content creators to optimize video metadata with bilingual (Chinese-English) SEO, upload videos with AI-powered metadata generation, sync to Bilibili, and track analytics. Available as a **Web UI**, a **CLI tool**, and — newest — an **agent-first Claude Code skill** you drive by just talking.
+
+## 🤖 Agent-first publishing (recommended)
+
+Point an agent (Claude Code) at a finished export and it does the whole publish loop **conversationally** — no web UI, no manual SRT. The agent:
+
+1. **Pre-processes & QA's the export** (`scripts/preprocess_video.sh`) — extracts frames, transcribes audio, and flags broken/mis-exported files.
+2. **Understands the video** by reading the transcript and looking at frames (catches what filenames can't).
+3. **Designs the thumbnail** by looking at the image — graded/vignetted/polished (`src/thumbnail_generator/polish.py`).
+4. **Writes bilingual SEO metadata** in the channel's own learned style, then runs **sub-agent critics** (CTR + SEO) before you see it.
+5. **Transcribes accurate captions** (`scripts/transcribe_accurate.sh`: large-v3-turbo + a per-video proper-noun glossary + VAD) and uploads them (`scripts/upload_captions.py`).
+6. **Uploads, schedules (publishAt), and playlists** the video — and feeds your corrections back into a persistent memory so it gets more "you" over time.
+
+The full procedure lives in the skill: [`.claude/skills/publish-video-chat/SKILL.md`](.claude/skills/publish-video-chat/SKILL.md). It's generic — point it at any channel and it learns that channel's voice.
 
 ## Features
 

@@ -62,3 +62,8 @@ Thumbs.db
 
 # Publish-video session working dirs (user media)
 sessions/
+
+# whisper models (large binaries)
+models/
+# throwaway upload scripts
+scripts/_*.py
