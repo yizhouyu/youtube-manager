@@ -116,12 +116,15 @@ render_option("<abs base.jpg>",
 PY
 ```
 
-**Polish the look (use `src/thumbnail_generator/polish.py`).** Don't ship a bare frame —
-`polish.render(base, out, text, color=…, outline=…, position=…, banner=…)` grades the base
-(saturation ~1.18, contrast ~1.11, warmth, unsharp), adds a **vignette** to pull the eye to
-center, and draws text with a real **dual outline + soft drop shadow** and a consistent
-yellow accent edge (cohesive across the channel). Pass `banner=True` when the frame behind the
-text is busy. (Tier B, optional: `mediapipe` selfie-segmentation to blur/darken the background
+**Polish the look — poster style (`src/thumbnail_generator/polish.py`).** Don't ship a bare
+frame. Prefer **`polish.render_poster(base, out, lines, tag=…, promise=…, position=…)`** — the
+lizheng-style cover: grades the base (saturation/contrast/warmth/unsharp + **vignette**), then
+sets a **big heavy-weight title** (bundled `assets/fonts/heavy.otf` = Noto Sans SC Black) as
+1–2 lines where **yellow carries the punchy keyword and white the rest**, plus an optional
+**top tag** (小黑标签, e.g. `阿拉斯加 Katmai`) and a **bottom promise strip** (黄条 one-line
+content promise). `position` (`upper`/`center`/`lower`) is chosen to clear the subject/face.
+Title and promise must not restate each other; the title creates the click, the promise says
+why it's worth it. (`polish.render(...)` is the simpler single-line variant.) (Tier B, optional: `mediapipe` selfie-segmentation to blur/darken the background
 behind a person. See `docs/thumbnail-polish-playbook.md`.)
 
 **Deterministic layout protocol.** Don't eyeball-nudge forever — reason in bounding boxes.
@@ -134,7 +137,15 @@ not restate each other.
 
 **Mobile self-audit (mandatory).** After compositing, downscale the rendered thumbnail to
 ~10% (~168×94) — and also eyeball it at ~25% — `Read` it, and **reject** if the face/text isn't
-instantly legible or any text touches a face. Iterate before the human sees it. Produce **2–3 variants by design** (e.g. face-hero vs
+instantly legible or any text touches a face. Iterate before the human sees it.
+
+**Always have a sub-agent look at the rendered thumbnail before the human does.** Spawn a
+vision sub-agent that FAILs the image if any glyph/stroke/shadow touches the subject's
+face/eyes/mouth or the hero object, or if text is illegible / runs off-frame; it returns a
+concrete fix (new `position`/`align`). Re-render and re-check until it passes. (For tricky
+placement, first ask a sub-agent where the subject sits and which region is empty, then render
+into that region.) This caught a title printed across the David statue and across a bear — the
+first poster pass *looked* fine to me; the reviewer caught it. Produce **2–3 variants by design** (e.g. face-hero vs
 landmark-hero, or different hook) so they're ready to drop into YouTube's native Test & Compare.
 
 ## Step 4 — Metadata in the channel's OWN style
@@ -243,9 +254,12 @@ PY
    repetition) and writes `captions_raw.srt`. (You can't ingest audio directly, so model +
    glossary is the lever; for hard segments, optionally cross-validate a second model. Run with
    `-ng`/CPU — Metal can crash on exit cleanup.)
-2. **LLM cleanup pass** — fix proper nouns using the **confirmed glossary** from Step 2, and
-   **double-check every dish/food name** (ASR mangles them). Enforce **whole-transcript entity
-   consistency** (a name heard two different ways → unify it everywhere). Keep timecodes
+2. **LLM cleanup pass — be CONSERVATIVE** (result-certainty: once a model is free to rewrite,
+   it "fixes" correct lines into wrong ones). Only change **high-confidence** proper-noun /
+   dish-name / obvious-garble errors against the **confirmed glossary**; do NOT freely reword.
+   Enforce **whole-transcript entity consistency** (a name heard two ways → unify everywhere).
+   **Prefer under-correcting to mis-correcting** — leave a clumsy-but-correct line alone, and
+   never invent content (we once "fixed" 很穷的 into a marmot we never saw). Keep timecodes
    byte-identical. Save `02 - Export/captions.srt`. Don't whack-a-mole individual errors — re-transcribe.
    Optionally re-split over-long cues into short readable lines with `scripts/resplit_srt.py`
    (≤~16 chars) — but make it **word-boundary aware** so it never breaks an English proper noun
