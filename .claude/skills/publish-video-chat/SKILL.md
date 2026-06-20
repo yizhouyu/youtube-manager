@@ -75,6 +75,8 @@ Treat the transcription as the **single upstream artifact**: it feeds captions, 
 description hook, tags, and a **proper-noun glossary**.
 
 - From transcript + frames, build a glossary of every place / restaurant / landmark name.
+  Keep a **persistent channel-level vocab** of recurring names (hosts, signature spots, brands)
+  and merge it into each video's glossary so spellings stay consistent across the channel.
 - **Web-search any uncertain proper noun** to get the correct spelling (ASR mangles mixed-in
   English names). Confirm genuinely ambiguous ones with the human in a short Q&A — this is the
   authoritative glossary for metadata AND caption cleanup.
@@ -122,16 +124,26 @@ yellow accent edge (cohesive across the channel). Pass `banner=True` when the fr
 text is busy. (Tier B, optional: `mediapipe` selfie-segmentation to blur/darken the background
 behind a person. See `docs/thumbnail-polish-playbook.md`.)
 
+**Deterministic layout protocol.** Don't eyeball-nudge forever — reason in bounding boxes.
+Mark the `face`, `main_title`, `secondary_text` rectangles; **text (incl. its stroke/shadow)
+must NOT intersect any face box, and never cover eyes/mouth/key expression.** Use only
+localized backing that hugs the text (a small rounded plate at ≤~70% black) — never a full-
+width black bar across the frame, never a glassy card. Colors: high-contrast yellow / white /
+black, heavy sans, every big word stroked. Title ≤ ~12 chars; title and the on-image hook must
+not restate each other.
+
 **Mobile self-audit (mandatory).** After compositing, downscale the rendered thumbnail to
-~10% (~168×94), `Read` it, and **reject** if the face/text/subject isn't instantly legible.
-Iterate before the human sees it. Produce **2–3 variants by design** (e.g. face-hero vs
+~10% (~168×94) — and also eyeball it at ~25% — `Read` it, and **reject** if the face/text isn't
+instantly legible or any text touches a face. Iterate before the human sees it. Produce **2–3 variants by design** (e.g. face-hero vs
 landmark-hero, or different hook) so they're ready to drop into YouTube's native Test & Compare.
 
 ## Step 4 — Metadata in the channel's OWN style
 
 **Learn the channel first — don't invent a voice.** Pull recent uploads and read the patterns
 (title formats, tag mix, description skeleton, hashtag count). This is what makes the skill
-generic: it adapts to whatever channel it's pointed at.
+generic: it adapts to whatever channel it's pointed at. Also pull the channel's
+**top-performing titles** (sort by `viewCount`) and benchmark new titles against what actually
+*won* on this channel, not just what's recent.
 
 ```bash
 ./venv/bin/python - <<'PY'
@@ -232,14 +244,20 @@ PY
    glossary is the lever; for hard segments, optionally cross-validate a second model. Run with
    `-ng`/CPU — Metal can crash on exit cleanup.)
 2. **LLM cleanup pass** — fix proper nouns using the **confirmed glossary** from Step 2, and
-   **double-check every dish/food name** (ASR mangles them). Keep timecodes byte-identical. Save
-   `02 - Export/captions.srt`. Don't whack-a-mole individual errors later — re-transcribe.
+   **double-check every dish/food name** (ASR mangles them). Enforce **whole-transcript entity
+   consistency** (a name heard two different ways → unify it everywhere). Keep timecodes
+   byte-identical. Save `02 - Export/captions.srt`. Don't whack-a-mole individual errors — re-transcribe.
+   Optionally re-split over-long cues into short readable lines with `scripts/resplit_srt.py`
+   (≤~16 chars) — but make it **word-boundary aware** so it never breaks an English proper noun
+   (e.g. "Beluga Point"); the naive char-wrap will, so verify before uploading.
 3. Upload: `./venv/bin/python scripts/upload_captions.py <video_id> "<abs captions.srt>"`.
    Gotchas: needs **`youtube.force-ssl`** scope; a **409** means a same-name track exists →
    `captions.update` (or delete + re-insert); don't crash a re-run.
 
-**Optional chapters** — turn the labeled frame timeline (Step 2) into description chapters
-(`00:00 Intro`, `01:32 [地点]`, …; first at `00:00`, ≥3 chapters, each ≥10s).
+**Chapters (do this).** Add description chapters with accurate timestamps read from
+`captions.srt` (match each route landmark to where it's first mentioned + that cue's start
+time). YouTube rules: first chapter `00:00`, ≥3 chapters, each ≥10s, ascending; titles short
+and concrete (`01:32 Ca'd'Zan 海景豪宅`). A wrong timestamp is worse than none.
 
 **A/B Test & Compare** — YouTube's native title/thumbnail test is **Studio-desktop only, not in
 the API, and not available on private videos**. You can't trigger it programmatically. So
