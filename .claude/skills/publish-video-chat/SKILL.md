@@ -281,6 +281,84 @@ is public. Feed the winner back into the Step 8 packaging log.
 
 Report the resulting URL (or error).
 
+## Step 7.5 — Mirror to Bilibili (optional; reuse everything)
+
+**When:** ONLY as a mirror of a video you just prepared for YouTube — never start from Bilibili.
+The creator says "顺手也传 B 站 / mirror to Bilibili". Reuse the finished assets; add nothing new.
+
+**Tool & auth:** `~/.local/bin/biliup` (biliup-cli, Rust CLI). Cookies at
+`~/.config/biliup/cookies.json` (kept OUT of the repo). Global `-u <file>` goes BEFORE the
+subcommand. Login is the human's one-time job: `biliup -u ~/.config/biliup/cookies.json login`
+(QR scan with the Bilibili app). Cookies last ~30 days → `biliup -u … renew`; if that fails,
+ask the human to re-scan. There is **no official individual upload API** — biliup wraps the
+web/app creator endpoints (inherent ToS risk; keep it human-paced, one video at a time).
+
+**Field mapping (YouTube → Bilibili), all reused:**
+- **video** = the finished export `02 - Export/<NN - Name>.mov`. ⚠️ the file is named the FULL
+  project name (e.g. `74 - Alaska Glacier.mov`), not a short name — resolve the exact path with
+  `find … -print0` and quote it (the path has spaces). A space-truncated `ls` will mislead you.
+- **--cover** = the finished `02 - Export/thumbnail/thumbnail.jpg`.
+- **--title** = the Chinese title from `metadata_final.txt` (B站 title ≤80 chars).
+- **--desc** = Chinese-first, compressed to ~200–250 chars from the DESCRIPTION block: keep the
+  hook + 📍 route; DROP the English half and the YouTube-specific "订阅/开小铃铛" line (B站 →
+  "点赞关注/三连"). B站 tags are a separate field, so no leading `#hashtag` line in the desc.
+- **--tag** = ≤10, comma-separated; reuse the channel-standard set
+  (`美食,旅游,旅行VLOG,风景,美国,自然,户外,旅游攻略,公路,生活记录`) mixed with this video's place
+  names; drop YouTube-only tags.
+- **--tid 250** (出行) · **--copyright 1** (自制) · **--no-reprint 1** — the channel's confirmed
+  defaults. If unsure of a partition, copy it from an existing video:
+  `biliup -u … show <an existing travel BV>` → read `tid`.
+- **--line txa** — fast overseas upload line (creator is in the US; ~1.7 MB/s, ~1GB ≈ 10 min).
+
+**Privacy/timing — ASK the human** (don't assume): mirror **public now**, **scheduled**
+(`--dtime <10-digit ts, ≥4h ahead>`, e.g. to match the YouTube cadence), or a **self-only test**
+(`--is-only-self 1`). Default to asking before a first public mirror.
+
+**Command** (run in the background — uploads take minutes):
+```bash
+~/.local/bin/biliup -u ~/.config/biliup/cookies.json upload \
+  "$HOME/Desktop/NN - Name/02 - Export/NN - Name.mov" \
+  --title "…" --desc "…" --tag "…" \
+  --cover "$HOME/Desktop/NN - Name/02 - Export/thumbnail/thumbnail.jpg" \
+  --tid 250 --copyright 1 --no-reprint 1 --line txa
+  # add --dtime <ts> to schedule, or --is-only-self 1 for a self-only test
+```
+Success prints a `bvid`; a fresh submission shows `state -30 审核中` (normal — it goes live after
+review). Verify with `biliup -u … show <BV>`. Record the BVID next to the YouTube id in Step 8.
+
+**Proven recipe (verified 2026-06-20 — mirrored 70–77 in one go). Do it exactly this way:**
+- **Drive it from a tiny Python script, NOT a raw shell command.** The Chinese `--desc` is
+  multi-line; inlining it in bash mangles quoting/newlines. Use `subprocess.run([...])` with a
+  **list of args** (no shell), one dict per video. (Template: a `JOBS=[dict(folder,dtime,title,
+  tags,desc)]` loop that resolves paths, runs biliup, regexes the `bvid` out of stdout.)
+- **Resolve the export path robustly** — it's `02 - Export/<NN - Full Name>.mov` (full project
+  name). In Python: `max(glob('02 - Export/*.mov' + '*.MOV'), key=getsize)` after dropping any
+  `*temp*` path. NEVER hand-type a short name; a space-truncated `ls`/`awk` *will* lie to you
+  (that cost a failed first attempt: `Glacier.mov` ≠ `74 - Alaska Glacier.mov`).
+- **Cover** — usually `02 - Export/thumbnail/thumbnail.jpg`; for older videos it may be a PNG at
+  the export root (`<NN - Name> - thumbnail.png`). PNG works fine for `--cover`. Find it, don't assume.
+- **Metadata source** — read `02 - Export/metadata_final.txt`: TITLE, the **Chinese** half of
+  DESCRIPTION (everything before the `---` English separator), and TAGS. **If it's missing**
+  (older already-published videos like 70), **fetch the live snippet from YouTube** via
+  `YouTubeClient(svc).get_all_channel_videos()`, match the video, and mirror its title/desc/tags.
+- **Compress the desc** to ~200–250 chars: keep the hook + the `📍 路线` list; DROP the English
+  half, the leading `#hashtag` line, and "订阅/开小铃铛" (→ "点赞关注"). **Tags ≤10**, comma-separated;
+  drop ones that are risky (long, apostrophes) if a submit ever 400s.
+- **Scheduled `--dtime`** = 10-digit Unix ts, **≥4h ahead** and within ~15 days. Compute ET 14:00
+  with `date -j -f "%Y-%m-%dT%H:%M:%S%z" "2026-06-21T14:00:00-0400" +%s` (summer = EDT `-0400`;
+  winter = EST `-0500`). For a video whose YouTube is **already live**, mirror **public now**
+  (omit `--dtime`); for the future-scheduled ones, match the YouTube `publishAt`.
+- **Confirmed channel defaults (locked):** `--tid 250` (出行) · `--copyright 1` · `--no-reprint 1`
+  · `--line txa` (US→B站, ~1.7 MB/s; a 3GB file ≈ 28 min). Run uploads **sequentially** (one
+  Python loop), not many in parallel — parallel splits bandwidth and risks rate-control.
+- **biliup canNOT edit or delete a 稿件** (only `login/renew/upload/append/show/list`). So
+  **never re-upload a duplicate**: `biliup -u … list` first to check it isn't already mirrored,
+  and if visibility/time needs changing after submit, the human does it in 创作中心. (A self-only
+  `--is-only-self 1` test 稿 can't be flipped to public via CLI — delete it in the app and
+  re-upload scheduled, which is what we did for 74.)
+- **Verify** each: `biliup -u … show <BV>` → check `tid 250`, `is_only_self`, `dtime`, `cover`,
+  `state_desc 审核中`. Login check / dup check: `biliup -u … list`. Cookie ~30d → `renew`.
+
 ## Step 8 — Self-evolving loop
 
 After publishing, append a record to a **persistent packaging log** (a JSON/MD in `$REPO`):

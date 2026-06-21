@@ -12,7 +12,9 @@ set -euo pipefail
 DIR="${1:?usage: transcribe_accurate.sh \"<project folder>\"}"
 EXP="$DIR/02 - Export"
 MODELS="$(cd "$(dirname "$0")/.." && pwd)/models"
-MODEL="$MODELS/ggml-large-v3-turbo-q5_0.bin"
+# Prefer the most accurate model the machine has: full large-v3 > turbo (quantized).
+if [ -f "$MODELS/ggml-large-v3.bin" ]; then MODEL="$MODELS/ggml-large-v3.bin"
+else MODEL="$MODELS/ggml-large-v3-turbo-q5_0.bin"; fi
 VAD="$MODELS/ggml-silero-vad.bin"
 
 V="$(find "$EXP" -maxdepth 1 \( -iname '*.mov' -o -iname '*.mp4' \) 2>/dev/null | head -1)"
