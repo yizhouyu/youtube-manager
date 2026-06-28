@@ -383,4 +383,19 @@ memory so the skill personalizes over time.
   **as-is**, don't also prepend `hashtags` (that doubles the line). If metadata changes after
   upload, **re-push the live description** (videos.update snippet) — the uploaded copy is stale.
 - **Names**: don't write the creators' names / no by-name self-intro in descriptions or captions.
+- **Transient TLS / SSL upload failures.** On some networks (corporate proxy / VPN doing TLS
+  inspection) an upload can die mid-chunk or on a post-step with `SSL: CERTIFICATE_VERIFY_FAILED
+  … self signed certificate in certificate chain`. The uploader now treats SSL errors as
+  **recoverable** (retries chunks) and wraps the post-upload steps (recording details, thumbnail,
+  playlist) in retries — and it records `video_id` the instant the video lands, so a later flaky
+  step can't hide it. **Recovery if a publish still ends `error`/`completed`-with-`warnings`:** the
+  video is very likely **already live** — DO NOT re-upload (that dupes it). First list the channel's
+  recent uploads to find it by title, grab its id, then finish only the missing steps via API
+  (`videos().update` snippet for title/desc, `thumbnails().set`, `playlistItems().insert`) with a
+  small retry loop. A `maxres`/custom thumbnail absent + not-in-playlist tells you what still needs doing.
+- **macOS has no `timeout(1)`** by default — don't wrap commands in `timeout`; run long jobs as
+  background tasks instead. (`gtimeout` exists only if coreutils is installed.)
+- **A "video N" export may cover more than day N.** Watch the frames/transcript before trusting the
+  folder name for the title — e.g. a "USVI 1" cut spanned two days; don't claim a day-count (or
+  "攻略") the footage doesn't support. Confirm scope from content, not the filename.
 - Keep this skill **free of personal info** so it can ship with the repo.
