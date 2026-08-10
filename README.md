@@ -2,7 +2,7 @@
 
 An **agent-first** toolkit for publishing a YouTube channel by *talking to an agent* (Claude Code) instead of clicking through a UI. Point it at a finished video export and it watches the footage, transcribes it, designs the thumbnail by *looking* at the frame, writes bilingual (Chinese-first) SEO metadata in your channel's own style, critiques its own work with sub-agents, then uploads, captions, schedules, and playlists it.
 
-> This started as a Flask web app + CLI (see the original write-up: [vibe-coding with Claude Code](https://yizhouyu.dev/blog/posts/vibe-coding-with-claude-code/)). It's since been rebuilt around a single conversational **skill** — the UI was deleted on purpose. A UI can only expose the buttons you thought to build; telling a capable agent what to do, and working directly inside it, doesn't cap what it can do.
+> This started as a Flask web app + CLI (see the original write-up: [vibe-coding with Claude Code](https://yizhouyu.dev/blog/posts/vibe-coding-with-claude-code/)). It's since been rebuilt around a single conversational **skill** — the UI was deleted on purpose, and [here is why](https://yizhouyu.dev/blog/posts/deleted-the-ui/). A UI can only expose the buttons you thought to build; telling a capable agent what to do, and working directly inside it, doesn't cap what it can do.
 
 ## How it works
 
