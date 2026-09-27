@@ -6,6 +6,10 @@ google-auth-httplib2==0.2.0
 # Thumbnail rendering / polish
 pillow>=9.0.0
 
+# Video editor: review page + Traditional->Simplified subtitle cleanup
+flask>=3.0
+opencc-python-reimplemented>=0.1.7
+
 # Env + HTTP utilities
 python-dotenv>=0.21.0
 requests>=2.31.0
