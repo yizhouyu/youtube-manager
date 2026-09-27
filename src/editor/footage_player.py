@@ -303,7 +303,8 @@ body.showuse .seg{background:var(--unused)}
   line-height:1.35;color:#111}
 .cap.none{color:#b0b5bd;font-size:15px;font-weight:400}
 .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0}
-.info{font-size:15px;font-variant-numeric:tabular-nums}
+.gtime{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.info{font-size:13px;color:#6b7280;font-variant-numeric:tabular-nums}
 .info b{font-weight:600}
 .spacer{flex:1}
 button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);
@@ -355,6 +356,7 @@ aside .head span{color:var(--mute);font-weight:400}
   <div class="cap none" id="cap">（这段没有字幕）</div>
   <div class="bar">
     <button id="play">▶ 播放</button>
+    <div class="gtime" id="gtime">0:00 / 0:00</div>
     <div class="info" id="info"></div>
     <div class="spacer"></div>
     <div class="speeds" id="speeds"></div>
@@ -504,7 +506,8 @@ function tick(){
   if(clips.length){
     const c=clips[idx],t=cur.currentTime||0,g=starts[idx]+t;
     $('ph').style.left=(g/total*100)+'%';$('tlpos').textContent=fmt(g);
-    $('info').innerHTML=`第 <b>${idx+1}/${clips.length}</b> 段 · ${esc(c.clip)} · <span title="相机时钟 ${esc(c.clock)}（可能不准）">${esc(c.when)}</span> · ${fmt(t)} / ${fmt(c.dur)}`;
+    $('gtime').textContent=`${fmt(g)} / ${fmt(total)}`;   // YouTube-style: whole trip
+    $('info').innerHTML=`第 ${idx+1}/${clips.length} 段 · ${esc(c.clip)} · <span title="相机时钟 ${esc(c.clock)}（可能不准）">${esc(c.when)}</span> · 本段 ${fmt(t)} / ${fmt(c.dur)}`;
     const p=srtCache[c.clip];
     if(p&&p.v!==undefined){
       const line=p.v.find(s=>t>=s.t0&&t<s.t1);
