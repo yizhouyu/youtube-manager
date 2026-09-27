@@ -21,6 +21,9 @@ As soon as the creator hands over a folder, start these side by side (subagents)
   It shows ONLY proofread captions (`src.editor.captions_clean`: EDL lines where they exist, else
   `edit/glossary.json` fixes + hallucination/filler filtering) — never raw whisper text.
 - Transcription + contact sheets (below), music sourcing, and the edit itself.
+- **Thumbnails too** — they don't depend on the final cut: run the publish-video-chat thumbnail
+  step on raw frames (apply the EDL's color grade so it matches the video) and export both the
+  YouTube 16:9 and Bilibili 16:10 files, so packaging is ready when the edit is approved.
 
 ## 1. Watch the footage (deterministic layer)
 
