@@ -73,6 +73,50 @@ def _zoom_filters(z, dur, w, h):
             f"crop={w}:{h}:'(iw-{w})*{x}':'(ih-{h})*{y}'"]
 
 
+def _sfx_chain(edl, shot, inputs, k, dur, src_label, out_label):
+    """Mix a shot's `sfx` ([{file, at, gain}], file relative to edit/) over its audio."""
+    labels = [f"[{src_label}]"]
+    chains = []
+    for i, fx in enumerate(shot.get("sfx", [])):
+        path = os.path.join(E.edit_dir(edl["project"]), fx["file"])
+        if not os.path.exists(path):
+            continue
+        inputs += ["-i", path]
+        chains.append(f"[{k}:a]aresample={SR},aformat=channel_layouts=stereo,volume={fx.get('gain', 0.8)},"
+                      f"adelay={int(fx.get('at', 0) * 1000)}:all=1[fx{i}]")
+        labels.append(f"[fx{i}]")
+        k += 1
+    if len(labels) == 1:
+        return f"[{src_label}]anull[{out_label}]"
+    chains.append(f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=first,"
+                  f"atrim=0:{dur:.6f}[{out_label}]")
+    return ";".join(chains)
+
+
+def _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath, apath):
+    """A generated time card ("两小时后……"): still image with a gentle push-in + optional sfx."""
+    w, h = preset["w"], preset["h"]
+    c = shot["card"]
+    png = overlays.card(c["text"], c.get("sub", ""), w, h, ov_dir, c.get("bg", "#ffd84d"), c.get("fg", "#1f2937"))
+    inputs = ["-loop", "1", "-framerate", fps_str, "-t", f"{dur + 0.2:.3f}", "-i", png,
+              "-f", "lavfi", "-t", f"{dur + 0.2:.3f}", "-i", f"anullsrc=r={SR}:cl=stereo"]
+    vf = _zoom_filters({"from": 1.0, "to": 1.08}, dur, w, h) + [f"fps={fps_str}"]
+    if shot.get("fade_in"):
+        vf.append(f"fade=t=in:st=0:d={shot['fade_in']}")
+    if shot.get("fade_out"):
+        vf.append(f"fade=t=out:st={max(0, dur - shot['fade_out']):.3f}:d={shot['fade_out']}")
+    chains = [f"[0:v]scale={w}:{h},{','.join(vf)},format=yuv420p[v]",
+              f"[1:a]atrim=0:{dur:.6f}[a0]", _sfx_chain(edl, shot, inputs, 2, dur, "a0", "a")]
+    tmpv, tmpa = vpath + ".part.mp4", apath + ".part.wav"
+    _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
+          "-map", "[v]", "-frames:v", str(n), "-an",
+          "-c:v", "hevc_videotoolbox", "-b:v", preset["vb"], "-tag:v", "hvc1", "-g", "60", tmpv,
+          "-map", "[a]", "-vn", "-c:a", "pcm_s16le", tmpa])
+    os.replace(tmpv, vpath)
+    os.replace(tmpa, apath)
+    return vpath, apath
+
+
 def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     """-> (video_path, wav_path) for one shot; cached by content hash."""
     fps = float(Fraction(fps_str))
@@ -82,15 +126,17 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     grade = edl.get("grades", {}).get(shot.get("grade", "default"), "")
     brg = {b.get("grade", "default"): edl.get("grades", {}).get(b.get("grade", "default"), "")
            for b in shot.get("broll", [])}
-    key = json.dumps([shot, grade, brg, fps_str, preset, clean, 5, overlays.VERSION], sort_keys=True, ensure_ascii=False)
+    key = json.dumps([shot, grade, brg, fps_str, preset, clean, 6, overlays.VERSION], sort_keys=True, ensure_ascii=False)
     hid = hashlib.sha1(key.encode()).hexdigest()[:12]
     vpath = os.path.join(cache, f"{shot['id']}_{hid}.mp4")
     apath = os.path.join(cache, f"{shot['id']}_{hid}.wav")
     if os.path.exists(vpath) and os.path.exists(apath):
         return vpath, apath
 
-    src = E.clip_path(edl, shot["clip"])
     ov_dir = os.path.join(cache, "overlays")
+    if shot.get("card"):
+        return _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath, apath)
+    src = E.clip_path(edl, shot["clip"])
     span = shot["out"] - shot["in"]
     inputs = ["-ss", f"{shot['in']:.3f}", "-t", f"{span + 0.2:.3f}", "-i", src]
     chains, last = [], "v0"
@@ -166,7 +212,9 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     if fo:
         af.append(f"afade=t=out:st={max(0, dur - fo):.3f}:d={fo}")
     af += ["apad", f"atrim=0:{dur:.6f}"]
-    chains.append(f"{asrc}asetpts=PTS-STARTPTS,{','.join(af)}[a]")
+    chains.append(f"{asrc}asetpts=PTS-STARTPTS,{','.join(af)}[a0]")
+    k = base_inputs + len(ovs)
+    chains.append(_sfx_chain(edl, shot, inputs, k, dur, "a0", "a"))
 
     tmpv, tmpa = vpath + ".part.mp4", apath + ".part.wav"
     _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),

@@ -13,6 +13,8 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
   "music_volume": 0.30,                        # music gain when nobody is talking
   "music_duck": 0.08,                          # music gain under speech (subtitle intervals)
   "shots": [
+    {"id": "c01", "card": {"text": "两小时后……", "sub": "", "bg": "#ffd84d"}, "clip": "",
+     "in": 0, "out": 2.2, "enabled": true, "sfx": [...]},   # generated time card, no source clip
     {
       "id": "s001",                            # stable id (never reused)
       "clip": "GX015929",                      # file stem inside source_dir (.MP4)
@@ -30,6 +32,7 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
                                                # `dur` s while this shot's audio keeps playing
       "skip": [[3.1, 3.7]], "skip_on": true,   # source spans jump-cut out (pauses / 嗯啊);
                                                # skip_on=false restores them
+      "sfx": [{"file": "sfx/whoosh.mp3", "at": 0.0, "gain": 0.8}],   # sound effects (shot-local s)
       "zoom": {"from": 1.0, "to": 1.3, "x": 0.5, "y": 0.5},   # Ken Burns push/pull toward
                                                # focal point (x, y as 0-1 of the frame)
       "note": "why this shot"                  # agent's rationale, shown in review

@@ -97,7 +97,9 @@ def validate(edl):
             errs.append(f"{p}: id {sid} 重复")
         ids.add(sid)
         clip = s.get("clip")
-        if not isinstance(clip, str) or not clip or "/" in clip or ".." in clip:
+        if s.get("card"):
+            pass  # generated title card: no source clip
+        elif not isinstance(clip, str) or not clip or "/" in clip or ".." in clip:
             errs.append(f"{p}: clip 无效")
         elif not os.path.isfile(src_clip(edl, clip)):
             errs.append(f"{p}: 找不到素材 {clip}.MP4")

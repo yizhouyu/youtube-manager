@@ -8,7 +8,7 @@ import os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 # Bump when the look of any overlay changes: invalidates cached PNGs and rendered segments.
-VERSION = 3
+VERSION = 4
 
 _REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SUB_FONTS = ["/System/Library/Fonts/STHeiti Medium.ttc",
@@ -118,3 +118,47 @@ def place_tag(text, w, h, cache_dir):
         d.text((x + pad + size * 0.7, y + pad * 0.7), text, font=f, fill="white")
         return im
     return _cached(cache_dir, f"tag|{text}|{w}x{h}", render)
+
+
+def _hex(c):
+    c = c.lstrip("#")
+    return tuple(int(c[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def card(text, sub, w, h, cache_dir, bg="#ffd84d", fg="#1f2937"):
+    """Full-frame playful time card ("两小时后……"): sunburst background, tilted heavy text with a
+    thick white outline. Original design — no borrowed show branding."""
+    def render():
+        import math
+        base = _hex(bg)
+        light = tuple(min(255, int(v + (255 - v) * 0.35)) for v in base)
+        im = Image.new("RGBA", (w, h), base + (255,))
+        d = ImageDraw.Draw(im)
+        cx, cy, r, n = w / 2, h / 2, math.hypot(w, h), 18
+        for k in range(0, n * 2, 2):
+            a0, a1 = 2 * math.pi * k / (n * 2), 2 * math.pi * (k + 1) / (n * 2)
+            d.polygon([(cx, cy), (cx + r * math.cos(a0), cy + r * math.sin(a0)),
+                       (cx + r * math.cos(a1), cy + r * math.sin(a1))], fill=light + (255,))
+        # soft vignette so the text pops
+        vg = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(vg).ellipse([-w * 0.2, -h * 0.35, w * 1.2, h * 1.35], fill=255)
+        vg = vg.filter(ImageFilter.GaussianBlur(h * 0.12))
+        dark = Image.new("RGBA", (w, h), (0, 0, 0, 90))
+        im = Image.composite(im, Image.alpha_composite(im, dark), vg)
+
+        size = int(h * 0.15)
+        f = _font(TITLE_FONTS, size)
+        layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(layer)
+        ld.text((w / 2, h / 2 - (size * 0.35 if sub else 0)), text, font=f, fill=_hex(fg) + (255,),
+                anchor="mm", stroke_width=max(4, size // 9), stroke_fill=(255, 255, 255, 255))
+        if sub:
+            fs = _font(SUB_FONTS, int(h * 0.05))
+            ld.text((w / 2, h / 2 + size * 0.75), sub, font=fs, fill=_hex(fg) + (255,), anchor="mm",
+                    stroke_width=max(2, h // 250), stroke_fill=(255, 255, 255, 255))
+        layer = layer.rotate(-4, resample=Image.BICUBIC, center=(w / 2, h / 2))
+        shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        shadow.paste((0, 0, 0, 110), (int(h * 0.008), int(h * 0.012)), layer.split()[3])
+        im = Image.alpha_composite(im, shadow.filter(ImageFilter.GaussianBlur(h * 0.006)))
+        return Image.alpha_composite(im, layer).convert("RGB")
+    return _cached(cache_dir, f"card|{text}|{sub}|{bg}|{fg}|{w}x{h}", render)
