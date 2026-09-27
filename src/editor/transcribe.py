@@ -76,6 +76,10 @@ def main():
     ap.add_argument("--context", default="", help="proper nouns to bias recognition")
     ap.add_argument("--only", default="", help="comma-separated clip names")
     a = ap.parse_args()
+    if not a.context:  # fall back to the project's own list of proper nouns
+        cpath = os.path.join(E.edit_dir(a.project), "asr_context.txt")
+        if os.path.exists(cpath):
+            a.context = " ".join(l.strip() for l in open(cpath, encoding="utf-8") if not l.startswith("#"))
 
     from mlx_qwen3_asr import load_model, transcribe
     from opencc import OpenCC

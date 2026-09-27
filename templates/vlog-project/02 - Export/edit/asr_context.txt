@@ -1,0 +1,3 @@
+# Proper nouns for speech recognition (one line or comma-separated): places, dishes, shops,
+# pets' nicknames you actually say on camera. Read by src/editor/transcribe.py.
+# e.g. 美属维京群岛, St. John, Trunk Bay, Johnny Cake, Kallaloo soup, 社牛玳瑁小兄弟

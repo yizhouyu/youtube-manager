@@ -70,3 +70,6 @@ scripts/_*.py
 
 # Python 3.12 env for the MLX ASR model (src/editor/transcribe.py)
 asrvenv/
+
+# project template ships its (empty) json files
+!templates/**/*.json
