@@ -289,44 +289,57 @@ header .est{color:var(--mute)}
 .sub{color:var(--mute);margin:-4px 0 10px}
 .tog{display:inline-flex;align-items:center;gap:5px;cursor:pointer;user-select:none}
 body:not(.showuse) .seg .u,body:not(.showuse) .item .ub,body:not(.showuse) .legend{display:none}
-.seg{background:#d9dee6}
-body.showuse .seg{background:var(--unused)}
-.seg.day0{border-left:2px solid #5b6474}
 .dayhead{padding:6px 12px;background:#f3f4f6;color:var(--mute);font-size:12px;font-weight:600;
   border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1}
-.stage{position:relative;flex:1;min-height:0;background:#000;border-radius:10px;overflow:hidden}
+.stage{position:relative;flex:1;min-height:0;background:#000;border-radius:10px;overflow:hidden;
+  container-type:size;cursor:default}
+.stage:fullscreen{border-radius:0}
+.stage:not(.ctl){cursor:none}
 .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
 .stage video.hidden{visibility:hidden}
 .stage .msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   color:#bbb;font-size:16px;pointer-events:none}
-.cap{min-height:52px;margin:10px 0 4px;text-align:center;font-size:24px;font-weight:600;
-  line-height:1.35;color:#111}
-.cap.none{color:#b0b5bd;font-size:15px;font-weight:400}
-.bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0}
-.gtime{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
-.info{font-size:13px;color:#6b7280;font-variant-numeric:tabular-nums}
-.info b{font-weight:600}
+.cap{position:absolute;left:50%;bottom:5%;transform:translateX(-50%);width:84%;text-align:center;
+  pointer-events:none;transition:bottom .2s ease;z-index:3;
+  font-size:clamp(14px,2.4cqw,44px);font-weight:500;line-height:1.4}
+.cap span{background:rgba(8,8,8,.75);color:#fff;padding:.1em .45em;border-radius:3px;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone}
+.cap:empty{display:none}
+.stage.ctl .cap{bottom:calc(96px + 3%)}
+.ov{position:absolute;left:0;right:0;bottom:0;padding:44px 16px 10px;z-index:4;color:#fff;
+  background:linear-gradient(to bottom,transparent,rgba(0,0,0,.65));
+  opacity:0;pointer-events:none;transition:opacity .25s ease}
+.stage.ctl .ov{opacity:1;pointer-events:auto}
+.bar{display:flex;align-items:center;gap:12px;margin-top:8px}
+.gtime{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.info{font-size:12.5px;color:rgba(255,255,255,.78);font-variant-numeric:tabular-nums;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .spacer{flex:1}
 button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);
   border-radius:7px;padding:5px 11px;cursor:pointer}
-button:hover{border-color:#b9c0cc}
-button.on{background:var(--accent);border-color:var(--accent);color:#fff}
-.speeds{display:flex;gap:6px}
-.tl-wrap{margin-top:6px}
-.tl{position:relative;height:30px;background:var(--panel);border:1px solid var(--line);
-  border-radius:6px;cursor:pointer;overflow:hidden;display:flex}
-.seg{position:relative;height:100%;background:var(--unused);border-right:1px solid #fff}
-body.showuse .seg.noedl{background:#d9dee6}
-.seg .u{position:absolute;top:0;bottom:0;background:var(--used)}
-.seg.cur{outline:2px solid var(--accent);outline-offset:-2px;z-index:1}
-.ph{position:absolute;top:-3px;bottom:-3px;width:2px;background:#e11d48;pointer-events:none;z-index:2}
-.tl-meta{display:flex;justify-content:space-between;color:var(--mute);font-size:12px;
-  margin-top:4px;font-variant-numeric:tabular-nums}
-.legend{display:flex;gap:14px;align-items:center}
-.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px}
-.hover{position:absolute;top:-26px;transform:translateX(-50%);background:#1d2330;color:#fff;
+.ov button{background:transparent;color:#fff;border-color:rgba(255,255,255,.35);padding:4px 10px;white-space:nowrap}
+.ov button:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.6)}
+.ov button.on{background:#fff;border-color:#fff;color:#111}
+.ov #play{min-width:78px;font-weight:600}
+.speeds{display:flex;gap:5px}
+.tl-row{position:relative}
+.tl{position:relative;height:10px;border-radius:3px;cursor:pointer;overflow:hidden;display:flex;
+  transition:height .15s ease}
+.tl-row:hover .tl{height:16px}
+.seg{position:relative;height:100%;background:rgba(255,255,255,.38);border-right:1px solid rgba(0,0,0,.45)}
+body.showuse .seg{background:rgba(255,255,255,.22)}
+body.showuse .seg.noedl{background:rgba(255,255,255,.38)}
+.seg.day0{border-left:3px solid #fff}
+.seg .u{position:absolute;top:0;bottom:0;background:#34d27a}
+.seg.cur{background:rgba(255,255,255,.62)}
+body.showuse .seg.cur{background:rgba(255,255,255,.4)}
+.ph{position:absolute;top:-4px;bottom:-4px;width:3px;margin-left:-1px;background:#ff2d55;
+  border-radius:2px;pointer-events:none;z-index:2}
+.hover{position:absolute;bottom:22px;transform:translateX(-50%);background:rgba(20,20,20,.9);color:#fff;
   font-size:12px;padding:2px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;display:none}
-.keys{color:var(--mute);font-size:12px;margin-top:6px}
+.below{display:flex;align-items:center;gap:16px;flex-wrap:wrap;color:var(--mute);font-size:12px;margin-top:8px}
+.legend{display:flex;gap:12px;align-items:center}
+.sw{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:4px}
 aside{border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
 aside .head{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:600}
 aside .head span{color:var(--mute);font-weight:400}
@@ -348,27 +361,29 @@ aside .head span{color:var(--mute);font-weight:400}
 <main>
   <header><h1 id="h1">原片预览 · __TITLE__</h1><span class="est" id="est"></span></header>
   <div class="sub">按拍摄顺序连播全部原片，可倍速快速浏览</div>
-  <div class="stage" id="stage">
+  <div class="stage ctl" id="stage">
     <video id="va" playsinline preload="auto"></video>
     <video id="vb" class="hidden" playsinline preload="auto" muted></video>
     <div class="msg" id="msg">加载中…</div>
+    <div class="cap" id="cap"></div>
+    <div class="ov" id="ov">
+      <div class="tl-row"><div class="tl" id="tl"></div><div class="ph" id="ph"></div>
+        <div class="hover" id="hover"></div></div>
+      <div class="bar">
+        <button id="play">▶ 播放</button>
+        <div class="gtime" id="gtime">0:00 / 0:00</div>
+        <div class="info" id="info"></div>
+        <div class="spacer"></div>
+        <div class="speeds" id="speeds"></div>
+        <button id="fs" title="全屏（F）">⛶ 全屏</button>
+      </div>
+    </div>
   </div>
-  <div class="cap none" id="cap">（这段没有字幕）</div>
-  <div class="bar">
-    <button id="play">▶ 播放</button>
-    <div class="gtime" id="gtime">0:00 / 0:00</div>
-    <div class="info" id="info"></div>
-    <div class="spacer"></div>
-    <div class="speeds" id="speeds"></div>
+  <div class="below">
+    <span>空格 播放/暂停 · ←/→ 快退/快进 5 秒 · ↑/↓ 上一段/下一段 · 1–5 切换速度 · F 全屏 · 点进度条任意位置跳过去</span>
+    <span class="spacer"></span><span class="legend" id="legend"></span>
+    <label class="tog"><input type="checkbox" id="showuse">显示成片用到的部分</label>
   </div>
-  <div class="tl-wrap">
-    <div style="position:relative"><div class="tl" id="tl"></div><div class="ph" id="ph"></div>
-      <div class="hover" id="hover"></div></div>
-    <div class="tl-meta"><span id="tlpos">0:00</span>
-      <span style="display:flex;gap:14px;align-items:center"><span class="legend" id="legend"></span>
-      <label class="tog"><input type="checkbox" id="showuse">显示成片用到的部分</label></span><span id="tltot">0:00</span></div>
-  </div>
-  <div class="keys">空格 播放/暂停 · ←/→ 快退/快进 5 秒 · ↑/↓ 上一段/下一段 · 1–5 切换速度 · 点时间轴任意位置跳过去</div>
 </main>
 <aside><div class="head">全部片段 <span id="count"></span></div><div class="list" id="list"></div></aside>
 </div>
@@ -431,8 +446,8 @@ function onEnded(e){if(e.target!==cur)return;
 
 [$('va'),$('vb')].forEach(v=>{
   v.addEventListener('ended',onEnded);
-  v.addEventListener('play',()=>{if(v===cur)$('play').textContent='⏸ 暂停'});
-  v.addEventListener('pause',()=>{if(v===cur)$('play').textContent='▶ 播放'});
+  v.addEventListener('play',()=>{if(v===cur){$('play').textContent='⏸ 暂停';clearTimeout(hideT);hideT=setTimeout(maybeHide,2500)}});
+  v.addEventListener('pause',()=>{if(v===cur){$('play').textContent='▶ 播放';stage.classList.add('ctl')}});
   v.addEventListener('ratechange',()=>{if(v.playbackRate!==speed)v.playbackRate=speed});
   v.addEventListener('error',()=>{if(v===cur&&v.getAttribute('src'))$('msg').textContent='这段播放失败（浏览器可能不支持此编码）'});
 });
@@ -465,7 +480,7 @@ async function loadUsage(){
 
 function build(){
   starts=[];total=0;clips.forEach(c=>{starts.push(total);total+=c.dur||0});
-  $('count').textContent=`（${clips.length} 段 · ${fmt(total)}）`;$('tltot').textContent=fmt(total);
+  $('count').textContent=`（${clips.length} 段 · ${fmt(total)}）`;
   $('h1').textContent=`原片预览 · ${PNAME} · ${clips.length} 段 · ${fmt(total)}`;
   $('tl').innerHTML=clips.map((c,i)=>`<div class="seg${i&&c.day!==clips[i-1].day?' day0':''}" style="width:${(c.dur||0)/total*100}%"></div>`).join('');
   $('list').innerHTML=clips.map((c,i)=>(i===0||c.day!==clips[i-1].day?`<div class="dayhead">第${c.day}天</div>`:'')+`<div class="item" data-i="${i}" title="相机时钟 ${esc(c.clock)}（可能不准）">
@@ -487,7 +502,25 @@ tl.addEventListener('mousemove',e=>{const g=tlAt(e);let i=0;while(i+1<clips.leng
   h.textContent=`${fmt(g)} · ${clips[i].clip} ${clips[i].when}`});
 tl.addEventListener('mouseleave',()=>$('hover').style.display='none');
 $('play').onclick=toggle;
-$('stage').onclick=toggle;
+const stage=$('stage'),ov=$('ov');
+stage.addEventListener('click',toggle);
+stage.addEventListener('dblclick',e=>{if(!ov.contains(e.target))toggleFs()});
+ov.addEventListener('click',e=>e.stopPropagation());
+ov.addEventListener('dblclick',e=>e.stopPropagation());
+// YouTube-style auto-hide: visible while paused, on mouse movement, or hovering the controls
+const PIN=new URLSearchParams(location.search).has('ctl');
+let hideT=0;
+function showCtl(){stage.classList.add('ctl');clearTimeout(hideT);hideT=setTimeout(maybeHide,2500)}
+function maybeHide(){if(PIN||cur.paused||ov.matches(':hover'))return;stage.classList.remove('ctl')}
+stage.addEventListener('mousemove',showCtl);
+stage.addEventListener('mouseleave',()=>{clearTimeout(hideT);if(!PIN&&!cur.paused)stage.classList.remove('ctl')});
+function toggleFs(){
+  if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+  else (stage.requestFullscreen||stage.webkitRequestFullscreen).call(stage)}
+$('fs').onclick=toggleFs;
+// don't let a focused button also react to Space/keys
+document.addEventListener('mouseup',()=>{const a=document.activeElement;if(a&&a.tagName==='BUTTON')a.blur()});
+document.addEventListener('fullscreenchange',()=>{$('fs').textContent=document.fullscreenElement?'退出全屏':'⛶ 全屏'});
 
 document.addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey||!clips.length)return;
@@ -498,6 +531,7 @@ document.addEventListener('keydown',e=>{
   else if(k==='ArrowUp')show(idx-1,0);
   else if(k==='ArrowDown')show(idx+1,0);
   else if(k>='1'&&k<='5')setSpeed(SPEEDS[+k-1]);
+  else if(k==='f'||k==='F')toggleFs();
   else return;
   e.preventDefault()});
 
@@ -505,16 +539,15 @@ let lastCapKey='';
 function tick(){
   if(clips.length){
     const c=clips[idx],t=cur.currentTime||0,g=starts[idx]+t;
-    $('ph').style.left=(g/total*100)+'%';$('tlpos').textContent=fmt(g);
+    $('ph').style.left=(g/total*100)+'%';
     $('gtime').textContent=`${fmt(g)} / ${fmt(total)}`;   // YouTube-style: whole trip
     $('info').innerHTML=`第 ${idx+1}/${clips.length} 段 · ${esc(c.clip)} · <span title="相机时钟 ${esc(c.clock)}（可能不准）">${esc(c.when)}</span> · 本段 ${fmt(t)} / ${fmt(c.dur)}`;
     const p=srtCache[c.clip];
     if(p&&p.v!==undefined){
       const line=p.v.find(s=>t>=s.t0&&t<s.t1);
-      const key=c.clip+'|'+(line?line.text:(p.v.length?'':'none'));
-      if(key!==lastCapKey){lastCapKey=key;const cap=$('cap');
-        if(line){cap.textContent=line.text;cap.classList.remove('none')}
-        else{cap.textContent=p.v.length?' ':'（这段没有字幕）';cap.classList.toggle('none',!p.v.length)}}
+      const key=c.clip+'|'+(line?line.text:'');
+      if(key!==lastCapKey){lastCapKey=key;
+        $('cap').innerHTML=line?'<span>'+esc(line.text)+'</span>':''}
     }else if(p&&!p.w){p.w=1;p.then(v=>p.v=v)}
   }
   requestAnimationFrame(tick)}
