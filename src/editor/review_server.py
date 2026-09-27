@@ -663,6 +663,18 @@ $('#modal').addEventListener('click',e=>{if(e.target.id==='modal') closeModal()}
 $('#mIn').onclick=()=>{const s=D.shots[modalShot]; if(mv.currentTime<s.out){s.in=r3(mv.currentTime); delete s._qdur; changed(); render()}};
 $('#mOut').onclick=()=>{const s=D.shots[modalShot]; if(mv.currentTime>s.in){s.out=r3(mv.currentTime); delete s._qdur; changed(); render()}};
 $('#mSplit').onclick=()=>{const i=modalShot,t=mv.currentTime; closeModal(); splitAt(i,t)};
+// Preview player keys (also in fullscreen). Capture phase + preventDefault so the browser's own
+// media controls or a focused button don't handle the same key a second time.
+document.addEventListener('keydown',e=>{
+  if(modalShot>=0||e.metaKey||e.ctrlKey||e.altKey) return;
+  if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)||e.target.isContentEditable) return;
+  const v=document.getElementById('pvv'); if(!v) return;
+  if(e.code==='Space'||e.key==='k'){e.preventDefault();e.stopPropagation(); v.paused?v.play():v.pause()}
+  else if(e.key==='ArrowRight'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.min(v.duration||1e9,v.currentTime+5)}
+  else if(e.key==='ArrowLeft'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.max(0,v.currentTime-5)}
+  else if(e.key==='f'||e.key==='F'){e.preventDefault();e.stopPropagation();
+    document.fullscreenElement?document.exitFullscreen():v.requestFullscreen()}
+},true);
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();save();return}
   if(modalShot<0) return;
@@ -757,6 +769,7 @@ async function pollOnce(){
 function stopPoll(){clearInterval(polling); polling=null; setBusy(false)}
 function setBusy(b){$('#bPrev').disabled=b; $('#bFinal').disabled=b}
 function disarmFinal(){clearTimeout(finalArmed); finalArmed=null; const b=$('#bFinal'); b.textContent='导出成片'; b.classList.remove('danger')}
+document.addEventListener('mouseup',e=>{const b=e.target.closest&&e.target.closest('button'); if(b) setTimeout(()=>b.blur(),0)});
 $('#bSave').onclick=save;
 $('#bPrev').onclick=()=>startRender('preview');
 $('#bFinal').onclick=()=>{
