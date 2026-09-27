@@ -11,6 +11,15 @@ edits it, the renderer reads it. Never touch `01 - Unedited/`.
 
 Resolve `REPO` as two levels up from this file and run everything from there.
 
+## 0. Kick off in parallel
+
+As soon as the creator hands over a folder, start these side by side (subagents):
+- **Raw-footage player** for the creator, up immediately (it needs no EDL) —
+  `./venv/bin/python -m src.editor.footage_player "<project>"` (port 8766): all clips back-to-back
+  in capture order at 1×–3×, with the transcript line. Its job is letting the creator preview the
+  raw material and grasp the whole trip; marking what the cut used is an optional toggle.
+- Transcription + contact sheets (below), music sourcing, and the edit itself.
+
 ## 1. Watch the footage (deterministic layer)
 
 - `ffprobe` every clip: duration, `creation_time` (GoPro writes the camera's local clock with
@@ -40,6 +49,12 @@ Write the EDL (a small build script is fine). Craft rules that make it comfortab
 - **B-roll**: when the creator talks over a boring frame (food close-up, parking lot), cut the
   picture away to a related clip (`broll: [{clip, in, at, dur, grade}]`) while their voice
   continues.
+- **Tighten speech**: `./venv/bin/python -m src.editor.tighten "<project>"` runs the Silero VAD
+  (whisper fills in 嗯/啊 silently and wind noise defeats loudness-based silence detection) and
+  writes `skip` spans: pauses ≥0.55 s shrink to ~0.3 s, isolated voice blips with no subtitle
+  (fillers) go. Set `skip_on: false` on shots where the pause IS the content (pans, animals).
+- **Ken Burns** (`zoom: {from, to, x, y}`): slow eased push-in toward what the speaker points
+  at when it's far away (boats, islands, ships), pull-out on the ending shot.
 - **Music by section** (`music: [{file, start: <shot id>}]`), crossfaded, auto-ducked under
   speech (subtitle intervals). YouTube Audio Library tracks with "no attribution required" are
   the only Content-ID-safe choice; record licenses in `edit/music/LICENSES.md`.
@@ -56,8 +71,13 @@ Write the EDL (a small build script is fine). Craft rules that make it comfortab
 ```
 
 Segments are cached by content hash, so a re-render after edits only re-encodes changed
-shots. QA the preview yourself first (extract frames: subtitles legible, overlays placed,
-b-roll lands on the right words), then hand the review page to the creator. Their edits are
+shots.
+
+**Mandatory QA before the creator sees it:** spawn a separate reviewer subagent that watches
+the whole preview (dense frame sheets), "listens" (re-transcribes the rendered audio and diffs it
+against captions.srt; ebur128 loudness over time for music-over-speech, pops, holes), fixes
+what it can directly in the EDL (reload before every write — the creator may be editing), and
+re-renders. Then hand the review page (port 8765, plain-language UI) to the creator. Their edits are
 saved back to the EDL (with history in `edit/history/`); every recurring correction becomes a
 preference in memory.
 

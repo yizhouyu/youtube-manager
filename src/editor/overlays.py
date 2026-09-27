@@ -7,6 +7,9 @@ import hashlib
 import os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+# Bump when the look of any overlay changes: invalidates cached PNGs and rendered segments.
+VERSION = 2
+
 _REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SUB_FONTS = ["/System/Library/Fonts/STHeiti Medium.ttc",
              "/System/Library/Fonts/Hiragino Sans GB.ttc",
@@ -43,7 +46,7 @@ def _wrap(draw, text, font, max_w):
 
 def _cached(cache_dir, key, render):
     os.makedirs(cache_dir, exist_ok=True)
-    path = os.path.join(cache_dir, hashlib.sha1(key.encode()).hexdigest()[:16] + ".png")
+    path = os.path.join(cache_dir, hashlib.sha1(f"{VERSION}|{key}".encode()).hexdigest()[:16] + ".png")
     if not os.path.exists(path):
         render().save(path)
     return path
@@ -72,19 +75,23 @@ def title_card(text, sub, w, h, cache_dir):
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         big, small = int(h * 0.12), int(h * 0.045)
         fb, fs = _font(TITLE_FONTS, big), _font(SUB_FONTS, small)
-        x, y = int(w * 0.07), int(h * 0.62)
+        x, y = int(w * 0.07), int(h * 0.58)
+        # Lay out from the glyphs' real ink box — heavy CJK faces run well below the nominal size.
+        bottom = ImageDraw.Draw(im).textbbox((x, y), text, font=fb)[3]
+        gap, bar_h = int(h * 0.022), max(3, h // 300)
+        bar_y = bottom + gap
+        sub_y = bar_y + bar_h + gap
         shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         sd = ImageDraw.Draw(shadow)
         sd.text((x + 4, y + 4), text, font=fb, fill=(0, 0, 0, 170))
         if sub:
-            sd.text((x + 3, y + big * 1.18 + 3), sub, font=fs, fill=(0, 0, 0, 170))
+            sd.text((x + 3, sub_y + 3), sub, font=fs, fill=(0, 0, 0, 170))
         im = Image.alpha_composite(im, shadow.filter(ImageFilter.GaussianBlur(h * 0.006)))
         d = ImageDraw.Draw(im)
         d.text((x, y), text, font=fb, fill="white")
         if sub:
-            bar_y = y + big * 1.1
-            d.rectangle([x, bar_y, x + int(w * 0.05), bar_y + max(3, h // 300)], fill=(255, 214, 90, 255))
-            d.text((x, y + big * 1.18), sub, font=fs, fill="white")
+            d.rectangle([x, bar_y, x + int(w * 0.05), bar_y + bar_h], fill=(255, 214, 90, 255))
+            d.text((x, sub_y), sub, font=fs, fill="white")
         return im
     return _cached(cache_dir, f"title|{text}|{sub}|{w}x{h}", render)
 

@@ -27,6 +27,10 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
       "broll": [{"clip": "GX0001", "in": 2.0, "at": 5.0, "dur": 3.0, "grade": "default"}],
                                                # cut the picture away at shot-local `at` s for
                                                # `dur` s while this shot's audio keeps playing
+      "skip": [[3.1, 3.7]], "skip_on": true,   # source spans jump-cut out (pauses / 嗯啊);
+                                               # skip_on=false restores them
+      "zoom": {"from": 1.0, "to": 1.3, "x": 0.5, "y": 0.5},   # Ken Burns push/pull toward
+                                               # focal point (x, y as 0-1 of the frame)
       "note": "why this shot"                  # agent's rationale, shown in review
     }
   ]
@@ -77,13 +81,43 @@ def active_shots(edl):
     return [s for s in edl["shots"] if s.get("enabled", True) and s["out"] > s["in"]]
 
 
+def kept_ranges(shot):
+    """Source ranges that survive inside [in, out] after removing `skip` spans (pauses, fillers).
+    `skip_on: false` restores them without losing the detected spans."""
+    rs, cur = [], shot["in"]
+    for a, b in sorted(shot.get("skip", []) if shot.get("skip_on", True) else []):
+        a, b = max(a, shot["in"]), min(b, shot["out"])
+        if b - a <= 0.02 or a < cur:
+            continue
+        rs.append((cur, a)); cur = b
+    rs.append((cur, shot["out"]))
+    return [(a, b) for a, b in rs if b - a > 0.02]
+
+
+def shot_dur(shot):
+    if "_qdur" in shot:  # frame-quantized length, set by the renderer for exact timeline math
+        return shot["_qdur"]
+    return sum(b - a for a, b in kept_ranges(shot))
+
+
+def src_to_local(shot, t):
+    """Source-clip time -> time inside the rendered shot (skipped spans collapse)."""
+    acc = 0.0
+    for a, b in kept_ranges(shot):
+        if t <= b:
+            return acc + max(0.0, t - a)
+        acc += b - a
+    return acc
+
+
 def shot_subs(shot):
-    """Subtitles of a shot, clipped to [in, out] and shifted to shot-local time."""
+    """Subtitles of a shot, clipped to [in, out] and mapped to shot-local time."""
     out = []
     for s in shot.get("subs", []):
         t0, t1 = max(s["t0"], shot["in"]), min(s["t1"], shot["out"])
-        if t1 - t0 >= 0.3 and s["text"].strip():
-            out.append({"t0": t0 - shot["in"], "t1": t1 - shot["in"], "text": s["text"].strip()})
+        l0, l1 = src_to_local(shot, t0), src_to_local(shot, t1)
+        if l1 - l0 >= 0.3 and s["text"].strip():
+            out.append({"t0": l0, "t1": l1, "text": s["text"].strip()})
     return out
 
 
@@ -92,7 +126,7 @@ def timeline(edl):
     t, rows = 0.0, []
     for s in active_shots(edl):
         rows.append((s, t))
-        t += s["out"] - s["in"]
+        t += shot_dur(s)
     return rows, t
 
 

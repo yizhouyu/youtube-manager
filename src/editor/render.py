@@ -20,6 +20,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from fractions import Fraction
@@ -44,19 +45,32 @@ def _run(cmd):
 class Status:
     def __init__(self, path):
         self.path = path
+        self.lock = threading.Lock()  # segment workers report progress concurrently
 
     def set(self, **kw):
         kw.setdefault("updated", time.time())
-        tmp = self.path + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump(kw, f, ensure_ascii=False)
-        os.replace(tmp, self.path)
+        with self.lock:
+            tmp = self.path + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(kw, f, ensure_ascii=False)
+            os.replace(tmp, self.path)
         if kw.get("step"):
             print(f"[render] {kw['step']}", flush=True)
 
 
 def frames_of(shot, fps):
-    return max(1, round((shot["out"] - shot["in"]) * fps))
+    return max(1, round(E.shot_dur(shot) * fps))
+
+
+def _zoom_filters(z, dur, w, h):
+    """Ken Burns: smooth (smoothstep-eased) push/pull toward a focal point. Scale per frame with
+    float precision, then crop — avoids zoompan's integer-pixel jitter."""
+    a, b = z.get("from", 1.0), z.get("to", 1.2)
+    x, y = z.get("x", 0.5), z.get("y", 0.5)
+    p = f"min(t/{dur:.3f},1)"
+    zz = f"({a}+({b - a})*{p}*{p}*(3-2*{p}))"
+    return [f"scale='trunc({w}*{zz}/2)*2':'trunc({h}*{zz}/2)*2':eval=frame:flags=bicubic",
+            f"crop={w}:{h}:'(iw-{w})*{x}':'(ih-{h})*{y}'"]
 
 
 def render_segment(edl, shot, fps_str, preset, cache, clean=False):
@@ -68,7 +82,7 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     grade = edl.get("grades", {}).get(shot.get("grade", "default"), "")
     brg = {b.get("grade", "default"): edl.get("grades", {}).get(b.get("grade", "default"), "")
            for b in shot.get("broll", [])}
-    key = json.dumps([shot, grade, brg, fps_str, preset, clean, 4], sort_keys=True, ensure_ascii=False)
+    key = json.dumps([shot, grade, brg, fps_str, preset, clean, 5, overlays.VERSION], sort_keys=True, ensure_ascii=False)
     hid = hashlib.sha1(key.encode()).hexdigest()[:12]
     vpath = os.path.join(cache, f"{shot['id']}_{hid}.mp4")
     apath = os.path.join(cache, f"{shot['id']}_{hid}.wav")
@@ -77,9 +91,27 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
 
     src = E.clip_path(edl, shot["clip"])
     ov_dir = os.path.join(cache, "overlays")
-    inputs = ["-ss", f"{shot['in']:.3f}", "-t", f"{dur + 0.2:.3f}", "-i", src]
+    span = shot["out"] - shot["in"]
+    inputs = ["-ss", f"{shot['in']:.3f}", "-t", f"{span + 0.2:.3f}", "-i", src]
     chains, last = [], "v0"
+    # jump-cut out skipped spans (pauses / fillers): trim each kept range and concat
+    ranges = [(a - shot["in"], b - shot["in"]) for a, b in E.kept_ranges(shot)]
+    if len(ranges) > 1:
+        m = len(ranges)
+        chains.append(f"[0:v]split={m}" + "".join(f"[vs{i}]" for i in range(m)))
+        chains.append(f"[0:a]asplit={m}" + "".join(f"[as{i}]" for i in range(m)))
+        for i, (a, b) in enumerate(ranges):
+            chains.append(f"[vs{i}]trim={a:.3f}:{b:.3f},setpts=PTS-STARTPTS[vk{i}]")
+            chains.append(f"[as{i}]atrim={a:.3f}:{b:.3f},asetpts=PTS-STARTPTS,"
+                          f"afade=t=in:d=0.012,afade=t=out:st={max(0, b - a - 0.012):.3f}:d=0.012[ak{i}]")
+        chains.append("".join(f"[vk{i}]" for i in range(m)) + f"concat=n={m}:v=1:a=0[vsrc]")
+        chains.append("".join(f"[ak{i}]" for i in range(m)) + f"concat=n={m}:v=0:a=1[asrc]")
+        vsrc, asrc = "[vsrc]", "[asrc]"
+    else:
+        vsrc, asrc = "[0:v]", "[0:a]"
     vf = [f"scale={w}:{h}:flags=lanczos", f"fps={fps_str}"]
+    if shot.get("zoom"):
+        vf[1:1] = _zoom_filters(shot["zoom"], dur, w, h)
     if grade:
         vf.append(grade)
     fi, fo = shot.get("fade_in", 0), shot.get("fade_out", 0)
@@ -87,12 +119,13 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
         vf.append(f"fade=t=in:st=0:d={fi}")
     if fo:
         vf.append(f"fade=t=out:st={max(0, dur - fo):.3f}:d={fo}")
-    chains.append(f"[0:v]setpts=PTS-STARTPTS,{','.join(vf)},format=yuv420p[v0]")
+    chains.append(f"{vsrc}setpts=PTS-STARTPTS,{','.join(vf)},format=yuv420p[v0]")
 
     # B-roll: cut the picture away to another clip while the main shot's audio keeps playing.
     grades = edl.get("grades", {})
     for b in shot.get("broll", []):
-        at, bd = b["at"], min(b["dur"], dur - b["at"])
+        at = E.src_to_local(shot, shot["in"] + b["at"])
+        bd = min(b["dur"], dur - at)
         if bd <= 0.1:
             continue
         k = len(inputs) // 6  # every input below is 6 args
@@ -133,7 +166,7 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     if fo:
         af.append(f"afade=t=out:st={max(0, dur - fo):.3f}:d={fo}")
     af += ["apad", f"atrim=0:{dur:.6f}"]
-    chains.append(f"[0:a]asetpts=PTS-STARTPTS,{','.join(af)}[a]")
+    chains.append(f"{asrc}asetpts=PTS-STARTPTS,{','.join(af)}[a]")
 
     tmpv, tmpa = vpath + ".part.mp4", apath + ".part.wav"
     _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
@@ -262,8 +295,8 @@ def render(project, mode):
 
         # timeline math uses frame-quantized durations, same as the segments
         for s in shots:
-            s["out"] = s["in"] + frames_of(s, fps) / fps
-        total = sum(s["out"] - s["in"] for s in shots)
+            s["_qdur"] = frames_of(s, fps) / fps
+        total = sum(s["_qdur"] for s in shots)
         work = os.path.join(cache, "_mix")
         os.makedirs(work, exist_ok=True)
         with open(os.path.join(work, "v.txt"), "w") as f:
