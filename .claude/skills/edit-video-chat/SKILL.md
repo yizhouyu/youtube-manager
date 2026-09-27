@@ -91,6 +91,9 @@ shots.
 **Keep "showing" shots:** a silent 2–3 s shot where the camera clearly shows something (a sign,
 a menu, an animal) earns its place — give it an editor's caption (`subs` entry with
 `"kind": "note"`: soft yellow, doesn't duck music, never mixed up with dialogue).
+Note captions have no speech to check against, so verify them across several frames (not one
+still): counts and species of animals are easy to get wrong (a "second stingray" was actually a
+small fish riding along). When unsure, stay generic ("小鱼") rather than guess.
 
 **Mandatory QA before the creator sees it:** spawn a separate reviewer subagent that watches
 the whole preview (dense frame sheets), "listens" (re-transcribes the rendered audio and diffs it
