@@ -338,7 +338,9 @@ input.bad{border-color:var(--warn);background:#fef3f2}
 #rs .pb{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:4px}
 #rs .pb i{display:block;height:100%;background:var(--acc);width:0;transition:width .4s}
 #rs.err{color:var(--warn)} #rs.done{color:var(--ok)} #rs.done .pb i{background:var(--ok)}
-main{max-width:1100px;margin:0 auto;padding:14px 20px 60vh}
+main{max-width:1100px;margin:0 auto;padding:14px 20px 24px}
+#listEnd{margin:18px 0 0;padding:22px 0 40vh;text-align:center;color:#6b7280;font-size:14px;border-top:1px dashed #d1d5db}
+#listEnd b{color:#111827}
 #help{background:#eef4ff;border:1px solid #d5e3fd;color:#23408e;border-radius:9px;padding:8px 14px;margin-bottom:12px;font-size:14px}
 #pvwrap{position:sticky;top:var(--barh,56px);z-index:5;background:var(--bg);padding:6px 0 10px;margin-bottom:4px}
 #pv{background:#000;border-radius:10px;overflow:hidden;display:flex;justify-content:center;align-items:center;min-height:80px;position:relative}
@@ -409,6 +411,7 @@ summary{cursor:pointer;color:var(--mut);font-size:13px;user-select:none}
   <div id="errbox"></div>
   <div id="pvwrap"><div id="pv"><div class="none">还没有预览，点右上角「更新预览」生成</div></div></div>
   <div id="list"></div>
+  <div id="listEnd">— 已经到最后一段了 —<br><span id="listEndInfo"></span><br><a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false">↑ 回到顶部</a></div>
 </main>
 <div id="modal"><div class="box">
   <video id="mv" controls playsinline></video>
@@ -569,6 +572,7 @@ function recompute(){
     }
   });
   $('#total').innerHTML=`成片 <b>${fmt(t)}</b> · ${n} 段`;
+  const le=document.getElementById('listEndInfo'); if(le) le.innerHTML=`共 <b>${n}</b> 段 · 成片 <b>${fmt(t)}</b>`;
 }
 
 const thumbTimers={};
