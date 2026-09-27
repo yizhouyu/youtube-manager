@@ -30,7 +30,9 @@ from . import overlays
 
 PRESETS = {
     "preview": {"w": 1920, "h": 1080, "vb": "12M"},
-    "final": {"w": 3840, "h": 2160, "vb": "45M"},
+    # Final master: 10-bit HEVC at ~2x the GoPro source bitrate — grading + burned-in text force a
+    # re-encode, so over-provision to keep it visually lossless (YouTube re-encodes anyway).
+    "final": {"w": 3840, "h": 2160, "vb": "100M", "tenbit": True},
 }
 SR = 48000
 
@@ -58,6 +60,18 @@ class Status:
             print(f"[render] {kw['step']}", flush=True)
 
 
+def _pixfmt(preset):
+    """Grade/composite at 10 bits for the final master (less banding in skies and water)."""
+    return "yuv420p10le" if preset.get("tenbit") else "yuv420p"
+
+
+def _venc(preset):
+    args = ["-c:v", "hevc_videotoolbox", "-b:v", preset["vb"], "-tag:v", "hvc1", "-g", "60"]
+    if preset.get("tenbit"):
+        args += ["-profile:v", "main10", "-pix_fmt", "p010le"]
+    return args
+
+
 def frames_of(shot, fps):
     return max(1, round(E.shot_dur(shot) * fps))
 
@@ -70,7 +84,9 @@ def _zoom_filters(z, dur, w, h):
     p = f"min(t/{dur:.3f},1)"
     zz = f"({a}+({b - a})*{p}*{p}*(3-2*{p}))"
     return [f"scale='trunc({w}*{zz}/2)*2':'trunc({h}*{zz}/2)*2':eval=frame:flags=bicubic",
-            f"crop={w}:{h}:'(iw-{w})*{x}':'(ih-{h})*{y}'"]
+            # crop's iw/ih are fixed at init (the first frame's size), so compute the offset
+            # from the same per-frame zoom expression instead
+            f"crop={w}:{h}:'(trunc({w}*{zz}/2)*2-{w})*{x}':'(trunc({h}*{zz}/2)*2-{h})*{y}'"]
 
 
 def _sfx_chain(edl, shot, inputs, k, dur, src_label, out_label):
@@ -105,12 +121,12 @@ def _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath, apath):
         vf.append(f"fade=t=in:st=0:d={shot['fade_in']}")
     if shot.get("fade_out"):
         vf.append(f"fade=t=out:st={max(0, dur - shot['fade_out']):.3f}:d={shot['fade_out']}")
-    chains = [f"[0:v]scale={w}:{h},{','.join(vf)},format=yuv420p[v]",
+    chains = [f"[0:v]scale={w}:{h},{','.join(vf)},format={_pixfmt(preset)}[v]",
               f"[1:a]atrim=0:{dur:.6f}[a0]", _sfx_chain(edl, shot, inputs, 2, dur, "a0", "a")]
     tmpv, tmpa = vpath + ".part.mp4", apath + ".part.wav"
     _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
           "-map", "[v]", "-frames:v", str(n), "-an",
-          "-c:v", "hevc_videotoolbox", "-b:v", preset["vb"], "-tag:v", "hvc1", "-g", "60", tmpv,
+          *_venc(preset), tmpv,
           "-map", "[a]", "-vn", "-c:a", "pcm_s16le", tmpa])
     os.replace(tmpv, vpath)
     os.replace(tmpa, apath)
@@ -126,7 +142,7 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     grade = edl.get("grades", {}).get(shot.get("grade", "default"), "")
     brg = {b.get("grade", "default"): edl.get("grades", {}).get(b.get("grade", "default"), "")
            for b in shot.get("broll", [])}
-    key = json.dumps([shot, grade, brg, fps_str, preset, clean, 6, overlays.VERSION], sort_keys=True, ensure_ascii=False)
+    key = json.dumps([shot, grade, brg, fps_str, preset, clean, 6, overlays.VERSION] + (["zoomfix"] if shot.get("zoom") else []), sort_keys=True, ensure_ascii=False)
     hid = hashlib.sha1(key.encode()).hexdigest()[:12]
     vpath = os.path.join(cache, f"{shot['id']}_{hid}.mp4")
     apath = os.path.join(cache, f"{shot['id']}_{hid}.wav")
@@ -165,7 +181,7 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
         vf.append(f"fade=t=in:st=0:d={fi}")
     if fo:
         vf.append(f"fade=t=out:st={max(0, dur - fo):.3f}:d={fo}")
-    chains.append(f"{vsrc}setpts=PTS-STARTPTS,{','.join(vf)},format=yuv420p[v0]")
+    chains.append(f"{vsrc}setpts=PTS-STARTPTS,{','.join(vf)},format={_pixfmt(preset)}[v0]")
 
     # B-roll: cut the picture away to another clip while the main shot's audio keeps playing.
     grades = edl.get("grades", {})
@@ -179,7 +195,7 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
         bvf = [f"scale={w}:{h}:flags=lanczos", f"fps={fps_str}"]
         if grades.get(b.get("grade", "default")):
             bvf.append(grades[b.get("grade", "default")])
-        chains.append(f"[{k}:v]trim=0:{bd:.3f},setpts=PTS-STARTPTS+{at:.3f}/TB,{','.join(bvf)},format=yuv420p[b{k}]")
+        chains.append(f"[{k}:v]trim=0:{bd:.3f},setpts=PTS-STARTPTS+{at:.3f}/TB,{','.join(bvf)},format={_pixfmt(preset)}[b{k}]")
         chains.append(f"[{last}][b{k}]overlay=0:0:eof_action=pass:enable='between(t,{at:.3f},{at + bd:.3f})'[vb{k}]")
         last = f"vb{k}"
     base_inputs = len(inputs) // 6
@@ -219,7 +235,7 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     tmpv, tmpa = vpath + ".part.mp4", apath + ".part.wav"
     _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
           "-map", f"[{last}]", "-frames:v", str(n), "-an",
-          "-c:v", "hevc_videotoolbox", "-b:v", preset["vb"], "-tag:v", "hvc1", "-g", "60", tmpv,
+          *_venc(preset), tmpv,
           "-map", "[a]", "-vn", "-c:a", "pcm_s16le", tmpa])
     os.replace(tmpv, vpath)
     os.replace(tmpa, apath)
@@ -360,7 +376,7 @@ def render(project, mode):
         status.set(state="running", step="配乐 + 混音", progress=0.88, mode=mode)
         music_bed(dict(edl, shots=shots, _order=[s["id"] for s in edl["shots"]]), total, work, f"{work}/music.wav")
         if mode == "final":
-            out = os.path.join(E.project_dir(project), "02 - Export", os.path.basename(E.project_dir(project)) + ".mp4")
+            out = os.path.join(E.project_dir(project), "02 - Export", os.path.basename(E.project_dir(project)) + ".mov")
         else:
             out = os.path.join(edit, "preview.mp4")
         tmp = out + ".part.mp4"
@@ -368,7 +384,7 @@ def render(project, mode):
               "-i", f"{work}/music.wav", "-filter_complex",
               "[1:a][2:a]amix=inputs=2:normalize=0:duration=first,loudnorm=I=-14:TP=-1.5:LRA=11,"
               f"aresample={SR}[a]", "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac",
-              "-b:a", "320k", "-movflags", "+faststart", tmp])
+              "-b:a", "320k", "-movflags", "+faststart", "-f", "mov" if out.endswith(".mov") else "mp4", tmp])
         os.replace(tmp, out)
         with open(os.path.join(edit, "captions.srt"), "w", encoding="utf-8") as f:
             f.write(E.to_srt(E.timeline_subs(dict(edl, shots=shots))))

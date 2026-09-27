@@ -30,10 +30,14 @@ As soon as the creator hands over a folder, start these side by side (subagents)
 - Contact sheet per clip: `fps=1/max(2,dur/12),scale=320:-2,tile=6x2` (no `drawtext` in this
   ffmpeg — label with Pillow, see how `overlays.py` loads fonts). Stack 4 clips per image and
   **look at every one**.
-- Transcribe each clip with whisper.cpp **on the Apple GPU (Metal, the default — do not pass
-  `-ng`)**: `whisper-cli -m models/ggml-large-v3.bin -l zh -osrt --vad --vad-model
-  models/ggml-silero-vad.bin -bs 5 -mc 0 --prompt "<place names>"`. ~1–2 s per clip on Apple
-  Silicon vs minutes on CPU.
+- Transcribe every clip with **Qwen3-ASR-1.7B (MLX)** — benchmarked best for casual Mandarin +
+  English names with wind noise (beat whisper large-v3 on proper nouns, Simplified output, no
+  hallucinations on silent clips): `asrvenv/bin/python -m src.editor.transcribe "<project>"
+  --context "<places, dishes, names seen in frames>"` (~1 s/clip on Apple Silicon; always pass
+  --context). Setup once: `uv venv -p 3.12 asrvenv && uv pip install -p asrvenv/bin/python
+  mlx-qwen3-asr opencc-python-reimplemented`. Fallback: whisper.cpp large-v3 on Metal with
+  `--prompt` + Silero VAD. Re-check for a newer/stronger model now and then — download it and
+  benchmark on a few real clips before switching.
 - Treat ASR as a draft: drop hallucinations (broadcaster sign-offs, "字幕by…", lone "好/我"),
   convert to **Simplified Chinese** (OpenCC `t2s`), fix proper nouns from what the frames show
   (signs, menus) + a web search for dishes/places. Never name a dish or place you can't see or
@@ -57,6 +61,9 @@ Write the EDL (a small build script is fine). Craft rules that make it comfortab
   (fillers) go. Set `skip_on: false` on shots where the pause IS the content (pans, animals).
 - **Ken Burns** (`zoom: {from, to, x, y}`): slow eased push-in toward what the speaker points
   at when it's far away (boats, islands, ships), pull-out on the ending shot.
+- **Time cards** for jumps in time/place ("一小时后……", "第二天……"): a shot with `card:
+  {text, sub, bg}` and no clip, ~1.9 s, with a sound effect (`sfx`). Never drop in copyrighted meme
+  clips (e.g. cartoon "…later" cards) — Content ID; make original cards instead.
 - **Music by section** (`music: [{file, start: <shot id>}]`), crossfaded, auto-ducked under
   speech (subtitle intervals). YouTube Audio Library tracks with "no attribution required" are
   the only Content-ID-safe choice; record licenses in `edit/music/LICENSES.md`.

@@ -478,6 +478,8 @@ async function load(){
 }
 
 function thumbs(s){
+  if(s.card)  // generated time card: no source clip, show a mini card instead
+    return `<div style="width:100%;aspect-ratio:48/9;display:flex;align-items:center;justify-content:center;border-radius:6px;background:${esc(s.card.bg||'#ffd84d')};font-weight:800;font-size:18px;color:#1f2937">${esc(s.card.text)}</div>`;
   return [s.in,(s.in+s.out)/2,Math.max(s.in,s.out-0.1)].map(t=>
     `<img loading="lazy" src="/thumb?clip=${encodeURIComponent(s.clip)}&t=${r1(t).toFixed(1)}">`).join('');
 }

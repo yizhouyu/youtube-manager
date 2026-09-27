@@ -7,7 +7,7 @@ Writes edit/scan/srt_clean/<clip>.srt (what the footage player shows)
 
 Per cue: if the edit already has a proofread subtitle for that moment (EDL `subs`), use it;
 otherwise convert to Simplified Chinese, apply the project glossary
-(edit/glossary.json: {"heard": "correct", ...}), and drop ASR hallucinations
+(edit/glossary.json: {"heard": "correct", ...}; "" drops a line that was never said), and drop ASR hallucinations
 (broadcaster sign-offs, "字幕by", lone fillers).
 """
 import glob
@@ -71,6 +71,8 @@ def clean_project(project):
                 continue
             for k, v in glossary.items():
                 text = text.replace(k, v)
+            if not text.strip(" ，,。"):
+                continue  # glossary maps a known mishearing to "" = drop the line
             cues.append({"t0": c["t0"], "t1": c["t1"], "text": text})
         cues.sort(key=lambda x: x["t0"])
         with open(os.path.join(out_dir, clip + ".srt"), "w", encoding="utf-8") as f:
