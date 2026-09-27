@@ -14,11 +14,17 @@
 set -euo pipefail
 
 DIR="${1:?usage: preprocess_video.sh \"<project folder>\"}"
+# Resolve a bare project name: try cwd first, then ~/Desktop (projects live there).
+# Without this, running from the repo dir makes "NN - Name" resolve under the repo
+# (not the Desktop) and the script silently finds nothing.
+if [ ! -d "$DIR" ] && [ -d "$HOME/Desktop/$DIR" ]; then DIR="$HOME/Desktop/$DIR"; fi
+if [ ! -d "$DIR" ]; then echo "[err] project folder not found: $1 (looked in cwd and ~/Desktop)"; exit 1; fi
 EXP="$DIR/02 - Export"
+if [ ! -d "$EXP" ]; then echo "[err] no '02 - Export' dir in: $DIR"; exit 1; fi
 MODEL="$(cd "$(dirname "$0")/.." && pwd)/models/ggml-small.bin"
 
 V="$(find "$EXP" -maxdepth 1 \( -iname '*.mov' -o -iname '*.mp4' \) 2>/dev/null | head -1)"
-if [ -z "$V" ]; then echo "[skip] no export video in: $DIR"; exit 0; fi
+if [ -z "$V" ]; then echo "[err] no export video (.mov/.mp4) in: $EXP"; exit 1; fi
 if [ ! -f "$MODEL" ]; then echo "[err] whisper model not found: $MODEL"; exit 1; fi
 
 echo "[preprocess] $DIR"

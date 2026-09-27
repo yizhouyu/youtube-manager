@@ -27,6 +27,30 @@ _youtube_service = None
 _youtube_service_lock = threading.Lock()
 
 
+def _execute_with_retry(request_fn, what, retries=5):
+    """Run a YouTube API call with backoff on transient errors.
+
+    Used for the small post-upload steps (recording details, thumbnail, playlist).
+    These can hit intermittent TLS interception (SSL cert errors via a proxy/VPN);
+    one flaky call should never abort an upload whose video is already live.
+    Returns the result, or None if every attempt fails (caller decides severity).
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            return request_fn().execute()
+        except Exception as e:
+            msg = str(e)
+            if "HttpError 4" in msg and "409" not in msg:
+                # genuine client error (bad request / auth) — don't spin
+                print(f"[UPLOAD] {what}: client error, not retrying: {msg[:120]}")
+                raise
+            print(f"[UPLOAD] {what}: attempt {attempt}/{retries} failed: {msg[:120]}")
+            if attempt < retries:
+                time.sleep(2 ** attempt)
+    print(f"[UPLOAD] {what}: gave up after {retries} attempts")
+    return None
+
+
 def get_authenticated_service():
     """Return a cached authenticated YouTube service (singleton)."""
     global _youtube_service
@@ -184,7 +208,11 @@ def _upload_worker(upload_id, video_path, thumbnail_path, title, description,
                 is_client_error = "HttpError 4" in error_msg
                 is_recoverable = (
                     any(k in error_msg.lower() for k in
-                        ["timeout", "timed out", "connection", "reset", "broken pipe"])
+                        ["timeout", "timed out", "connection", "reset", "broken pipe",
+                         # transient TLS interception (corporate proxy / VPN) — usually
+                         # succeeds on retry; do NOT let it abort a near-complete upload
+                         "ssl", "certificate", "eof occurred", "handshake",
+                         "decryption failed", "wrong version", "socket"])
                     or "HttpError 5" in error_msg
                 )
 
@@ -247,6 +275,11 @@ def _upload_worker(upload_id, video_path, thumbnail_path, title, description,
                         upload_progress[upload_id].get("estimated_total_seconds", 0)
 
         video_id = response["id"]
+        # Record the id IMMEDIATELY: the video now exists on YouTube. If a later
+        # post-step (thumbnail / playlist) fails transiently, the caller still gets
+        # the id so it can finish via the API instead of re-uploading a duplicate.
+        upload_progress[upload_id]["video_id"] = video_id
+        upload_progress[upload_id]["video_url"] = f"https://www.youtube.com/watch?v={video_id}"
         elapsed = time.time() - upload_progress[upload_id]["start_time"]
         print(f"[UPLOAD] Video uploaded! ID: {video_id} (took {elapsed:.1f}s)")
 
@@ -262,19 +295,27 @@ def _upload_worker(upload_id, video_path, thumbnail_path, title, description,
             if video_location:
                 recording_details["locationDescription"] = video_location
 
-            youtube_service.videos().update(
-                part="recordingDetails",
-                body={"id": video_id, "recordingDetails": recording_details},
-            ).execute()
+            _execute_with_retry(
+                lambda: youtube_service.videos().update(
+                    part="recordingDetails",
+                    body={"id": video_id, "recordingDetails": recording_details},
+                ),
+                "recording details update",
+            )
 
-        # Custom thumbnail.
+        # Custom thumbnail. Retry transient failures; the video is already live, so
+        # a flaky thumbnail call must not abort — it's flagged below if it never lands.
         if thumbnail_path:
             upload_progress[upload_id]["phase"] = "thumbnail"
             upload_progress[upload_id]["stage"] = "Uploading custom thumbnail..."
             upload_progress[upload_id]["progress"] = 95
-            youtube_service.thumbnails().set(
-                videoId=video_id, media_body=MediaFileUpload(thumbnail_path)
-            ).execute()
+            if _execute_with_retry(
+                lambda: youtube_service.thumbnails().set(
+                    videoId=video_id, media_body=MediaFileUpload(thumbnail_path)),
+                "thumbnail set",
+            ) is None:
+                upload_progress[upload_id].setdefault("warnings", []).append(
+                    "custom thumbnail not set (set it manually in Studio)")
 
         # Playlist(s).
         all_playlists = upload_progress[upload_id].get("all_playlist_ids", [])
@@ -289,18 +330,19 @@ def _upload_worker(upload_id, video_path, thumbnail_path, title, description,
             upload_progress[upload_id]["phase"] = "playlist"
             upload_progress[upload_id]["progress"] = 98
             for idx, pl_id in enumerate(playlists_to_add):
-                try:
-                    upload_progress[upload_id]["stage"] = \
-                        f"Adding to playlist {idx + 1}/{len(playlists_to_add)}..."
-                    youtube_service.playlistItems().insert(
+                upload_progress[upload_id]["stage"] = \
+                    f"Adding to playlist {idx + 1}/{len(playlists_to_add)}..."
+                if _execute_with_retry(
+                    lambda pid=pl_id: youtube_service.playlistItems().insert(
                         part="snippet",
                         body={"snippet": {
-                            "playlistId": pl_id,
+                            "playlistId": pid,
                             "resourceId": {"kind": "youtube#video", "videoId": video_id},
-                        }},
-                    ).execute()
-                except Exception as playlist_error:
-                    print(f"[UPLOAD] Failed to add to playlist {pl_id}: {playlist_error}")
+                        }}),
+                    f"playlist add ({pl_id})",
+                ) is None:
+                    upload_progress[upload_id].setdefault("warnings", []).append(
+                        f"not added to playlist {pl_id} (add it manually)")
 
         total_time = time.time() - upload_progress[upload_id]["start_time"]
         print(f"[UPLOAD] Complete! {video_id} | {total_time:.1f}s | "
@@ -322,11 +364,22 @@ def _upload_worker(upload_id, video_path, thumbnail_path, title, description,
                 pass
 
     except Exception as e:
-        print(f"[UPLOAD] Upload failed: {e}")
         traceback.print_exc()
-        upload_progress[upload_id]["status"] = "error"
-        upload_progress[upload_id]["error"] = str(e)
-        if cleanup:
+        # If the video already uploaded, a later failure is only a post-step issue —
+        # the video is LIVE. Report completed-with-warning (and keep the id) rather
+        # than "error", so the caller doesn't think nothing happened and re-upload.
+        existing_id = upload_progress[upload_id].get("video_id")
+        if existing_id:
+            print(f"[UPLOAD] Post-upload step failed but video is live ({existing_id}): {e}")
+            upload_progress[upload_id]["status"] = "completed"
+            upload_progress[upload_id]["progress"] = 100
+            upload_progress[upload_id]["stage"] = "Uploaded (a post-step needs finishing)"
+            upload_progress[upload_id].setdefault("warnings", []).append(str(e))
+        else:
+            print(f"[UPLOAD] Upload failed: {e}")
+            upload_progress[upload_id]["status"] = "error"
+            upload_progress[upload_id]["error"] = str(e)
+        if cleanup and upload_progress[upload_id]["status"] == "error":
             try:
                 if os.path.exists(video_path):
                     os.remove(video_path)

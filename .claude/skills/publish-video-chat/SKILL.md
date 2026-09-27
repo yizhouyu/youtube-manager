@@ -148,6 +148,27 @@ into that region.) This caught a title printed across the David statue and acros
 first poster pass *looked* fine to me; the reviewer caught it. Produce **2–3 variants by design** (e.g. face-hero vs
 landmark-hero, or different hook) so they're ready to drop into YouTube's native Test & Compare.
 
+**Export per platform (always, for the chosen design).** YouTube and Bilibili want different
+aspects, so every final thumbnail becomes two files via `src/thumbnail_generator/export.py`:
+```bash
+./venv/bin/python -c "import sys; sys.path.insert(0,'.'); from src.thumbnail_generator.export import export_for_platforms as e; print(e('<abs thumbnail.jpg>', '<abs 02 - Export/thumbnail>', 'thumbnail'))"
+```
+→ `thumbnail_youtube.jpg` (1280×720, JPEG stepped down to ≤1.9 MB) and `thumbnail_bilibili.jpg`
+(1280×800 16:10, ≤4.8 MB; default `bilibili_mode="pad"` extends top/bottom with a blurred edge so
+no text is cropped; `"crop"` centre-crops the sides instead). Specs (checked 2026-09):
+| | YouTube | Bilibili 封面 |
+|---|---|---|
+| Aspect / size | 16:9; min width 640 (up to 3840×2160 accepted) | **16:10**; recommended ≥1146×717, min 960×600 |
+| Max file | **2 MB via mobile app**; 50 MB desktop Studio & Data API | 5 MB |
+| Formats | JPG, PNG | JPEG, PNG |
+
+Sources: [YouTube Help 72431](https://support.google.com/youtube/answer/72431),
+[Data API thumbnails.set](https://developers.google.com/youtube/v3/docs/thumbnails/set), Bilibili
+Open Platform 封面上传 spec (mirrored at [bilibili.apifox.cn](https://bilibili.apifox.cn/api-23705555);
+the official help center has no public cover page). Third-party/creator guides only: some B站 feeds
+show a **4:3 centre crop** and every card overlays duration (bottom-right) and play/弹幕 counts
+(bottom-left) — so keep the title inside the central 4:3 zone and off the bottom ~15% corners.
+
 ## Step 4 — Metadata in the channel's OWN style
 
 **Learn the channel first — don't invent a voice.** Pull recent uploads and read the patterns
@@ -231,7 +252,7 @@ human to set manually in Studio → Video details → Recording date and locatio
 import sys, time; sys.path.insert(0,'.')
 from src.uploader import start_upload, upload_progress
 uid = start_upload(
-    video_path="<abs .mov>", thumbnail_path="<abs thumbnail.jpg>",
+    video_path="<abs .mov>", thumbnail_path="<abs thumbnail_youtube.jpg>",
     title="<chosen>", description="<chosen>", tags=[...], hashtags=[...],
     privacy_status="unlisted",          # ALWAYS confirm with human; or public/private
     publish_at=None,                    # ISO8601 for scheduled
@@ -297,7 +318,7 @@ web/app creator endpoints (inherent ToS risk; keep it human-paced, one video at 
 - **video** = the finished export `02 - Export/<NN - Name>.mov`. ⚠️ the file is named the FULL
   project name (e.g. `74 - Alaska Glacier.mov`), not a short name — resolve the exact path with
   `find … -print0` and quote it (the path has spaces). A space-truncated `ls` will mislead you.
-- **--cover** = the finished `02 - Export/thumbnail/thumbnail.jpg`.
+- **--cover** = `02 - Export/thumbnail/thumbnail_bilibili.jpg` (16:10 export from Step 3; make it now if missing).
 - **--title** = the Chinese title from `metadata_final.txt` (B站 title ≤80 chars).
 - **--desc** = Chinese-first, compressed to ~200–250 chars from the DESCRIPTION block: keep the
   hook + 📍 route; DROP the English half and the YouTube-specific "订阅/开小铃铛" line (B站 →
@@ -319,7 +340,7 @@ web/app creator endpoints (inherent ToS risk; keep it human-paced, one video at 
 ~/.local/bin/biliup -u ~/.config/biliup/cookies.json upload \
   "$HOME/Desktop/NN - Name/02 - Export/NN - Name.mov" \
   --title "…" --desc "…" --tag "…" \
-  --cover "$HOME/Desktop/NN - Name/02 - Export/thumbnail/thumbnail.jpg" \
+  --cover "$HOME/Desktop/NN - Name/02 - Export/thumbnail/thumbnail_bilibili.jpg" \
   --tid 250 --copyright 1 --no-reprint 1 --line txa
   # add --dtime <ts> to schedule, or --is-only-self 1 for a self-only test
 ```
@@ -335,8 +356,9 @@ review). Verify with `biliup -u … show <BV>`. Record the BVID next to the YouT
   name). In Python: `max(glob('02 - Export/*.mov' + '*.MOV'), key=getsize)` after dropping any
   `*temp*` path. NEVER hand-type a short name; a space-truncated `ls`/`awk` *will* lie to you
   (that cost a failed first attempt: `Glacier.mov` ≠ `74 - Alaska Glacier.mov`).
-- **Cover** — usually `02 - Export/thumbnail/thumbnail.jpg`; for older videos it may be a PNG at
-  the export root (`<NN - Name> - thumbnail.png`). PNG works fine for `--cover`. Find it, don't assume.
+- **Cover** — `02 - Export/thumbnail/thumbnail_bilibili.jpg`; for older videos find the source
+  (`thumbnail.jpg`, or a PNG at the export root `<NN - Name> - thumbnail.png`) and run
+  `export_for_platforms` on it first. Find it, don't assume.
 - **Metadata source** — read `02 - Export/metadata_final.txt`: TITLE, the **Chinese** half of
   DESCRIPTION (everything before the `---` English separator), and TAGS. **If it's missing**
   (older already-published videos like 70), **fetch the live snippet from YouTube** via
@@ -383,4 +405,19 @@ memory so the skill personalizes over time.
   **as-is**, don't also prepend `hashtags` (that doubles the line). If metadata changes after
   upload, **re-push the live description** (videos.update snippet) — the uploaded copy is stale.
 - **Names**: don't write the creators' names / no by-name self-intro in descriptions or captions.
+- **Transient TLS / SSL upload failures.** On some networks (corporate proxy / VPN doing TLS
+  inspection) an upload can die mid-chunk or on a post-step with `SSL: CERTIFICATE_VERIFY_FAILED
+  … self signed certificate in certificate chain`. The uploader now treats SSL errors as
+  **recoverable** (retries chunks) and wraps the post-upload steps (recording details, thumbnail,
+  playlist) in retries — and it records `video_id` the instant the video lands, so a later flaky
+  step can't hide it. **Recovery if a publish still ends `error`/`completed`-with-`warnings`:** the
+  video is very likely **already live** — DO NOT re-upload (that dupes it). First list the channel's
+  recent uploads to find it by title, grab its id, then finish only the missing steps via API
+  (`videos().update` snippet for title/desc, `thumbnails().set`, `playlistItems().insert`) with a
+  small retry loop. A `maxres`/custom thumbnail absent + not-in-playlist tells you what still needs doing.
+- **macOS has no `timeout(1)`** by default — don't wrap commands in `timeout`; run long jobs as
+  background tasks instead. (`gtimeout` exists only if coreutils is installed.)
+- **A "video N" export may cover more than day N.** Watch the frames/transcript before trusting the
+  folder name for the title — e.g. a "USVI 1" cut spanned two days; don't claim a day-count (or
+  "攻略") the footage doesn't support. Confirm scope from content, not the filename.
 - Keep this skill **free of personal info** so it can ship with the repo.
