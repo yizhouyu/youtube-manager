@@ -147,7 +147,7 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
         if shot.get("tag"):
             ovs.append((overlays.place_tag(shot["tag"], w, h, ov_dir), 0, min(3.0, dur), 0.3))
         for s in E.shot_subs(shot):
-            ovs.append((overlays.subtitle(s["text"], w, h, ov_dir), s["t0"], min(s["t1"], dur), 0))
+            ovs.append((overlays.subtitle(s["text"], w, h, ov_dir, s.get("kind", "speech")), s["t0"], min(s["t1"], dur), 0))
     for i, (png, t0, t1, fade) in enumerate(ovs, base_inputs):
         if fade:
             inputs += ["-loop", "1", "-framerate", fps_str, "-t", f"{t1:.3f}", "-i", png]
@@ -179,7 +179,8 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
 
 
 def _speech_windows(edl, pad=0.35):
-    iv = sorted((max(0, s["t0"] - pad), s["t1"] + pad) for s in E.timeline_subs(edl))
+    iv = sorted((max(0, s["t0"] - pad), s["t1"] + pad) for s in E.timeline_subs(edl)
+                if s["kind"] == "speech")  # editor notes don't duck the music
     merged = []
     for a, b in iv:
         if merged and a <= merged[-1][1] + 0.8:

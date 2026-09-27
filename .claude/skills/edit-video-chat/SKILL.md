@@ -75,11 +75,17 @@ Write the EDL (a small build script is fine). Craft rules that make it comfortab
 Segments are cached by content hash, so a re-render after edits only re-encodes changed
 shots.
 
+**Keep "showing" shots:** a silent 2–3 s shot where the camera clearly shows something (a sign,
+a menu, an animal) earns its place — give it an editor's caption (`subs` entry with
+`"kind": "note"`: soft yellow, doesn't duck music, never mixed up with dialogue).
+
 **Mandatory QA before the creator sees it:** spawn a separate reviewer subagent that watches
 the whole preview (dense frame sheets), "listens" (re-transcribes the rendered audio and diffs it
 against captions.srt; ebur128 loudness over time for music-over-speech, pops, holes), fixes
 what it can directly in the EDL (reload before every write — the creator may be editing), and
-re-renders. Then hand the review page (port 8765, plain-language UI) to the creator. Their edits are
+re-renders. Round 2+: the reviewer also watches the RAW footage (contact sheets + proofread
+transcripts) against the cut and restores missed moments; editor and reviewer iterate until
+neither has substantive issues. Then hand the review page (port 8765, plain-language UI) to the creator. Their edits are
 saved back to the EDL (with history in `edit/history/`); every recurring correction becomes a
 preference in memory.
 

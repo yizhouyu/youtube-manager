@@ -49,7 +49,8 @@ def clean_project(project):
     proofread = {}
     if os.path.exists(E.edl_path(project)):
         for s in E.load(project)["shots"]:
-            proofread.setdefault(s["clip"], []).extend(s.get("subs", []))
+            proofread.setdefault(s["clip"], []).extend(
+                x for x in s.get("subs", []) if x.get("kind", "speech") == "speech")
     out_dir = os.path.join(edit, "scan", "srt_clean")
     os.makedirs(out_dir, exist_ok=True)
     n = 0

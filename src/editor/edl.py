@@ -23,7 +23,8 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
       "fade_in": 0, "fade_out": 0,             # seconds (video+audio)
       "title": {"text": "Day 1", "sub": "圣约翰岛 St. John", "dur": 3.0},   # optional card at shot start
       "tag": "Mongoose Junction",              # optional small place label, top-left, first 3 s
-      "subs": [{"t0": 0.96, "t1": 4.4, "text": "..."}],                     # SOURCE-clip seconds
+      "subs": [{"t0": 0.96, "t1": 4.4, "text": "..."}],                     # SOURCE-clip seconds;
+                                               # "kind": "note" = editor's caption on a silent shot
       "broll": [{"clip": "GX0001", "in": 2.0, "at": 5.0, "dur": 3.0, "grade": "default"}],
                                                # cut the picture away at shot-local `at` s for
                                                # `dur` s while this shot's audio keeps playing
@@ -117,7 +118,7 @@ def shot_subs(shot):
         t0, t1 = max(s["t0"], shot["in"]), min(s["t1"], shot["out"])
         l0, l1 = src_to_local(shot, t0), src_to_local(shot, t1)
         if l1 - l0 >= 0.3 and s["text"].strip():
-            out.append({"t0": l0, "t1": l1, "text": s["text"].strip()})
+            out.append({"t0": l0, "t1": l1, "text": s["text"].strip(), "kind": s.get("kind", "speech")})
     return out
 
 
@@ -132,7 +133,7 @@ def timeline(edl):
 
 def timeline_subs(edl):
     rows, _ = timeline(edl)
-    return [{"t0": st + x["t0"], "t1": st + x["t1"], "text": x["text"]}
+    return [{"t0": st + x["t0"], "t1": st + x["t1"], "text": x["text"], "kind": x["kind"]}
             for s, st in rows for x in shot_subs(s)]
 
 
