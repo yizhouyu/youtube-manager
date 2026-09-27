@@ -70,6 +70,9 @@ Write the EDL (a small build script is fine). Craft rules that make it comfortab
 - **Color:** named grades in `grades`; a mild land grade and a red-restoring underwater grade
   (check a before/after frame grid before committing).
 
+Shot `note`s are the card titles the creator reads — plain Chinese descriptions of what's in
+the shot ("开场精华：魟鱼"), never internal jargon (round ids, "B-roll", "r2", QA remarks).
+
 ## 3. Render + review
 
 ```bash
