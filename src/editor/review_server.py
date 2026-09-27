@@ -338,10 +338,13 @@ input.bad{border-color:var(--warn);background:#fef3f2}
 #rs .pb{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:4px}
 #rs .pb i{display:block;height:100%;background:var(--acc);width:0;transition:width .4s}
 #rs.err{color:var(--warn)} #rs.done{color:var(--ok)} #rs.done .pb i{background:var(--ok)}
-main{max-width:1100px;margin:0 auto;padding:14px 20px 80px}
+main{max-width:1100px;margin:0 auto;padding:14px 20px 60vh}
 #help{background:#eef4ff;border:1px solid #d5e3fd;color:#23408e;border-radius:9px;padding:8px 14px;margin-bottom:12px;font-size:14px}
-#pv{background:#000;border-radius:10px;overflow:hidden;margin-bottom:16px;display:flex;justify-content:center;align-items:center;min-height:100px}
-#pv video{max-width:100%;max-height:45vh;display:block}
+#pvwrap{position:sticky;top:var(--barh,56px);z-index:5;background:var(--bg);padding:6px 0 10px;margin-bottom:4px}
+#pv{background:#000;border-radius:10px;overflow:hidden;display:flex;justify-content:center;align-items:center;min-height:80px;position:relative}
+#pv video{max-width:100%;max-height:40vh;display:block}
+#follow{display:none;position:absolute;right:10px;bottom:10px;z-index:2;border:0;border-radius:999px;padding:4px 12px;font-size:13px;background:rgba(255,255,255,.92);color:var(--acc);box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.shot.cur{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc2),0 2px 10px rgba(37,99,235,.12)}
 #pv .none{color:#aaa;padding:30px}
 .skip{display:flex;align-items:center;gap:10px;font-size:13px;color:#5b4a14;background:#fdf8e7;border-radius:6px;padding:4px 10px;margin:6px 0}
 .skip.off{color:var(--mut);background:#f2f3f5}
@@ -404,7 +407,7 @@ summary{cursor:pointer;color:var(--mut);font-size:13px;user-select:none}
 <main>
   <div id="help">① 看上面的预览 ② 不要的镜头点「删掉」，想短一点就拖/改开始结束 ③ 点「更新预览」看效果 ④ 满意了点「导出成片」</div>
   <div id="errbox"></div>
-  <div id="pv"><div class="none">还没有预览，点右上角「更新预览」生成</div></div>
+  <div id="pvwrap"><div id="pv"><div class="none">还没有预览，点右上角「更新预览」生成</div></div></div>
   <div id="list"></div>
 </main>
 <div id="modal"><div class="box">
@@ -421,7 +424,7 @@ summary{cursor:pointer;color:var(--mut);font-size:13px;user-select:none}
   <div class="hint" style="margin-top:6px">空格：播放 / 暂停 · Esc：关闭</div>
 </div></div>
 <script>
-let D=null, mtime='', dirty=false, durs={}, modalShot=-1, polling=null, finalArmed=null, openMore=new Set();
+let D=null, base='', mtime='', dirty=false, durs={}, modalShot=-1, polling=null, finalArmed=null, openMore=new Set();
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const r3=x=>Math.round(x*1000)/1000;
@@ -439,7 +442,7 @@ function skipScan(s,force){
   return {ranges:rs.filter(([a,b])=>b-a>0.02), n};
 }
 function kept(s){return skipScan(s).ranges}
-function sdur(s){return kept(s).reduce((t,[a,b])=>t+b-a,0)}
+function sdur(s){return '_qdur' in s?s._qdur:kept(s).reduce((t,[a,b])=>t+b-a,0)}
 function local(s,t){let acc=0; for(const [a,b] of kept(s)){if(t<=b) return acc+Math.max(0,t-a); acc+=b-a} return acc}
 function subLive(s,x){const t0=Math.max(x.t0,s.in),t1=Math.min(x.t1,s.out); return t1>t0&&local(s,t1)-local(s,t0)>=0.3}
 function skipHtml(s,i){
@@ -452,12 +455,16 @@ function skipHtml(s,i){
 }
 function zoomHtml(s){const z=s.zoom; if(!z||typeof z!=='object') return ''; return `<span class="zm">🔍 镜头慢慢${(+z.to)<(+z.from)?'拉远':'推近'}</span>`}
 function setDirty(v){dirty=v;$('#dirty').style.display=v?'inline':'none'}
+// dirty only when the EDL really differs from the last loaded/saved version (spurious
+// input events from autofill/form-restore, or no-op edits, must not flag it)
+function markBase(){base=JSON.stringify(D); setDirty(false)}
+function changed(){setDirty(JSON.stringify(D)!==base)}
 function showErr(msg){const b=$('#errbox');b.textContent=msg||'';b.style.display=msg?'block':'none'}
 function starts(){let t=0;return D.shots.map(s=>{const a=t;if(isOn(s))t+=sdur(s);return a})}
 
 async function fetchEdl(){
   const r=await fetch('/api/edl'); D=await r.json(); mtime=r.headers.get('X-Mtime')||'';
-  $('#stale').style.display='none'; setDirty(false);
+  $('#stale').style.display='none'; markBase();
 }
 async function checkRemote(){
   if(!D) return;
@@ -542,7 +549,8 @@ function row(s,i,st){
 function render(){
   const y=window.scrollY, st=starts();
   $('#list').innerHTML=D.shots.map((s,i)=>row(s,i,st[i])).join('');
-  recompute(); window.scrollTo(0,y);
+  recompute(); progScroll(); window.scrollTo(0,y);
+  if(curIdx>=0){const r=document.getElementById('row-'+curIdx); if(r) r.classList.add('cur')}
 }
 
 function recompute(){
@@ -572,7 +580,7 @@ function clampT(s,v){v=Math.max(0,v); if(durs[s.clip]) v=Math.min(v,r3(durs[s.cl
 
 function setField(i,f,el){
   const s=D.shots[i];
-  if(f==='in'||f==='out'){const v=parseFloat(el.value); if(!isNaN(v)){s[f]=r3(v); delete s._qdur; refreshThumbs(i)}}
+  if(f==='in'||f==='out'){const v=parseFloat(el.value); if(!isNaN(v)&&r3(v)!==s[f]){s[f]=r3(v); delete s._qdur; refreshThumbs(i)}}
   else if(f==='audio'||f==='grade'){s[f]=el.value}
   else if(f==='tag'){if(el.value.trim()) s.tag=el.value; else delete s.tag}
   else if(f.startsWith('title.')){
@@ -585,7 +593,7 @@ function setField(i,f,el){
     if(k==='text'){x.text=el.value; document.querySelectorAll(`#row-${i} input[data-f="sub.text"][data-j="${j}"]`).forEach(e=>{if(e!==el) e.value=el.value})}
     else {const v=parseFloat(el.value); if(!isNaN(v)) x[k]=r3(v)}
   }
-  setDirty(true); recompute();
+  changed(); recompute();
 }
 
 const L=$('#list');
@@ -595,9 +603,9 @@ L.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]'); if(!b) return;
   const i=+b.dataset.i, s=D.shots[i], a=b.dataset.act;
   if(a==='nudge'){
-    const f=b.dataset.f; s[f]=clampT(s,s[f]+parseFloat(b.dataset.d)); delete s._qdur;
+    const f=b.dataset.f, v=clampT(s,s[f]+parseFloat(b.dataset.d)); if(v!==s[f]){s[f]=v; delete s._qdur}
     document.querySelector(`#row-${i} input[data-f=${f}]`).value=s[f];
-    setDirty(true); recompute(); refreshThumbs(i); return;
+    changed(); recompute(); refreshThumbs(i); return;
   }
   if(a==='seek'){seekPreview(starts()[i]);return}
   if(a==='play'){openModal(i);return}
@@ -615,7 +623,7 @@ L.addEventListener('click',e=>{
   }
   else if(a==='delsub'){s.subs.splice(+b.dataset.j,1)}
   else return;
-  setDirty(true); render();
+  changed(); render();
 });
 
 function newId(){
@@ -633,7 +641,7 @@ function splitAt(i,t){
   s.subs=subs.filter(x=>x.t0<t); b.subs=subs.filter(x=>x.t0>=t);
   delete b.title; delete b.tag; b.fade_in=0; s.fade_out=0;
   b.note=(s.note||'')+'（后半段）';
-  D.shots.splice(i+1,0,b); setDirty(true); render(); return true;
+  D.shots.splice(i+1,0,b); changed(); render(); return true;
 }
 
 // ---- per-shot player
@@ -652,8 +660,8 @@ mv.addEventListener('timeupdate',()=>{
 });
 $('#mClose').onclick=closeModal;
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal') closeModal()});
-$('#mIn').onclick=()=>{const s=D.shots[modalShot]; if(mv.currentTime<s.out){s.in=r3(mv.currentTime); delete s._qdur; setDirty(true); render()}};
-$('#mOut').onclick=()=>{const s=D.shots[modalShot]; if(mv.currentTime>s.in){s.out=r3(mv.currentTime); delete s._qdur; setDirty(true); render()}};
+$('#mIn').onclick=()=>{const s=D.shots[modalShot]; if(mv.currentTime<s.out){s.in=r3(mv.currentTime); delete s._qdur; changed(); render()}};
+$('#mOut').onclick=()=>{const s=D.shots[modalShot]; if(mv.currentTime>s.in){s.out=r3(mv.currentTime); delete s._qdur; changed(); render()}};
 $('#mSplit').onclick=()=>{const i=modalShot,t=mv.currentTime; closeModal(); splitAt(i,t)};
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();save();return}
@@ -668,20 +676,57 @@ document.addEventListener('keydown',e=>{
 // ---- preview, save, render
 async function loadPreview(){
   const r=await fetch('/preview.mp4',{method:'HEAD'});
-  $('#pv').innerHTML=r.ok?`<video id="pvv" controls preload="metadata" src="/preview.mp4?v=${Date.now()}"></video>`
-    :'<div class="none">还没有预览，点右上角「更新预览」生成</div>';
+  $('#pv').innerHTML=(r.ok?`<video id="pvv" controls preload="metadata" src="/preview.mp4?v=${Date.now()}"></video>`
+    :'<div class="none">还没有预览，点右上角「更新预览」生成</div>')+'<button id="follow">↩ 跟随播放</button>';
+  $('#follow').onclick=()=>{resumeFollow(); curIdx=-2; onPreviewTime(true)};
+  const v=$('#pvv'); if(v){v.addEventListener('timeupdate',()=>onPreviewTime(false)); v.addEventListener('seeked',()=>onPreviewTime(true))}
 }
 function seekPreview(t){
   const v=$('#pvv'); if(!v){showErr('还没有预览，先点「更新预览」');return}
-  v.currentTime=t; v.play().catch(()=>{}); window.scrollTo({top:0,behavior:'smooth'});
+  resumeFollow(); v.currentTime=t+0.01; v.play().catch(()=>{});
 }
+// ---- cards follow the preview
+let curIdx=-1, followOff=0, progUntil=0;
+function progScroll(ms=1500){progUntil=Date.now()+ms}
+window.addEventListener('scrollend',()=>{if(progUntil>Date.now()) progUntil=Date.now()+100});
+function shotAt(t){
+  const st=starts(); let last=-1;
+  for(let i=0;i<D.shots.length;i++){if(!isOn(D.shots[i])) continue; last=i; if(t<st[i]+sdur(D.shots[i])) return i}
+  return last;
+}
+function following(){return Date.now()>=followOff}
+function pauseFollow(){
+  followOff=Date.now()+6000; const v=$('#pvv');
+  $('#follow').style.display=v&&!v.paused?'block':'none';
+}
+function resumeFollow(){followOff=0; $('#follow').style.display='none'}
+function scrollToCard(i){
+  const r=document.getElementById('row-'+i); if(!r) return;
+  const top=r.getBoundingClientRect().top+window.scrollY-$('#bar').offsetHeight-$('#pvwrap').offsetHeight-4;
+  progScroll(); window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+}
+function onPreviewTime(force){
+  const v=$('#pvv'); if(!v||!D) return;
+  if(!following()) return; if($('#follow').style.display!=='none') $('#follow').style.display='none';
+  const i=shotAt(v.currentTime);
+  if(i!==curIdx){
+    const o=document.getElementById('row-'+curIdx); if(o) o.classList.remove('cur');
+    curIdx=i; const r=document.getElementById('row-'+i); if(r) r.classList.add('cur');
+    scrollToCard(i);
+  } else if(force) scrollToCard(i);
+}
+window.addEventListener('scroll',()=>{if(Date.now()>progUntil) pauseFollow()},{passive:true});
+['wheel','touchmove'].forEach(ev=>window.addEventListener(ev,()=>{progUntil=0; pauseFollow()},{passive:true}));
+L.addEventListener('focusin',pauseFollow);
+L.addEventListener('input',pauseFollow);
+setInterval(()=>{if(following()&&$('#follow').style.display!=='none') $('#follow').style.display='none'},1000);
 async function save(){
   for(const [k,s] of D.shots.entries()) if(!(s.in>=0&&s.in<s.out)){showErr(`第 ${k+1} 段：开始时间要早于结束时间`);return false}
   const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(D)});
   const j=await r.json();
   if(!j.ok){showErr('保存失败：\n'+(j.errors||[j.error]).join('\n'));return false}
   if(j.mtime) mtime=j.mtime; $('#stale').style.display='none';
-  showErr(''); setDirty(false); if(!polling) flash(j.unchanged?'没有改动':'已保存（旧版本已自动备份）');
+  showErr(''); base=JSON.stringify(D); setDirty(false); if(!polling) flash(j.unchanged?'没有改动':'已保存（旧版本已自动备份）');
   return true;
 }
 function flash(msg){const rs=$('#rs'); rs.style.display='block'; rs.className='done'; $('#rstext').textContent=msg; $('#rsbar').parentNode.style.display='none'; setTimeout(()=>{if(!polling) rs.style.display='none'},3000)}
@@ -720,6 +765,8 @@ $('#bFinal').onclick=()=>{
   disarmFinal(); startRender('final');
 };
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+new ResizeObserver(()=>document.documentElement.style.setProperty('--barh',$('#bar').offsetHeight+'px')).observe($('#bar'));
+window.addEventListener('pageshow',e=>{if(e.persisted) checkRemote()});
 $('#bReload').onclick=async()=>{await fetchEdl(); render()};
 window.addEventListener('focus',checkRemote);
 setInterval(checkRemote,15000);
