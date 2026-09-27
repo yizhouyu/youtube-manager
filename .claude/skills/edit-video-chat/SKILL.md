@@ -18,6 +18,8 @@ As soon as the creator hands over a folder, start these side by side (subagents)
   `./venv/bin/python -m src.editor.footage_player "<project>"` (port 8766): all clips back-to-back
   in capture order at 1×–3×, with the transcript line. Its job is letting the creator preview the
   raw material and grasp the whole trip; marking what the cut used is an optional toggle.
+  It shows ONLY proofread captions (`src.editor.captions_clean`: EDL lines where they exist, else
+  `edit/glossary.json` fixes + hallucination/filler filtering) — never raw whisper text.
 - Transcription + contact sheets (below), music sourcing, and the edit itself.
 
 ## 1. Watch the footage (deterministic layer)
