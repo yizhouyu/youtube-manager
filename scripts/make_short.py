@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Render a vertical YouTube Short (1080x1920, 30 fps) from 16:9 source clips, driven by a JSON spec.
 
-    ./venv/bin/python scripts/make_short.py short.json [--out out.mp4] [--check]
+    ./venv/bin/python scripts/make_short.py <project>/02 - Export/edit/shorts/<slug>.json [--out out.mp4] [--check]
+
+Output: <project>/02 - Export/shorts/<slug>.mp4 by default (next to thumbnail/), the permanent
+archive of every Short's final file -- keep it after upload and list it in that folder's README.md
+(file -> YouTube id, publish time, spec). --out or the spec's "output" override it (tests only).
 
 Spec (all times in seconds; segment times and keyframes are SOURCE-clip seconds):
 
 {
   "project": "NN - Trip Name",          # optional: resolves clips to <project>/01 - Unedited/<clip>.MP4
-  "output": "/abs/path/short.mp4",      # or --out
+  "output": "/abs/path/short.mp4",      # optional; default <project>/02 - Export/shorts/<spec stem>.mp4
   "grades": {"default": "eq=contrast=1.07:saturation=1.2"},   # named ffmpeg color chains (optional)
   "segments": [
     {"clip": "GX015168",                # file stem in the source dir, or an absolute path
@@ -18,9 +22,10 @@ Spec (all times in seconds; segment times and keyframes are SOURCE-clip seconds)
                                         # letterbox: whole 16:9 frame over a blurred fill
      "x": [[8.0, 0.26], [12.0, 0.30]],  # crop centre as 0-1 of the source width; a number = static.
                                         # Keyframes are smoothed (no jerky pans); clamped to the frame.
-     "y": 0.5, "zoom": 1.0,             # crop: vertical centre and extra punch-in (1 = full height)
+     "y": 0.5, "zoom": 1.0,             # crop: vertical centre (number or keyframes like x; only moves
+                                        # when zoom > 1) and extra punch-in (1 = full height)
      "speed": 1.0,                      # >1 = timelapse (audio muted)
-     "subs": [{"t0": 8.2, "t1": 11.0, "text": "……", "kind": "speech"}]}   # speech | note
+     "subs": [{"t0": 8.2, "t1": 11.0, "text": "……", "kind": "speech"}]}   # speech | note; "\n" = line break
   ],
   "captions": [{"t0": 0, "t1": null, "text": "阿拉斯加", "style": "headline"}],  # OUTPUT seconds;
                                         # t1 null = to the end; style headline | speech | note
@@ -36,8 +41,9 @@ and kept inside the Shorts safe zone: clear of the top bar, of the right-hand ac
 the bottom title/channel overlay. Speech captions must be what was actually said; "note" captions
 (soft yellow) are the editor's labels for silent shots.
 
---check writes full-size frames plus a phone-size contact sheet (with the unsafe zones shaded) next
-to the output, to look at before uploading.
+--check writes full-size frames plus a phone-size contact sheet (with the unsafe zones shaded) to
+<spec stem>_check/ next to the spec (so the shorts/ archive holds only final files), to look at
+before uploading.
 """
 import argparse
 import json
@@ -151,14 +157,14 @@ def caption_png(text, style, cache, bottom=CAPTION_BOTTOM):
         if style == "headline":
             size, fill = 84, "white"
             f = O._font(O.TITLE_FONTS, size)
-            while size > 58 and d.textlength(text, font=f) > max_w:
+            while size > 58 and max(d.textlength(p, font=f) for p in text.split("\n")) > max_w:
                 size -= 2
                 f = O._font(O.TITLE_FONTS, size)
         else:
             size = 76 if style == "speech" else 72
             f = O._font(O.SUB_FONTS, size)
             fill = O.NOTE_COLOR if style == "note" else "white"
-        lines = O._wrap(d, text, f, max_w)
+        lines = [ln for part in text.split("\n") for ln in O._wrap(d, part, f, max_w)]  # "\n" = manual break
         lh = int(size * 1.28)
         y = int(H * HEADLINE_TOP) if style == "headline" else int(H * bottom) - lh * len(lines)
         y = max(SAFE["top"], y)
@@ -172,6 +178,11 @@ def caption_png(text, style, cache, bottom=CAPTION_BOTTOM):
 
 
 # ---------------------------------------------------------------- segments
+
+def default_output(project, stem):
+    """<project>/02 - Export/shorts/<stem>.mp4 -- the kept archive copy (never delete after upload)."""
+    return os.path.join(E.project_dir(project), "02 - Export", "shorts", stem + ".mp4")
+
 
 def resolve_clip(spec, clip):
     if os.path.isabs(clip) or os.path.exists(clip):
@@ -197,8 +208,8 @@ def render_segment(spec, seg, idx, work):
         cw = int(round(ch * W / H / 2)) * 2
         track = smooth_track(seg.get("x", 0.5), seg["in"], seg["out"], 1.0)
         xs = [(t, x * sw - cw / 2) for t, x in track]
-        y = min(sh - ch, max(0, float(seg.get("y", 0.5)) * sh - ch / 2))
-        vf.append(f"crop=w={cw}:h={ch}:x='{piecewise_expr(xs, 0, sw - cw)}':y={y:.0f}")
+        ys = [(t, y * sh - ch / 2) for t, y in smooth_track(seg.get("y", 0.5), seg["in"], seg["out"], 1.0)]
+        vf.append(f"crop=w={cw}:h={ch}:x='{piecewise_expr(xs, 0, sw - cw)}':y='{piecewise_expr(ys, 0, sh - ch)}'")
         if grade:
             vf.append(grade)
         vf.append(f"scale={W}:{H}:flags=lanczos")
@@ -238,7 +249,7 @@ def render_segment(spec, seg, idx, work):
 
 # ---------------------------------------------------------------- build
 
-def build(spec, out, check=False):
+def build(spec, out, check=False, check_dir=None):
     work = tempfile.mkdtemp(prefix="short_", dir=spec.get("workdir") or None)
     cache = os.path.join(work, "overlays")
     try:
@@ -324,7 +335,7 @@ def build(spec, out, check=False):
         report["captions"] = caps
         print(json.dumps(report, ensure_ascii=False, indent=1))
         if check:
-            check_frames(out, report["duration"])
+            check_frames(out, report["duration"], d=check_dir)
         return report
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -345,9 +356,9 @@ def measure(path):
     return {"output": path, "width": w, "height": h, "duration": round(dur, 2), "lufs": I, "true_peak": TP}
 
 
-def check_frames(path, dur, n=8):
+def check_frames(path, dur, n=8, d=None):
     """Full-size frames + a phone-size sheet (~360 px wide each, unsafe zones shaded)."""
-    d = os.path.splitext(path)[0] + "_check"
+    d = d or os.path.splitext(path)[0] + "_check"
     os.makedirs(d, exist_ok=True)
     thumbs = []
     for i in range(n):
@@ -376,11 +387,15 @@ def main():
     a = ap.parse_args()
     with open(a.spec, encoding="utf-8") as f:
         spec = json.load(f)
+    stem = os.path.splitext(os.path.basename(a.spec))[0]
     out = a.out or spec.get("output")
     if not out:
-        sys.exit("no output path (spec 'output' or --out)")
+        if not spec.get("project"):
+            sys.exit("no output path (spec 'project', spec 'output' or --out)")
+        out = default_output(spec["project"], stem)
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
-    build(spec, os.path.abspath(out), check=a.check)
+    check_dir = os.path.join(os.path.dirname(os.path.abspath(a.spec)), stem + "_check")
+    build(spec, os.path.abspath(out), check=a.check, check_dir=check_dir)
 
 
 if __name__ == "__main__":

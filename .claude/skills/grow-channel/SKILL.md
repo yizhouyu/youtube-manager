@@ -94,8 +94,15 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
   the Shorts safe zone, ducks the episode's music under speech, normalizes to −14 LUFS, and ends
   without a fade so the Short loops. Then look at the `_check/` frames at full size and on the
   phone-size sheet (unsafe zones shaded): the subject's head must stay in frame, and captions must
-  not cover a face or the subject. When the subject sits low, raise `caption_bottom`. Keep the
-  spec next to the episode's EDL so the Short can be re-rendered.
+  not cover a face or the subject. When the subject sits low, raise `caption_bottom`. For a small
+  or moving subject (an animal underwater), punch in (`zoom` 1.5–2 on 4K) and give both `x` and
+  `y` keyframes from a tracker so the subject is big and centred from the first frame. Keep the
+  spec next to the episode's EDL (`02 - Export/edit/shorts/<slug>.json`) so the Short can be
+  re-rendered.
+- **Archive the final file**: make_short writes to `<episode>/02 - Export/shorts/<slug>.mp4` by
+  default (next to `thumbnail/`). Keep that file after upload, never render only to a temp dir,
+  and add a row to `02 - Export/shorts/README.md`: file → YouTube id, publish time, spec, related
+  video. The Short's cover goes in the same folder (`<slug>_cover.jpg`).
 - **Upload**: private + `publishAt`, in a slot that doesn't clash with the long-video slots. Put
   the long video's link on the description's first line (`完整版：<title> <url>`), add 2–3
   hashtags, and add the Short to the episode's regional playlist. The API can't set Related video,
@@ -207,4 +214,4 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
   understand your audience https://www.youtube.com/creators/grow/understand-your-audience/ ·
   YouTube SEO (Backlinko, Dec 2025) https://backlinko.com/how-to-rank-youtube-videos
 
-**Shorts covers:** every Short gets a vertical cover picked from options through the same independent art-director loop as long-form thumbnails. Keep the subject and text inside the center safe area, because the grid crops to about 1:1–4:5. Schedule Shorts like long videos, with `publishAt` at a fixed daily slot.
+**Shorts covers:** every Short gets a vertical cover picked from options through the same independent art-director loop as long-form thumbnails. Keep the subject and text inside the center safe area, because the grid crops to about 1:1–4:5. Check rare glyphs at full size (the heavy title font leaves enclosed counters such as 魟's 魚 dots unstroked, so fill them with the stroke colour). Save the approved cover next to the file as `02 - Export/shorts/<slug>_cover.jpg`; the API accepts `thumbnails().set` on a Short, but the Shorts feed may still show a frame, so pick the frame in Studio if it doesn't take. Schedule Shorts like long videos, with `publishAt` at a fixed daily slot.
