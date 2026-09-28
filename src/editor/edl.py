@@ -56,10 +56,22 @@ AUDIO_GAIN = {"voice": 1.0, "ambient": 0.35, "mute": 0.0}
 
 
 def project_dir(project):
+    """Resolve a project given as a path or a bare folder name. Projects get moved (e.g. from
+    ~/Desktop/202512/ up to ~/Desktop/ once edited), so fall back to finding a folder with the same
+    name on the Desktop or one level below it."""
     p = os.path.expanduser(project)
-    if not os.path.isdir(p):
-        p = os.path.expanduser(os.path.join("~/Desktop", project))
-    return p
+    if os.path.isdir(p):
+        return p
+    name = os.path.basename(os.path.normpath(p))
+    desk = os.path.expanduser("~/Desktop")
+    cand = os.path.join(desk, name)
+    if os.path.isdir(cand):
+        return cand
+    for sub in sorted(os.listdir(desk)) if os.path.isdir(desk) else []:
+        c = os.path.join(desk, sub, name)
+        if os.path.isdir(c):
+            return c
+    return os.path.join(desk, project)
 
 
 def edit_dir(project):
