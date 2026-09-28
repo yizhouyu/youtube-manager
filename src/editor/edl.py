@@ -130,8 +130,11 @@ def shot_subs(shot):
     for s in shot.get("subs", []):
         t0, t1 = max(s["t0"], shot["in"]), min(s["t1"], shot["out"])
         l0, l1 = src_to_local(shot, t0), src_to_local(shot, t1)
-        if l1 - l0 >= 0.3 and s["text"].strip():
-            out.append({"t0": l0, "t1": l1, "text": s["text"].strip(), "kind": s.get("kind", "speech")})
+        text, kind = s["text"].strip(), s.get("kind", "speech")
+        if text.startswith("※"):  # legacy marker for an editor note: never render the symbol
+            text, kind = text.lstrip("※ ").strip(), "note"
+        if l1 - l0 >= 0.3 and text:
+            out.append({"t0": l0, "t1": l1, "text": text, "kind": kind})
     return out
 
 

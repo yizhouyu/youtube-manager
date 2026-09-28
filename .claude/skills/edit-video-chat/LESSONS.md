@@ -85,6 +85,8 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   locate the subject's x/y on a real frame, push to ~1.8–1.9×, verify it stays in frame.
 - **Time cards for jumps** ("一小时后……", "第二天……") with a light sfx. Never use copyrighted meme
   clips (Content ID); original cards look just as good.
+- Note captions are `{"kind": "note"}` with plain text — never a marker character in the text
+  itself (a "※" prefix once rendered literally on screen).
 - Don't use internal jargon in shot `note`s — they're the creator-facing card titles.
 
 ## Audio & music
