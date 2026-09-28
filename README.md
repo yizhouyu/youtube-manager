@@ -1,47 +1,142 @@
 # YouTube Manager
 
-An **agent-first** toolkit for publishing a YouTube channel by *talking to an agent* (Claude Code) instead of clicking through a UI. Point it at a finished video export and it watches the footage, transcribes it, designs the thumbnail by *looking* at the frame, writes bilingual (Chinese-first) SEO metadata in your channel's own style, critiques its own work with sub-agents, then uploads, captions, schedules, and playlists it.
+An **agent-first** toolkit for running a travel-vlog channel by *talking to an agent* (Claude Code)
+instead of clicking through editing and upload UIs. You hand it a folder of raw action-cam clips,
+and it:
+- watches and transcribes every clip;
+- cuts a story-driven vlog with subtitles, music, zooms, arrows and title cards;
+- has sub-agent reviewers QA the cut;
+- designs the thumbnail by *looking* at frames;
+- writes bilingual (Chinese-first) metadata in your channel's own voice;
+- publishes to **YouTube and Bilibili**, with captions, scheduling and regional playlists/合集.
 
-> This started as a Flask web app + CLI (see the original write-up: [vibe-coding with Claude Code](https://yizhouyu.dev/blog/posts/vibe-coding-with-claude-code/)). It's since been rebuilt around a single conversational **skill** — the UI was deleted on purpose, and [here is why](https://yizhouyu.dev/blog/posts/deleted-the-ui/). A UI can only expose the buttons you thought to build; telling a capable agent what to do, and working directly inside it, doesn't cap what it can do.
+> This started as a Flask web app + CLI (see the original write-up: [vibe-coding with Claude Code](https://yizhouyu.dev/blog/posts/vibe-coding-with-claude-code/)). It has since been rebuilt around conversational **skills**, and the UI was deleted on purpose ([here is why](https://yizhouyu.dev/blog/posts/deleted-the-ui/)). A UI can only expose the buttons you thought to build. An agent you talk to isn't capped that way.
 
-## How it works
+## The two skills
 
-The whole procedure lives in one skill: **[`.claude/skills/publish-video-chat/SKILL.md`](.claude/skills/publish-video-chat/SKILL.md)**. It's generic — point it at any channel and it learns that channel's voice from its own uploads. The flow:
+| Skill | What it does |
+|---|---|
+| [`edit-video-chat`](.claude/skills/edit-video-chat/SKILL.md) | Raw clips → a finished, reviewed cut (EDL-driven, rendered with ffmpeg). |
+| [`publish-video-chat`](.claude/skills/publish-video-chat/SKILL.md) | Finished export → thumbnail, metadata, captions, upload/schedule, playlists, Bilibili mirror. |
 
-1. **Pre-process & QA the export** (`scripts/preprocess_video.sh`) — extract frames, transcribe audio, and flag broken / mis-exported files (it looks at pixels, not just filenames).
-2. **Understand the video** — read the transcript *and* the frames; build a proper-noun glossary; web-search anything uncertain.
-3. **Design the thumbnail** by looking at the image, then polish it (`src/thumbnail_generator/`: `compositor.py` + `polish.py` — color grade, vignette, dual-stroke text). Mobile-legibility self-audit.
-4. **Write bilingual SEO metadata** in the channel's learned style, then run **sub-agent critics** (CTR + SEO/accuracy) before a human sees anything.
-5. **Accurate captions** (`scripts/transcribe_accurate.sh`: `large-v3-turbo` + a per-video glossary `--prompt` + VAD), cleaned against the glossary, uploaded via `scripts/upload_captions.py`.
-6. **Upload, schedule (`publishAt`), and playlist** the video — and feed every human correction back into a persistent memory so the system gets more "you" over time.
+Both skills learn. [`LESSONS.md`](.claude/skills/edit-video-chat/LESSONS.md) records every creator
+correction and every editing experiment, with a table of what worked. Each new video has to be
+better than the last.
+
+## Editing (`edit-video-chat`)
+
+The whole edit is one JSON file, `edit/edl.json`. It holds the shots, trims, subtitles, B-roll,
+Ken Burns zoom, speed/timelapse, labelled arrows, freeze-frame and title cards, and the music
+sections (with ducking and music-free "breathing room"). Agents write it; the renderer turns it
+into video.
+
+1. **Transcribe** with [Qwen3-ASR](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) on Apple Silicon
+   via MLX.
+   - It gets a per-trip proper-noun context.
+   - A glossary (`{"heard": "correct"}`) fixes known mishearings, and OpenCC converts the text to
+     Simplified Chinese.
+   - Captions stay hidden until they pass a proofread gate.
+2. **Scan**: contact sheets and metadata for every clip (`src/editor/scan.py`). The agent *looks*
+   at every sheet.
+3. **Build the cut**: the agent writes a first-cut script that emits the EDL, following retention
+   rules:
+   - a hook in the first 8 s, and a mini-arc per place;
+   - no long static shots; dull stretches are timelapsed;
+   - one comment question, and an end screen with a teaser for the next episode.
+4. **Tighten**: Silero VAD removes dead air and fillers (`src/editor/tighten.py`).
+5. **Render** (`src/editor/render.py`):
+   - per-shot HEVC segments (VideoToolbox), cached and then concatenated;
+   - overlays drawn as Pillow PNGs;
+   - music sections crossfaded, loudness-matched, and ducked under speech;
+   - two-pass loudnorm to −14 LUFS, plus a limiter;
+   - output as a 1080p preview or a 4K 10-bit master.
+6. **QA (mandatory)**: every round, a reviewer sub-agent:
+   - watches dense frames of the render *and* the raw footage;
+   - re-transcribes the rendered audio and diffs it against the captions;
+   - checks loudness and scores each 30 s window as a viewer would;
+   - proposes improvements.
+
+   Rounds continue until the reviewer reports no further issues.
+
+Two local pages help the human:
+- **Review page** (`src/editor/review_server.py`): play the cut, adjust shots, see what changed.
+- **Footage player** (`src/editor/footage_player.py`): watch all raw clips back-to-back at
+  1.5×/2×, with proofread captions.
+
+**Batch mode.** Many trips can be rough-cut unattended:
+- A "master director" agent dispatches one "episode director" per video, in parallel, as
+  sub-agents or [Orca](https://github.com/stablyai/orca) workers.
+- The master answers the directors' questions. Each director writes a `HANDOFF.md` with open
+  questions for the creator's review session.
+- `scripts/claude_usage.py` reads the plan's 5-hour and weekly usage, so the batch can pace itself
+  and resume after a reset.
+- `~/.config/yt-editor/jobs` caps the number of ffmpeg workers live, so parallel episodes don't
+  swamp the machine.
+
+## Publishing (`publish-video-chat`)
+
+1. **QA the export** (`scripts/preprocess_video.sh`): extract frames, transcribe, and flag broken
+   exports.
+2. **Thumbnail** (`src/thumbnail_generator/`):
+   - designed by looking at frames, then polished: grade, vignette, dual-stroke text;
+   - checked with a mobile-legibility self-audit;
+   - exported per platform by `export.py`: YouTube 1280×720, Bilibili 16:10.
+3. **Metadata**: bilingual SEO in the channel's learned style. Sub-agent critics (CTR + accuracy)
+   check it before a human sees it.
+4. **Captions**: uploaded with `scripts/upload_captions.py`.
+5. **Upload + schedule** (`publishAt`) via `src/uploader/`. Each travel video goes into its
+   **regional playlist** (阿拉斯加 | Alaska, 加州 | California, 美东 | US East Coast, …), so
+   viewers can binge a place.
+6. **Bilibili mirror**: uploaded and scheduled with [biliup](https://github.com/biliup/biliup-rs).
+   `scripts/bili_season.py` then puts it into the matching regional **合集**.
+7. **Manual steps**: anything the APIs can't do (Studio location, thumbnail A/B test) goes on a
+   manual checklist.
 
 ## Repo layout
 
 ```
-.claude/skills/publish-video-chat/   # the skill — the actual procedure
-scripts/
-  preprocess_video.sh                # frame scan + whisper transcript + export QA
-  transcribe_accurate.sh             # large-v3-turbo + glossary --prompt + VAD captions
-  upload_captions.py                 # captions.insert
+.claude/skills/
+  edit-video-chat/      # editing procedure + LESSONS.md (what worked, what didn't)
+  publish-video-chat/   # publishing procedure
 src/
-  auth/            # YouTube OAuth2
-  youtube_client/  # list channel videos (learn the channel's style)
-  uploader/        # resumable upload + thumbnail + playlist (start_upload)
-  thumbnail_generator/  # add_text_to_image (Pillow) + compositor + polish
-  analytics/       # channel metrics (for the self-evolving packaging loop)
-config/            # client_secrets.json + token.pickle (gitignored)
-models/            # whisper ggml models (gitignored)
+  editor/               # edl.py (schema), render.py, overlays.py, transcribe.py, scan.py,
+                        # tighten.py, captions_clean.py, review_server.py, footage_player.py
+  thumbnail_generator/  # compositor + polish + per-platform export
+  uploader/             # resumable upload + thumbnail + playlist
+  youtube_client/  auth/  analytics/
+scripts/
+  new_project.sh        # new vlog project from templates/vlog-project
+  claude_usage.py       # plan usage (5-hour / weekly) for batch pacing
+  bili_season.py        # Bilibili 合集 (create + add episodes)
+  preprocess_video.sh  transcribe_accurate.sh  upload_captions.py  render_thumbnails.py
+templates/vlog-project/ # 01 - Unedited/, 02 - Export/{thumbnail, edit/{glossary, music, sfx, HANDOFF}}
+config/  models/  sessions/   # credentials, whisper models, local batch state (all gitignored)
 ```
+
+A project is a folder `NN - Place/`:
+- `01 - Unedited/`: raw clips, never modified.
+- `02 - Export/edit/`: everything about this video's edit.
+- `02 - Export/thumbnail/`: the thumbnails.
+- `02 - Export/NN - Place.mov`: the master.
 
 ## Setup
 
-1. `python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt`
-2. **External tools**: `brew install ffmpeg whisper-cpp`, then drop a whisper model in `models/` (e.g. `ggml-large-v3-turbo-q5_0.bin`) + a VAD model (`ggml-silero-vad.bin`).
-3. **YouTube auth**: put OAuth2 desktop `client_secrets.json` in `config/`; the first run opens a browser and saves `config/token.pickle`. Captions need the `youtube.force-ssl` scope.
-4. **Use it**: in Claude Code, point the `publish-video-chat` skill at a finished export and tell it to publish.
+1. Create the main env: `python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt`
+2. Install the external tools with `brew install ffmpeg whisper-cpp`, then put the whisper and
+   Silero VAD models in `models/`.
+3. Create the ASR env (Apple Silicon): `python3.12 -m venv asrvenv && asrvenv/bin/pip install mlx-qwen3-asr opencc-python-reimplemented`
+4. **YouTube auth**: put an OAuth2 desktop `client_secrets.json` in `config/`. The first run opens
+   a browser and saves the token. Captions need the `youtube.force-ssl` scope.
+5. **Bilibili (optional)**: install `biliup`, then run
+   `biliup -u ~/.config/biliup/cookies.json login` once (QR scan).
+6. In Claude Code, say "edit this trip" or "publish this video" and point it at a project folder.
 
 ## Notes
 
-- The agent owns the decisions; you review once before publish and give notes — your corrections become memory.
-- `src/analytics/` is kept for the self-evolving loop (bias future titles/thumbnails toward what beat the channel's baseline).
+- The agent makes the editing decisions. You review once, and your notes become rules, both in
+  `LESSONS.md` and in the creator-preference memory the agent keeps.
+- Music comes from the YouTube Audio Library (no attribution required). Each project keeps its
+  tracks and a `LICENSES.md`.
+- `src/analytics/` feeds the packaging loop, which biases future titles and thumbnails toward what
+  beat the channel's baseline.
 - License: MIT.
