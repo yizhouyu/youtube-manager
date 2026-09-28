@@ -15,6 +15,16 @@ Resolve `REPO` as two levels up from this file and run everything from there.
 publishing: append what this video taught** — new mistakes, creator corrections that generalize,
 faster ways of working — and prune lessons the code now enforces.
 
+## Batch mode (the creator is away / reviews later)
+
+Do the whole first cut + QA + thumbnails yourself; don't wait on him. Render the 1080p preview only
+for QA, then write `edit/HANDOFF.md` (template in the project template: status, structure with
+timestamps, decisions, drops, music, thumbnail links, QA summary, open questions, how to review)
+and delete `edit/preview.mp4`, `edit/previews/` and `/tmp/yt-editor/<project>` — the EDL is the
+source of truth. No final render, no upload. Track every project in
+`sessions/QUEUE.md` (local, gitignored). When he returns, per video: start the raw-footage player
+→ re-render the preview → review page → apply his notes → final render → publish.
+
 ## 0. Kick off in parallel
 
 As soon as the creator hands over a folder, start these side by side (subagents):
