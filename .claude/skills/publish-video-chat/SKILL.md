@@ -356,6 +356,14 @@ web/app creator endpoints (inherent ToS risk; keep it human-paced, one video at 
 Success prints a `bvid`; a fresh submission shows `state -30 审核中` (normal — it goes live after
 review). Verify with `biliup -u … show <BV>`. Record the BVID next to the YouTube id in Step 8.
 
+**合集 (season):** put every video into its regional 合集, the same grouping as the YouTube
+playlists (阿拉斯加, 加州, 美东, 美国西南：亚利桑那·犹他·拉斯维加斯, …). biliup can't do this, so
+use the script:
+- `./venv/bin/python scripts/bili_season.py --list`
+- `./venv/bin/python scripts/bili_season.py --season "<name>" --desc "<one line>" <BV…>`
+
+If the 合集 doesn't exist yet, the script creates it. A video can be in only one 合集.
+
 **Proven recipe (verified 2026-06-20 — mirrored 70–77 in one go). Do it exactly this way:**
 - **Drive it from a tiny Python script, NOT a raw shell command.** The Chinese `--desc` is
   multi-line; inlining it in bash mangles quoting/newlines. Use `subprocess.run([...])` with a
