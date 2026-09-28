@@ -184,6 +184,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **Music timing math:** a section's track fades in 2.5 s BEFORE its start shot, so the track time at
   the start shot = `in` + 2.5 s. Needed for beat-synced cuts; also compute where vocals would land.
 - Final master: 4K HEVC Main10 ~100 Mb/s `.mov`, graded in 10-bit, at `02 - Export/<folder name>.mov`.
+- **Every shot's audio gets 12 ms edge fades** (renderer default since ep 86): a hard cut on wind noise clicked
+  (~2000-unit sample step) even with no stop-button click nearby. Cache key bumped with it.
+- **Title-card sub-lines need an outline** on bright rock/sand (ep 86 QA: unreadable at 1:00) — done in `overlays.title_card`.
+- **A quiet guide / relayed explanation sinks under the mix:** measure the voice stem per shot and lift with `gain_db`
+  (ep 86: guide Q&A +10 dB, the Alien Throne talk +4, the Chaco line +5) — check this in round 1, not round 2.
 
 ## Review surfaces (pages)
 
@@ -247,3 +252,5 @@ analytics (retention graphs) once available.
 | 85 | J-cut into a new place with existing features: the arriving shot starts with 1.3 s of `broll` from the drive, so its first line ("我们先来到这里") is heard over the road | Smooth, no reviewer complaints; the chapter title appears over the B-roll (acceptable) | Yes at place changes that open on speech |
 | 85 | Beat-synced drive montage: tempo from onset-envelope autocorrelation (numpy in asrvenv; 105 BPM), each shot 4 beats long, frame-rounded so cuts land within ±13 ms (round 2 fixed a +53 ms drift from 69- vs 68-frame shots) | Tighter, livelier 9 s drive; 1:00 window 10/10 | Yes for montages ≥ 3 shots; compute track time with the 2.5 s crossfade lead |
 | 83 | Real-time punch-in "answer" beat: hard cut from the wide shot to a 1.25× static zoom on the same action, with the note answering the cold-open question ("这只黑熊，最后离我们有多近？" → "答案：隔着一道围栏，就在眼前") | Smooth and emphatic; reviewer 2/2; finale window 10/10 | Yes as the payoff beat for a hook question (the question must be one the footage can verify) |
+| 86 | Ambient-only "breathing room": a music entry with `"file": null` (new renderer feature) drops the music for ~10 s at the widest stone-forest vista (3 silent shots, natural wind lifted +6 dB, one note "这里安静得，只剩下风声"), right after ~45 s of the guide talking; the next track fades back in on the next reveal | Reviewer r1: "resets the ear"; window scored 9/10; needs the stop-button clicks trimmed (a +6 dB lift exposed one) and ≥ 6 s length for the 2.5 s crossfades | Yes, once per video at the most striking silent vista, ≤ 12 s |
+| 86 | Speed ramp on the drive in: same clip split into 1× (a "哇塞") → 6× (20 s of dirt two-track, note caption) → 1× (the guide's car ahead) | Reads as one continuous drive, 3 s instead of 23 s; no reviewer complaints | Yes for long approaches (driving/walking) with a real start and end beat |
