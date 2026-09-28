@@ -292,8 +292,9 @@ def _speech_windows(edl, pad=0.35):
 
 
 def music_sections(edl, total):
-    """[(path, start, end)]: each music entry starts at its `start` shot (first enabled shot at or
-    after it; omitted = right after the previous section) and runs until the next section."""
+    """[(path, start, end, entry)]: each music entry starts at its `start` shot (first enabled shot at
+    or after it; omitted = right after the previous section) and runs until the next section. `entry`
+    is the music dict itself, so a track used twice keeps each use's own `in`/`gain`."""
     rows, _ = E.timeline(edl)
     order = edl.get("_order") or [s["id"] for s in edl["shots"]]
     starts_at = {}
@@ -316,9 +317,9 @@ def music_sections(edl, total):
             t = 0.0 if not secs else None
         if t is None:
             continue  # its start shot and everything after it was cut
-        secs.append([path, t])
+        secs.append([path, t, m])
     secs.sort(key=lambda x: x[1])
-    return [(p, t, secs[i + 1][1] if i + 1 < len(secs) else total) for i, (p, t) in enumerate(secs)
+    return [(p, t, secs[i + 1][1] if i + 1 < len(secs) else total, m) for i, (p, t, m) in enumerate(secs)
             if (secs[i + 1][1] if i + 1 < len(secs) else total) - t > 1.0]
 
 
@@ -336,18 +337,10 @@ def _track_lufs(path):
     return _LUFS_CACHE[key]
 
 
-def _track_gain_db(edl, path):
+def _track_gain_db(path, entry):
     """Loudness-match every track to -14 LUFS (Audio Library tracks differ by 15+ LU), plus the
     music entry's optional manual "gain" in dB."""
-    extra = next((m.get("gain", 0.0) for m in edl.get("music", [])
-                  if m.get("file") and os.path.join(E.edit_dir(edl["project"]), m["file"]) == path), 0.0)
-    return max(-20.0, min(12.0, -14.0 - _track_lufs(path))) + extra
-
-
-def _track_in(edl, path):
-    """Optional music entry "in" (s): skip a track's quiet intro."""
-    return next((float(m.get("in", 0.0)) for m in edl.get("music", [])
-                 if m.get("file") and os.path.join(E.edit_dir(edl["project"]), m["file"]) == path), 0.0)
+    return max(-20.0, min(12.0, -14.0 - _track_lufs(path))) + float(entry.get("gain", 0.0))
 
 
 def music_bed(edl, total, workdir, out_wav):
@@ -358,7 +351,7 @@ def music_bed(edl, total, workdir, out_wav):
         return False
     xf = 2.5
     args, chain, labels = [], [], []
-    for k, (path, t0, t1) in enumerate(secs):
+    for k, (path, t0, t1, entry) in enumerate(secs):
         # each section overlaps the next by xf and crossfades; tracks loop if the section is long
         a0 = max(0.0, t0 - (xf if k else 0))
         d = min(total, t1 + (xf if k + 1 < len(secs) else 0)) - a0
@@ -370,7 +363,9 @@ def music_bed(edl, total, workdir, out_wav):
             gain, t_in = 0.0, 0.0
         else:
             args += ["-stream_loop", "-1", "-i", path]
-            gain, t_in = _track_gain_db(edl, path), _track_in(edl, path)
+            # this entry's own "in" (skip a quiet intro / pick a later passage) — looked up per entry,
+            # not per file: a reused track played from its first use's `in` (ep 96 QA)
+            gain, t_in = _track_gain_db(path, entry), float(entry.get("in", 0.0))
         chain.append(f"[{k}:a]aresample={SR},aformat=sample_fmts=fltp:channel_layouts=stereo,"
                      f"volume={gain:.2f}dB,"
                      f"atrim={t_in:.3f}:{t_in + d:.3f},"
