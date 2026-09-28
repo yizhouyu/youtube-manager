@@ -76,6 +76,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **Fades eat speech** — check the last words of a shot aren't under a `fade_out`.
 - **B-roll over talking** when the frame is boring (food close-up, parking lot) — show what the
   speaker describes (the underwater trail signs while explaining the trail).
+- **Long process footage (filleting, cooking, driving) → timelapse it** (`speed: 4`, music + a
+  note caption) instead of cutting it out or letting it drag.
+- **Tiny animals: arrow or zoom, located on real 4K frames.** `marks` draws a labelled arrow;
+  guessed positions are wrong (an orca "at the right edge" was mid-frame). Animals move — use short
+  mark windows. There are usually MORE of them than a contact sheet shows; look carefully.
 - **Ken Burns on distant subjects** the speaker refers to (a donkey 30 m away, cruise ships):
   locate the subject's x/y on a real frame, push to ~1.8–1.9×, verify it stays in frame.
 - **Time cards for jumps** ("一小时后……", "第二天……") with a light sfx. Never use copyrighted meme
