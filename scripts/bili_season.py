@@ -42,8 +42,16 @@ def seasons(s):
 
 
 def video(s, bvid):
-    d = _ok(s.get("https://api.bilibili.com/x/web-interface/view", params={"bvid": bvid}), f"view {bvid}")
-    return {"aid": d["aid"], "cid": d["cid"], "title": d["title"], "pic": d["pic"], "pubdate": d["pubdate"]}
+    j = s.get("https://api.bilibili.com/x/web-interface/view", params={"bvid": bvid}).json()
+    if j.get("code") == 0:
+        d = j["data"]
+        return {"aid": d["aid"], "cid": d["cid"], "title": d["title"], "pic": d["pic"], "pubdate": d["pubdate"]}
+    # Scheduled / still-in-审核 videos 404 on the public API; the creator-center view has them.
+    d = _ok(s.get("https://member.bilibili.com/x/vupre/web/archive/view", params={"bvid": bvid}),
+            f"creator view {bvid}")
+    a = d["archive"]
+    return {"aid": a["aid"], "cid": d["videos"][0]["cid"], "title": a["title"], "pic": a["cover"],
+            "pubdate": a.get("dtime") or a.get("ptime") or int(time.time())}
 
 
 def main():
