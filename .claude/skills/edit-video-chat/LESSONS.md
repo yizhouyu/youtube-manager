@@ -119,6 +119,10 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **Sites with photo rules:** Taos Pueblo allows photos for personal use only (commercial use needs
   approval/fees; residents only with permission; no photos inside the chapel). Keep identifiable
   residents out, and list the rule as an open question for the creator (ep 85).
+- **The plan is not the record:** ep 87's "Chaco" day opened at Aztec Ruins NM (sign in the first clip), an outlier
+  in the same UNESCO listing — it became its own section. Read the first frames of the day before trusting the plan.
+- **Arrows on a panning handheld shot drift off the subject** (a cow on ep 87 moved .48→.44 in 2.5 s): prefer a
+  punch-in (`zoom` from ≥1.3) that keeps the subject near the focal point, or keep mark windows ≤ 1.5 s.
 
 ## Audio & music
 
@@ -189,6 +193,9 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **Title-card sub-lines need an outline** on bright rock/sand (ep 86 QA: unreadable at 1:00) — done in `overlays.title_card`.
 - **A quiet guide / relayed explanation sinks under the mix:** measure the voice stem per shot and lift with `gain_db`
   (ep 86: guide Q&A +10 dB, the Alien Throne talk +4, the Chaco line +5) — check this in round 1, not round 2.
+- **GoPro clips start with ~40–66 ms of digital silence** (ep 87 QA heard gaps at 1:44/1:48 in the music-free
+  section): a shot with audio should never start at `in: 0.0` — use ≥ 0.1. Measured on the cached segment WAVs
+  (`/tmp/yt-editor/<project>/seg_*/sNNN_*.wav`); afftdn was NOT the cause (tested on a tone + a real clip).
 
 ## Review surfaces (pages)
 
@@ -254,3 +261,4 @@ analytics (retention graphs) once available.
 | 83 | Real-time punch-in "answer" beat: hard cut from the wide shot to a 1.25× static zoom on the same action, with the note answering the cold-open question ("这只黑熊，最后离我们有多近？" → "答案：隔着一道围栏，就在眼前") | Smooth and emphatic; reviewer 2/2; finale window 10/10 | Yes as the payoff beat for a hook question (the question must be one the footage can verify) |
 | 86 | Ambient-only "breathing room": a music entry with `"file": null` (new renderer feature) drops the music for ~10 s at the widest stone-forest vista (3 silent shots, natural wind lifted +6 dB, one note "这里安静得，只剩下风声"), right after ~45 s of the guide talking; the next track fades back in on the next reveal | Reviewer r1: "resets the ear"; window scored 9/10; needs the stop-button clicks trimmed (a +6 dB lift exposed one) and ≥ 6 s length for the 2.5 s crossfades | Yes, once per video at the most striking silent vista, ≤ 12 s |
 | 86 | Speed ramp on the drive in: same clip split into 1× (a "哇塞") → 6× (20 s of dirt two-track, note caption) → 1× (the guide's car ahead) | Reads as one continuous drive, 3 s instead of 23 s; no reviewer complaints | Yes for long approaches (driving/walking) with a real start and end beat |
+| 87 | Animated then/now reconstruction card (`card.image` = mp4 built with ffmpeg alpha fades from Pillow layers, no renderer change): Pueblo Bonito's back wall today → translucent dashed "ghost" tiers build up floor by floor to the 4–5 stories the park panel states, labelled 现在 / 一千年前（示意）, then a picture-in-picture of the park panel's own reconstruction painting (perspective-corrected with `Image.QUAD`) as the source; placed right after the creator says "最高可能有四五层" (script: 87's `edit/scripts/make_freeze_frames.py`) | Round-1 reviewer: honest (示意 + source shown), PiP legible; window 2:30 scored 10/10; idea: J-cut it under the spoken line | Yes for ruins/rebuilt things with a verifiable original size; always label 示意 and show the source |
