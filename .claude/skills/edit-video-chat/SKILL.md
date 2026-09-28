@@ -128,9 +128,56 @@ see LESSONS.md for sources). Treat them as the bar every cut must clear:
    ("你会选A还是B?"; Bilibili: "选A扣1，选B扣2") and a light 三连/订阅 line right AFTER the emotional
    peak, not at the start. Draft a pinned comment that asks a question (goes in publish metadata).
 9. **Leave the last 15–20 s for the end screen:** calm B-roll + a captioned teaser of the next
-   episode in the series (the next project folder) — no separate outro card.
+   episode, but ONLY if the next episode is from the same trip. For the last episode of a trip,
+   point to that region's playlist/合集 instead. No separate outro card.
 10. **Chapters = location names** (first at 0:00, ≥ 3, each ≥ 10 s) — written into publish metadata.
 11. **Shorts:** note 1–3 self-contained peak moments (≤ 60 s each) in HANDOFF.md for later cut-downs.
+
+## 2c. The creator's review checklist (what he asks for when he reviews)
+
+Distilled from his live reviews of 83 and 84. Check the cut against this list *before* QA, and
+have the reviewer check it too. Every item is something he had to ask for by hand.
+
+**Keep more:**
+- Keep the fun and the specific: animals doing things (porcupine walking), campgrounds and
+  lodging with character (the RV campground), individual exhibits (the carved-animal diorama, the
+  beadwork, the market scene, the other hall), and every stretch where he is talking (all the hot-spring
+  pools).
+- Length is not a constraint (up to ~20 min).
+- Don't cut bystanders.
+
+**Pace by motion, not by cutting:**
+- Car-window scenery at 2–4×.
+- Static shots only a few seconds.
+- Shots with change in them (movement, action, reaction, talk, a reveal) can run long.
+- Long talks (a keeper or docent) are trimmed to the highlights, not dropped.
+
+**Explain places and people:**
+- At the start of a museum or site, a note says what it is and what it exhibits.
+- A key person gets a short 2–3-line intro (who they are, why they matter). Skip trivia nobody
+  cares about.
+- The first mention of a place is bilingual, e.g. "圣达菲 Santa Fe".
+- When the day changes, add a day marker. When the order looks odd, a one-line reason (e.g. galleries while waiting for the museum tour).
+
+**Name the food:** every meal gets its dishes named, identified from the frames and menus
+(flautas, enchiladas, chile relleno, menudo…), plus the restaurant name. Descriptions may name
+them too.
+
+**Captions must be what was actually said:**
+- Background chatter and PA announcements are NOT captions. Before keeping a quiet line, check its
+  level vs his voice and cross-check it with a second ASR.
+- If his own line is too quiet to hear, mute the clip rather than caption a guess.
+- When picture and speech are about different things (filming X while the docent explains Y),
+  just leave it. No explanatory note.
+
+**Look closer:** push in (Ken Burns zoom) on small animals and small exhibits, located on 4K frames.
+
+**Music:**
+- Fresh tracks each episode.
+- No vocals, including "oh oh oh" chants.
+
+**Decide craft calls yourself** (zoom, speed, trims, B-roll, music, caption wording). Ask him only
+about facts only he knows.
 
 ## 3. Render + review
 
