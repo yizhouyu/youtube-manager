@@ -398,6 +398,14 @@ If the 合集 doesn't exist yet, the script creates it. A video can be in only o
 - **Verify** each: `biliup -u … show <BV>` → check `tid 250`, `is_only_self`, `dtime`, `cover`,
   `state_desc 审核中`. Login check / dup check: `biliup -u … list`. Cookie ~30d → `renew`.
 
+## Step 7.9 — Clean up review renders
+Once both uploads are verified, delete this episode's review renders:
+- `02 - Export/edit/preview.mp4`
+- `02 - Export/edit/previews/`
+- `/tmp/yt-editor/<project>/`
+
+Keep the `.mov` master, the EDL and the thumbnails.
+
 ## Step 8 — Self-evolving loop
 
 After publishing, append a record to a **persistent packaging log** (a JSON/MD in `$REPO`):
