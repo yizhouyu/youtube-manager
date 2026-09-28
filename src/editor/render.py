@@ -159,7 +159,7 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     if (shot.get("card") or {}).get("image"):  # re-render when the card's image/animation file changes
         ip = _card_image_path(edl, shot["card"])
         extra.append(os.path.getmtime(ip) if os.path.exists(ip) else "missing")
-    key = json.dumps([shot, grade, brg, fps_str, preset, clean, 8, overlays.VERSION] + extra, sort_keys=True, ensure_ascii=False)
+    key = json.dumps([shot, grade, brg, fps_str, preset, clean, 9, overlays.VERSION] + extra, sort_keys=True, ensure_ascii=False)
     hid = hashlib.sha1(key.encode()).hexdigest()[:12]
     vpath = os.path.join(cache, f"{shot['id']}_{hid}.mp4")
     apath = os.path.join(cache, f"{shot['id']}_{hid}.wav")
@@ -250,10 +250,9 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     if shot.get("denoise", edl.get("denoise_voice", False)) and shot.get("audio", "voice") == "voice":
         # boat engines / wind: cut the low rumble, then FFT denoise under the voice
         af[2:2] = ["highpass=f=140", "afftdn=nr=18:nf=-30:tn=1"]
-    if fi:
-        af.append(f"afade=t=in:st=0:d={fi}")
-    if fo:
-        af.append(f"afade=t=out:st={max(0, dur - fo):.3f}:d={fo}")
+    # 12 ms edge fades on every shot: a hard cut on a non-zero sample (wind) clicks after loudnorm
+    af.append(f"afade=t=in:st=0:d={max(fi or 0, EDGE_FADE)}")
+    af.append(f"afade=t=out:st={max(0, dur - max(fo or 0, EDGE_FADE)):.3f}:d={max(fo or 0, EDGE_FADE)}")
     af += ["apad", f"atrim=0:{dur:.6f}"]
     chains.append(f"{asrc}asetpts=PTS-STARTPTS,{','.join(af)}[a0]")
     k = base_inputs + len(ovs)
@@ -267,6 +266,9 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     os.replace(tmpv, vpath)
     os.replace(tmpa, apath)
     return vpath, apath
+
+
+EDGE_FADE = 0.012
 
 
 def _speech_windows(edl, pad=0.35):
