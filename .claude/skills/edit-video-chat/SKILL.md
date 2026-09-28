@@ -26,6 +26,13 @@ source of truth. No final render, no upload. If the project sat in a batch folde
 `sessions/QUEUE.md` (local, gitignored). When he returns, per video: start the raw-footage player
 → re-render the preview → review page → apply his notes → final render → publish.
 
+## Budget (long batches)
+
+`python3 scripts/claude_usage.py --log "<project> start"` before a video and `... "<project> end"`
+after it (appends to `sessions/usage_log.tsv`; prints 5-hour + weekly utilization, never the token).
+Use the measured per-video delta to decide whether another video fits: if the 5-hour window can't
+fit one more, wait for its reset; if the weekly quota is near its end, stop and leave HANDOFF notes.
+
 ## 0. Kick off in parallel
 
 As soon as the creator hands over a folder, start these side by side (subagents):
