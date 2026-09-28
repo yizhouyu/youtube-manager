@@ -206,3 +206,5 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
 - Also: impressions funnel https://support.google.com/youtube/answer/9314486 ·
   understand your audience https://www.youtube.com/creators/grow/understand-your-audience/ ·
   YouTube SEO (Backlinko, Dec 2025) https://backlinko.com/how-to-rank-youtube-videos
+
+**Shorts covers:** every Short gets a vertical cover picked from options through the same independent art-director loop as long-form thumbnails. Keep the subject and text inside the center safe area, because the grid crops to about 1:1–4:5. Schedule Shorts like long videos, with `publishAt` at a fixed daily slot.
