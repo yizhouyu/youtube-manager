@@ -48,6 +48,12 @@ As soon as the creator hands over a folder, start these side by side (subagents)
   step on raw frames (apply the EDL's color grade so it matches the video) and export both the
   YouTube 16:9 and Bilibili 16:10 files, so packaging is ready when the edit is approved.
 
+- **Research subagent per video** (creator's ask: research freely to make each video better):
+  history/context and fun facts about each place, what Chinese viewers search/ask about it
+  (Bilibili/小红书 topics), correct spellings of places/dishes/animals. Output with sources to
+  `edit/research.md`; use only verified facts for note captions, the 0–8 s hook, chapter names,
+  title/description keywords and the comment question.
+
 ## 1. Watch the footage (deterministic layer)
 
 - `ffprobe` every clip: duration, `creation_time` (GoPro writes the camera's local clock with
