@@ -84,6 +84,8 @@ description hook, tags, and a **proper-noun glossary**.
 
 ## Step 3 — Design the thumbnail (by looking)
 
+**Multi-sight episodes:** when the video covers several distinct places, add a **collage variant** that shows 2–3 of the sights as split panels, with one short line of text. Test it on a mobile-sized preview: each panel must still read at thumbnail size. Offer it next to the single-image variants, since the creator asked to try this.
+
 **Multi-pass frame extraction** (scratch → `/tmp`):
 1. **Coarse** — the 12-frame `_scan.jpg` from Step 1 gives the whole arc.
 2. **Dense** — pick the hot windows (best landmarks, faces, golden hour) and re-extract every
