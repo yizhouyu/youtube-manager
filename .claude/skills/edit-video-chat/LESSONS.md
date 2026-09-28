@@ -137,9 +137,12 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   also work in fullscreen (capture-phase key handler so native controls don't double-toggle).
   Browsers "click" a focused button on Space **keyup**: stop buttons taking focus on mousedown and
   swallow Space keyup too — otherwise Space after clicking fullscreen exits fullscreen.
-  With a native `<video controls>`, don't use its built-in fullscreen (focus lands on a shadow-DOM
-  button page handlers can't guard): `controlslist="nofullscreen"` + our own button that
-  fullscreens the container, and when the key target IS the <video>, let the browser handle Space.
+  With a native `<video controls>`, KEEP its fullscreen button (the creator dislikes it removed);
+  on `fullscreenchange` blur the focused element so Space reaches the page, and when the key
+  target IS the <video>, let the browser handle Space.
+- Click on the picture = play/pause with a big centered ▶ while paused (YouTube feel); exclude the
+  native control bar (bottom ~20% / 44 px). Browser automation's clicks/keys often don't reach a
+  background Chrome window — verify page logic with dispatched events and ask the creator to try.
 - The shot list follows playback (sticky player, active card scrolled into view, pause-follow on
   manual scroll). End the list with a visible "已经到最后一段了" marker, not blank space.
 - The "unsaved" flag must compare content, not fire on any input event.
