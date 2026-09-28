@@ -46,6 +46,8 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   not about removing content. When unsure, keep the moment and tighten around it. His own words
   on pacing: "别一个一个同样的镜头放太久". Cap *static, unchanging* shots (a few seconds each). A
   shot with change in it (movement, action, reaction, talk, a reveal) may run longer.
+  Car-window scenery (driving past things) reads slow at 1×, even when it's pretty. Use 2–4× or
+  keep it to a few seconds (creator, review of 83).
 - **Batch cost is mostly fixed, not per raw minute.** Rough-cut cost by episode:
   - 85: ~30% of the 5-hour window, starting from scratch.
   - 86–89: 11–15% each, where the prompt said "reuse the previous episode's build script and
