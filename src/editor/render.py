@@ -330,14 +330,14 @@ def _track_gain_db(edl, path):
     """Loudness-match every track to -14 LUFS (Audio Library tracks differ by 15+ LU), plus the
     music entry's optional manual "gain" in dB."""
     extra = next((m.get("gain", 0.0) for m in edl.get("music", [])
-                  if os.path.join(E.edit_dir(edl["project"]), m["file"]) == path), 0.0)
+                  if m.get("file") and os.path.join(E.edit_dir(edl["project"]), m["file"]) == path), 0.0)
     return max(-20.0, min(12.0, -14.0 - _track_lufs(path))) + extra
 
 
 def _track_in(edl, path):
     """Optional music entry "in" (s): skip a track's quiet intro."""
     return next((float(m.get("in", 0.0)) for m in edl.get("music", [])
-                 if os.path.join(E.edit_dir(edl["project"]), m["file"]) == path), 0.0)
+                 if m.get("file") and os.path.join(E.edit_dir(edl["project"]), m["file"]) == path), 0.0)
 
 
 def music_bed(edl, total, workdir, out_wav):
