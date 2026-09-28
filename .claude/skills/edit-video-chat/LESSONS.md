@@ -90,8 +90,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 ## Audio & music
 
 - YouTube Audio Library "no attribution required" tracks are the only claim-safe music. Record
-  licenses in `edit/music/LICENSES.md`. A subagent can download them via the creator's logged-in
-  Chrome (Studio's download button may 503 — the underlying file URL works).
+  licenses in `edit/music/LICENSES.md`. Download via the creator's logged-in Chrome: Studio →
+  Audio library → search the title → hover the row → **Download**. The file lands in ~/Downloads
+  as a hidden temp file and finalizes ~10 s later as a 320 kbps MP3 — just wait. Don't scrape the
+  preview stream (only 128 kbps) and don't try helper servers/text-file downloads (Chrome holds
+  those as "Unconfirmed").
 - Music by section, crossfaded; duck under speech (subtitle intervals). Start around
   `music_volume` 0.33 / `music_duck` 0.06; montage-only stretches can feel too quiet, but the
   creator found 0.42 too loud overall.
