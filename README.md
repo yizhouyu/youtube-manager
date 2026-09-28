@@ -65,7 +65,7 @@ Two local pages help the human:
 
 **Batch mode.** Many trips can be rough-cut unattended:
 - A "master director" agent dispatches one "episode director" per video, in parallel, as
-  sub-agents or [Orca](https://github.com/stablyai/orca) workers.
+  sub-agents or Orca workers.
 - The master answers the directors' questions. Each director writes a `HANDOFF.md` with open
   questions for the creator's review session.
 - `scripts/claude_usage.py` reads the plan's 5-hour and weekly usage, so the batch can pace itself
