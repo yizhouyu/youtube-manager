@@ -40,6 +40,7 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
     interesting. Don't cut too much. Only real private info stays out: personal names, codes, phone
     or reservation numbers, addresses. Eps 88, 89, 91 and 92 over-cut on this; the 92 police scene
     should have stayed.
+- **Next-episode teasers only within the same trip** (creator, review of 83). The last episode of a trip must not tease a different trip, e.g. Alaska → New Mexico. Point to that region's playlist/合集 instead ("全系列都在合集里") or just say thanks + subscribe.
 - **Length is not a constraint (creator, 2026-09-28).** Up to ~20 min is fine, and 7 min is "not
   long". Don't drop good, fun or informative moments to hit a runtime. The retention rules (2b) are
   about pacing: trim dead air, timelapse the dull stretches, change something every <60 s. They are
