@@ -8,7 +8,7 @@ import os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 # Bump when the look of any overlay changes: invalidates cached PNGs and rendered segments.
-VERSION = 4
+VERSION = 5
 
 _REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SUB_FONTS = ["/System/Library/Fonts/STHeiti Medium.ttc",
@@ -96,7 +96,9 @@ def title_card(text, sub, w, h, cache_dir):
         d.text((x, y), text, font=fb, fill="white")
         if sub:
             d.rectangle([x, bar_y, x + int(w * 0.05), bar_y + bar_h], fill=(255, 214, 90, 255))
-            d.text((x, sub_y), sub, font=fs, fill="white")
+            # thin dark outline: the sub line was unreadable over bright rock / sand (ep 86 QA)
+            d.text((x, sub_y), sub, font=fs, fill="white", stroke_width=max(2, small // 18),
+                   stroke_fill=(0, 0, 0, 200))
         return im
     return _cached(cache_dir, f"title|{text}|{sub}|{w}x{h}", render)
 
