@@ -40,6 +40,10 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
     interesting. Don't cut too much. Only real private info stays out: personal names, codes, phone
     or reservation numbers, addresses. Eps 88, 89, 91 and 92 over-cut on this; the 92 police scene
     should have stayed.
+- **Length is not a constraint (creator, 2026-09-28).** Up to ~20 min is fine, and 7 min is "not
+  long". Don't drop good, fun or informative moments to hit a runtime. The retention rules (2b) are
+  about pacing: trim dead air, timelapse the dull stretches, change something every <60 s. They are
+  not about removing content. When unsure, keep the moment and tighten around it.
 - **Batch cost is mostly fixed, not per raw minute.** Rough-cut cost by episode:
   - 85: ~30% of the 5-hour window, starting from scratch.
   - 86–89: 11–15% each, where the prompt said "reuse the previous episode's build script and
