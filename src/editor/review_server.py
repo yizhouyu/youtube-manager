@@ -667,6 +667,11 @@ $('#modal').addEventListener('click',e=>{if(e.target.id==='modal') closeModal()}
 $('#mIn').onclick=()=>{const s=D.shots[modalShot]; if(mv.currentTime<s.out){s.in=r3(mv.currentTime); delete s._qdur; changed(); render()}};
 $('#mOut').onclick=()=>{const s=D.shots[modalShot]; if(mv.currentTime>s.in){s.out=r3(mv.currentTime); delete s._qdur; changed(); render()}};
 $('#mSplit').onclick=()=>{const i=modalShot,t=mv.currentTime; closeModal(); splitAt(i,t)};
+// Buttons never keep keyboard focus from a mouse click, and Space is swallowed on keyup too —
+// browsers "click" a focused button on Space *keyup*, so blocking keydown alone isn't enough
+// (Space after clicking fullscreen used to exit fullscreen instead of pausing).
+document.addEventListener('mousedown',e=>{if(e.target.closest&&e.target.closest('button'))e.preventDefault()},true);
+document.addEventListener('keyup',e=>{if(e.code==='Space'&&!/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))e.preventDefault()},true);
 // Preview player keys (also in fullscreen). Capture phase + preventDefault so the browser's own
 // media controls or a focused button don't handle the same key a second time.
 document.addEventListener('keydown',e=>{

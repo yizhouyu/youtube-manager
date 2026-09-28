@@ -524,6 +524,11 @@ $('fs').onclick=toggleFs;
 document.addEventListener('mouseup',()=>{const a=document.activeElement;if(a&&a.tagName==='BUTTON')a.blur()});
 document.addEventListener('fullscreenchange',()=>{$('fs').textContent=document.fullscreenElement?'退出全屏':'⛶ 全屏'});
 
+// Buttons never keep keyboard focus from a mouse click, and Space is swallowed on keyup too —
+// browsers "click" a focused button on Space *keyup*, so blocking keydown alone isn't enough
+// (Space after clicking fullscreen used to exit fullscreen instead of pausing).
+document.addEventListener('mousedown',e=>{if(e.target.closest&&e.target.closest('button'))e.preventDefault()},true);
+document.addEventListener('keyup',e=>{if(e.code==='Space'&&!/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))e.preventDefault()},true);
 document.addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey||!clips.length)return;
   const k=e.key;
@@ -535,7 +540,7 @@ document.addEventListener('keydown',e=>{
   else if(k>='1'&&k<='5')setSpeed(SPEEDS[+k-1]);
   else if(k==='f'||k==='F')toggleFs();
   else return;
-  e.preventDefault()});
+  e.preventDefault();e.stopPropagation()},true);
 
 let lastCapKey='';
 function tick(){
