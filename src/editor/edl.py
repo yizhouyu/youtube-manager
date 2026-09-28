@@ -8,7 +8,8 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
   "source_dir": "01 - Unedited",               # where the raw clips live (never modified)
   "output": {"width": 3840, "height": 2160, "fps": "30000/1001"},
   "grades": {"default": "<ffmpeg vf chain>", "underwater": "..."},   # named color grades
-  "music": [{"file": "music/track.mp3", "start": "s001"}],  # a track per section, starting at
+  "music": [{"file": "music/track.mp3", "start": "s001", "in": 0, "gain": 0}],  # "in" skips a quiet
+                                               # intro (s), "gain" in dB; a track per section, starting at
                                                # that shot; loops, crossfades into the next
   "music_volume": 0.30,                        # music gain when nobody is talking
   "music_duck": 0.08,                          # music gain under speech (subtitle intervals)

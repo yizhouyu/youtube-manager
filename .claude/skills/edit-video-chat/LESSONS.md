@@ -122,6 +122,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - Per-frame zoom: ffmpeg `crop` evaluates `iw/ih` once — compute the offset from the same per-frame
   zoom expression (the push-in drifted to the top-left before this fix).
 - Threads writing the same status file need a lock.
+- **Per-frame audio expressions need sample-count timestamps** (`asetpts=N/SR/TB`): after `amix`
+  of looped inputs, PTS can jump and the music-duck `volume` expression randomly evaluated to 0 —
+  whole stretches of dead air that changed run to run. Always measure per-second loudness of the
+  preview (no second below ~−35 dBFS) before handing it over.
+- Music entries accept `in` (skip a quiet intro) and `gain` (dB); tracks are auto-matched to −14 LUFS.
 - Final master: 4K HEVC Main10 ~100 Mb/s `.mov`, graded in 10-bit, at `02 - Export/<folder name>.mov`.
 
 ## Review surfaces (pages)

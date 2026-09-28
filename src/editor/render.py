@@ -315,6 +315,12 @@ def _track_gain_db(edl, path):
     return max(-20.0, min(12.0, -14.0 - _track_lufs(path))) + extra
 
 
+def _track_in(edl, path):
+    """Optional music entry "in" (s): skip a track's quiet intro."""
+    return next((float(m.get("in", 0.0)) for m in edl.get("music", [])
+                 if os.path.join(E.edit_dir(edl["project"]), m["file"]) == path), 0.0)
+
+
 def music_bed(edl, total, workdir, out_wav):
     secs = music_sections(edl, total)
     if not secs:
@@ -332,7 +338,8 @@ def music_bed(edl, total, workdir, out_wav):
         if k + 1 < len(secs):
             fades.append(f"afade=t=out:st={max(0, d - xf):.3f}:d={xf}")
         chain.append(f"[{k}:a]aresample={SR},aformat=sample_fmts=fltp:channel_layouts=stereo,"
-                     f"volume={_track_gain_db(edl, path):.2f}dB,atrim=0:{d:.3f},"
+                     f"volume={_track_gain_db(edl, path):.2f}dB,"
+                     f"atrim={_track_in(edl, path):.3f}:{_track_in(edl, path) + d:.3f},"
                      f"asetpts=PTS-STARTPTS{',' + ','.join(fades) if fades else ''},"
                      f"adelay={int(a0 * 1000)}:all=1[m{k}]")
         labels.append(f"[m{k}]")
@@ -343,7 +350,9 @@ def music_bed(edl, total, workdir, out_wav):
     terms = [f"clip(min((t-{a:.2f}+{r})/{r},({b:.2f}+{r}-t)/{r}),0,1)" for a, b in _speech_windows(edl)]
     sp = "min(1," + "+".join(terms) + ")" if terms else "0"
     vol = f"{base}-({base - duck})*{sp}"
-    chain.append(f"[{cur}]atrim=0:{total:.3f},asetpts=PTS-STARTPTS,volume='{vol}':eval=frame,"
+    # sample-count timestamps: with looped inputs amix can emit frames whose PTS make the
+    # per-frame duck expression evaluate to silence at random (seen as whole-bed dead air)
+    chain.append(f"[{cur}]atrim=0:{total:.3f},asetpts=N/SR/TB,volume='{vol}':eval=frame,"
                  f"afade=t=in:st=0:d=1.5,afade=t=out:st={max(0, total - 5):.3f}:d=5[out]")
     script = os.path.join(workdir, "music_filter.txt")
     with open(script, "w") as f:
