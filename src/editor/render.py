@@ -110,14 +110,26 @@ def _sfx_chain(edl, shot, inputs, k, dur, src_label, out_label):
     return ";".join(chains)
 
 
+def _card_image_path(edl, card):
+    return os.path.join(E.edit_dir(edl["project"]), card["image"])
+
+
 def _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath, apath):
-    """A generated time card ("两小时后……"): still image with a gentle push-in + optional sfx."""
+    """A generated card: the playful time card ("两小时后……"), or — with `card.image` — a still
+    (.png/.jpg, gentle push-in) or a short animation (.mp4/.mov, e.g. a route map; looped/trimmed to
+    the shot length) from the project's edit/ folder. Optional sfx either way."""
     w, h = preset["w"], preset["h"]
     c = shot["card"]
-    png = overlays.card(c["text"], c.get("sub", ""), w, h, ov_dir, c.get("bg", "#ffd84d"), c.get("fg", "#1f2937"))
-    inputs = ["-loop", "1", "-framerate", fps_str, "-t", f"{dur + 0.2:.3f}", "-i", png,
-              "-f", "lavfi", "-t", f"{dur + 0.2:.3f}", "-i", f"anullsrc=r={SR}:cl=stereo"]
-    vf = _zoom_filters({"from": 1.0, "to": 1.08}, dur, w, h) + [f"fps={fps_str}"]
+    img = _card_image_path(edl, c) if c.get("image") else None
+    anim = bool(img) and os.path.splitext(img)[1].lower() in (".mp4", ".mov", ".m4v")
+    if img and not os.path.exists(img):
+        raise FileNotFoundError(f"card image not found: {img}")
+    png = img or overlays.card(c["text"], c.get("sub", ""), w, h, ov_dir, c.get("bg", "#ffd84d"), c.get("fg", "#1f2937"))
+    src = (["-stream_loop", "-1", "-t", f"{dur + 0.2:.3f}", "-i", png] if anim else
+           ["-loop", "1", "-framerate", fps_str, "-t", f"{dur + 0.2:.3f}", "-i", png])
+    inputs = src + ["-f", "lavfi", "-t", f"{dur + 0.2:.3f}", "-i", f"anullsrc=r={SR}:cl=stereo"]
+    zoom = c.get("zoom", {"from": 1.0, "to": 1.08}) if not anim else c.get("zoom")
+    vf = (_zoom_filters(zoom, dur, w, h) if zoom else []) + [f"fps={fps_str}"]
     if shot.get("fade_in"):
         vf.append(f"fade=t=in:st=0:d={shot['fade_in']}")
     if shot.get("fade_out"):
@@ -143,7 +155,11 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     grade = edl.get("grades", {}).get(shot.get("grade", "default"), "")
     brg = {b.get("grade", "default"): edl.get("grades", {}).get(b.get("grade", "default"), "")
            for b in shot.get("broll", [])}
-    key = json.dumps([shot, grade, brg, fps_str, preset, clean, 8, overlays.VERSION] + (["zoomfix"] if shot.get("zoom") else []), sort_keys=True, ensure_ascii=False)
+    extra = ["zoomfix"] if shot.get("zoom") else []
+    if (shot.get("card") or {}).get("image"):  # re-render when the card's image/animation file changes
+        ip = _card_image_path(edl, shot["card"])
+        extra.append(os.path.getmtime(ip) if os.path.exists(ip) else "missing")
+    key = json.dumps([shot, grade, brg, fps_str, preset, clean, 8, overlays.VERSION] + extra, sort_keys=True, ensure_ascii=False)
     hid = hashlib.sha1(key.encode()).hexdigest()[:12]
     vpath = os.path.join(cache, f"{shot['id']}_{hid}.mp4")
     apath = os.path.join(cache, f"{shot['id']}_{hid}.wav")

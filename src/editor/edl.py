@@ -17,7 +17,9 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
                                                # per-shot "denoise": true/false overrides
   "shots": [
     {"id": "c01", "card": {"text": "两小时后……", "sub": "", "bg": "#ffd84d"}, "clip": "",
-     "in": 0, "out": 2.2, "enabled": true, "sfx": [...]},   # generated time card, no source clip
+     "in": 0, "out": 2.2, "enabled": true, "sfx": [...]},   # generated time card, no source clip;
+                                               # card.image = "maps/route.mp4" (or .png) in edit/ replaces
+                                               # the sunburst (route maps, diagrams); card.zoom optional
     {
       "id": "s001",                            # stable id (never reused)
       "clip": "GX015929",                      # file stem inside source_dir (.MP4)
