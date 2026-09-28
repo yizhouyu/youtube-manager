@@ -35,8 +35,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   - Outdoor scenery on Native land (tour areas, pueblos) is OK.
   - Tour guides agreed to be filmed, so keep their faces.
   - A two-person, no-drone crew needs no national-park permit.
-  - Still open every time: identifiable children and strangers' faces (keep them out of shots and
-    thumbnails).
+  - **Bystanders are normal in a vlog; don't cut for "privacy" (creator, 2026-09-28).** Strangers,
+    passers-by, police or ambulance scenes and kids in the background all stay if the moment is fun or
+    interesting. Don't cut too much. Only real private info stays out: personal names, codes, phone
+    or reservation numbers, addresses. Eps 88, 89, 91 and 92 over-cut on this; the 92 police scene
+    should have stayed.
 - **Batch cost is mostly fixed, not per raw minute.** Rough-cut cost by episode:
   - 85: ~30% of the 5-hour window, starting from scratch.
   - 86–89: 11–15% each, where the prompt said "reuse the previous episode's build script and
@@ -138,13 +141,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **A riddle hook needs a readable answer:** the upside-down Mirror Lake sign was ~110 px in a black 4K frame. The answer became a freeze card with the real 4K crop, plus the same crop flipped vertically (倒影示意). Punching in to 5× on the hook shot made the question readable. Locate tiny far subjects (the Juárez X, ~50 px) on 4K frames and put the zoom focal point ON the subject: with the renderer's zoom it then stays at the same frame fraction, so the arrow position = the subject's raw position.
 - **The plan is not the record (ep 90):** the UFO Museum, Los Pollos Hermanos and the Sandia tram were never filmed; a Taiwanese lunch, a road-sign wall and El Paisa were. Research only what's on camera.
 - **Don't zoom to "prove" a line the frame can't show** (ep 90: "路灯里面是外星人头" — even the 4K globe was ~60 px and unreadable). Cut the line instead of a punch-in on nothing.
-- **Kids at the frame edge slip past QA (ep 92):** two reviewer rounds on 1 fps / 0.5 fps sheets missed a girl facing the camera at the left edge of a
-  sea-lion beach shot for 1.5 s. Before handing over, the editor checks every crowded-place shot (beaches, restaurants, hostels) at 2 fps on the
-  RAW clip range, and removes people with a punch-in (`zoom` ≥ 1.25 with the focal point away from them) or a `broll` cutaway rather than dropping the shot.
+- ~~Kids at the frame edge slip past QA (ep 92):~~ superseded 2026-09-28: bystanders/kids in frame are fine (see "Bystanders are normal").
 - **Arrows on a panning handheld shot drift off the subject** (a cow on ep 87 moved .48→.44 in 2.5 s): prefer a
   punch-in (`zoom` from ≥1.3) that keeps the subject near the focal point, or keep mark windows ≤ 1.5 s.
 - **Reviewers flag silent `note` captions as "missing VO"** (ep 91 r1 called the hook notes blocking). Tell the reviewer up front that `kind: note` lines are intentional silent captions.
-- **Check restored/added shots for strangers yourself** (ep 91: a restored street shot had a man's face mid-frame under the key line). Cover it with `broll` of the same subject from earlier in the clip, so the speech keeps playing.
+- ~~Check restored/added shots for strangers yourself~~ superseded 2026-09-28: bystanders/kids in frame are fine (see "Bystanders are normal").
 
 ## Audio & music
 
