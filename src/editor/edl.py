@@ -10,7 +10,10 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
   "grades": {"default": "<ffmpeg vf chain>", "underwater": "..."},   # named color grades
   "music": [{"file": "music/track.mp3", "start": "s001", "in": 0, "gain": 0}],  # "in" skips a quiet
                                                # intro (s), "gain" in dB; a track per section, starting at
-                                               # that shot; loops, crossfades into the next
+                                               # that shot; loops, crossfades into the next;
+                                               # "file": null = silent "breathing room" section (the
+                                               # previous track fades out over 2.5 s, the next fades in
+                                               # 2.5 s before its start: make it >= ~6 s)
   "music_volume": 0.30,                        # music gain when nobody is talking
   "music_duck": 0.08,                          # music gain under speech (subtitle intervals)
   "denoise_voice": false,                      # highpass + FFT denoise on voice shots (boats, wind);

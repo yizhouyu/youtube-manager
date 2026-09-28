@@ -291,8 +291,10 @@ def music_sections(edl, total):
         starts_at[s["id"]] = st
     secs = []
     for m in edl.get("music", []):
-        path = os.path.join(E.edit_dir(edl["project"]), m["file"])
-        if not os.path.exists(path):
+        # "file": null (or "") = a silent "breathing room" section: the previous track fades out
+        # and only the shots' own sound plays until the next section fades in
+        path = os.path.join(E.edit_dir(edl["project"]), m["file"]) if m.get("file") else None
+        if path is not None and not os.path.exists(path):
             # never silently drop a section: a missing track left 20 s of dead air once
             raise FileNotFoundError(f"music track missing: {m['file']}")
         t = None
@@ -350,13 +352,18 @@ def music_bed(edl, total, workdir, out_wav):
         # each section overlaps the next by xf and crossfades; tracks loop if the section is long
         a0 = max(0.0, t0 - (xf if k else 0))
         d = min(total, t1 + (xf if k + 1 < len(secs) else 0)) - a0
-        args += ["-stream_loop", "-1", "-i", path]
         fades = [] if k == 0 else [f"afade=t=in:st=0:d={xf}"]
         if k + 1 < len(secs):
             fades.append(f"afade=t=out:st={max(0, d - xf):.3f}:d={xf}")
+        if path is None:  # silent section
+            args += ["-f", "lavfi", "-t", f"{d:.3f}", "-i", f"anullsrc=r={SR}:cl=stereo"]
+            gain, t_in = 0.0, 0.0
+        else:
+            args += ["-stream_loop", "-1", "-i", path]
+            gain, t_in = _track_gain_db(edl, path), _track_in(edl, path)
         chain.append(f"[{k}:a]aresample={SR},aformat=sample_fmts=fltp:channel_layouts=stereo,"
-                     f"volume={_track_gain_db(edl, path):.2f}dB,"
-                     f"atrim={_track_in(edl, path):.3f}:{_track_in(edl, path) + d:.3f},"
+                     f"volume={gain:.2f}dB,"
+                     f"atrim={t_in:.3f}:{t_in + d:.3f},"
                      f"asetpts=PTS-STARTPTS{',' + ','.join(fades) if fades else ''},"
                      f"adelay={int(a0 * 1000)}:all=1[m{k}]")
         labels.append(f"[m{k}]")
