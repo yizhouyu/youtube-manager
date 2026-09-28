@@ -352,12 +352,16 @@ def music_bed(edl, total, workdir, out_wav):
     xf = 2.5
     args, chain, labels = [], [], []
     for k, (path, t0, t1, entry) in enumerate(secs):
-        # each section overlaps the next by xf and crossfades; tracks loop if the section is long
+        # one shared xf window before each section start: the incoming track fades in over
+        # [start - xf, start] while the outgoing one fades out over the same window, equal-power
+        # (qsin in / qsin out = sin/cos), so two songs never play at full level together (ep 96 QA).
+        # Track time at the start shot stays `in` + xf. Tracks loop if the section is long.
         a0 = max(0.0, t0 - (xf if k else 0))
-        d = min(total, t1 + (xf if k + 1 < len(secs) else 0)) - a0
-        fades = [] if k == 0 else [f"afade=t=in:st=0:d={xf}"]
+        d = min(total, t1) - a0
+        fades = [] if k == 0 else [f"afade=t=in:st=0:d={xf}:curve=qsin"]
         if k + 1 < len(secs):
-            fades.append(f"afade=t=out:st={max(0, d - xf):.3f}:d={xf}")
+            fo = min(xf, d)
+            fades.append(f"afade=t=out:st={max(0, d - fo):.3f}:d={fo:.3f}:curve=qsin")
         if path is None:  # silent section
             args += ["-f", "lavfi", "-t", f"{d:.3f}", "-i", f"anullsrc=r={SR}:cl=stereo"]
             gain, t_in = 0.0, 0.0
