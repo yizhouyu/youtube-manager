@@ -476,10 +476,12 @@ def render(project, mode):
         else:
             out = os.path.join(edit, "preview.mp4")
         tmp = out + ".part.mp4"
-        _run(["ffmpeg", "-v", "error", "-y", "-i", f"{work}/video.mp4", "-i", f"{work}/voice.wav",
-              "-i", f"{work}/music.wav", "-filter_complex",
-              "[1:a][2:a]amix=inputs=2:normalize=0:duration=first,loudnorm=I=-14:TP=-1.5:LRA=11,"
-              # single-pass loudnorm overshoots its TP target (-1.2 dBTP measured on ep 84): a sample
+        _run(["ffmpeg", "-v", "error", "-y", "-i", f"{work}/voice.wav", "-i", f"{work}/music.wav",
+              "-filter_complex", "[0:a][1:a]amix=inputs=2:normalize=0:duration=first", "-c:a", "pcm_s24le",
+              f"{work}/mix.wav"])
+        _run(["ffmpeg", "-v", "error", "-y", "-i", f"{work}/video.mp4", "-i", f"{work}/mix.wav",
+              "-filter_complex", f"[1:a]{_loudnorm(f'{work}/mix.wav')},"
+              # loudnorm can overshoot its TP target (-1.2 dBTP measured on ep 84): a sample
               # limiter at -2.2 dBFS leaves room for inter-sample + AAC peaks (-> about -2.0 dBTP)
               f"aresample={SR},alimiter=limit=0.78:attack=5:release=50:level=false[a]", "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac",
               "-b:a", "320k", "-movflags", "+faststart", "-f", "mov" if out.endswith(".mov") else "mp4", tmp])
@@ -494,6 +496,22 @@ def render(project, mode):
     except Exception as e:
         status.set(state="error", step="渲染失败", error=str(e)[-2000:], progress=0.0, mode=mode)
         raise
+
+
+def _loudnorm(wav, target="I=-14:TP=-1.5:LRA=11"):
+    """Two-pass loudnorm: measure first, then normalize linearly with the measured values.
+    Single-pass (dynamic) mode undershot -14 LUFS by ~1 LU on eps 89/90 when the mix had little
+    peak headroom. Falls back to single-pass if the measurement can't be parsed."""
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", wav, "-af",
+                        f"loudnorm={target}:print_format=json", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    try:
+        m = json.loads(r.stderr[r.stderr.rindex("{"):r.stderr.rindex("}") + 1])
+        return (f"loudnorm={target}:measured_I={m['input_i']}:measured_TP={m['input_tp']}"
+                f":measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}"
+                f":offset={m['target_offset']}:linear=true")
+    except (ValueError, KeyError):
+        return f"loudnorm={target}"
 
 
 def main():
