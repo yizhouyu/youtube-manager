@@ -176,6 +176,8 @@ them too.
 - Fresh tracks each episode.
 - No vocals, including "oh oh oh" chants.
 
+**Tone:** calm and informative. No dramatic or gimmicky hook questions ("这座桥到底有多高？", "你敢…吗？"). The hook states what the episode covers, and comment questions are asked plainly.
+
 **Decide craft calls yourself** (zoom, speed, trims, B-roll, music, caption wording). Ask him only
 about facts only he knows.
 
