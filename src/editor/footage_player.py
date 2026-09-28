@@ -61,6 +61,8 @@ def srt_path(clip):
     """Only PROOFREAD captions are ever shown (edit/scan/srt_clean, see captions_clean.py);
     raw whisper output never reaches the page. Re-proofread when the edit or glossary changed."""
     path = os.path.join(E.edit_dir(PROJECT), "scan", "srt_clean", clip + ".srt")
+    if not os.path.exists(os.path.join(E.edit_dir(PROJECT), "scan", ".proofread")):
+        return path + ".not-yet"  # the agent hasn't proofread this project yet: show no captions
     raw = os.path.join(E.edit_dir(PROJECT), "scan", "srt", clip + ".srt")
     if os.path.exists(raw):
         deps = [E.edl_path(PROJECT), os.path.join(E.edit_dir(PROJECT), "glossary.json"), raw]

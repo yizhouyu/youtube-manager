@@ -82,4 +82,8 @@ def clean_project(project):
 
 
 if __name__ == "__main__":
-    print(clean_project(sys.argv[1]), "clips proofread")
+    n = clean_project(sys.argv[1])
+    if "--mark-proofread" in sys.argv:
+        # the agent has read every transcript and filled glossary.json: captions may now be shown
+        open(os.path.join(E.edit_dir(sys.argv[1]), "scan", ".proofread"), "w").close()
+    print(n, "clips cleaned" + (" (marked proofread)" if "--mark-proofread" in sys.argv else ""))

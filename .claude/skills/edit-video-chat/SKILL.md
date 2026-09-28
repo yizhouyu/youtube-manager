@@ -11,6 +11,10 @@ edits it, the renderer reads it. Never touch `01 - Unedited/`.
 
 Resolve `REPO` as two levels up from this file and run everything from there.
 
+**Before starting: read [`LESSONS.md`](LESSONS.md)** (everything past edits taught us). **After
+publishing: append what this video taught** — new mistakes, creator corrections that generalize,
+faster ways of working — and prune lessons the code now enforces.
+
 ## 0. Kick off in parallel
 
 As soon as the creator hands over a folder, start these side by side (subagents):
@@ -106,4 +110,7 @@ saved back to the EDL (with history in `edit/history/`); every recurring correct
 preference in memory.
 
 The final render also writes `edit/captions.srt` (timeline-mapped) for upload as the CC track.
-Then continue with the publish-video-chat skill.
+Then continue with the publish-video-chat skill. After publishing: delete `edit/preview.mp4` and
+`/tmp/yt-editor/<project>` (the master + EDL are the source of truth), and update LESSONS.md.
+
+Contact sheets: `./venv/bin/python -m src.editor.scan "<project>"` → `edit/scan/sheets/grid_NN.jpg`.
