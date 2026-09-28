@@ -46,6 +46,9 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   doesn't settle it, drop the line.
 - **ASR invents lines in noisy/silent audio** ("这里都非常多人", "不怕他", "那是泰国" were never said).
   Glossary value `""` drops a known phantom line everywhere.
+- **Don't "tidy" by merging adjacent ASR fragments into a sentence** — the extra fragment may be
+  phantom ("它们已经走了" + "有点可惜" — the second was never said). Keep only what's clearly
+  audible; when polishing a line, never add words the speaker didn't say.
 - **Chinese lines get split into crumbs** ("可以来看一 | 看"). Merge ≤3-char / <0.25 s fragments into
   neighbours when contiguous (transcribe.py does this).
 - **Food names: use the creator's preferred spelling consistently** (e.g. "Pâté" for both saltfish
