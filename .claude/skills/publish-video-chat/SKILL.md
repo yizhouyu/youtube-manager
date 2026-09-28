@@ -241,6 +241,15 @@ already-uploaded videos add them with `playlistItems().insert`:
 ```bash
 svc.playlists().list(part="snippet,contentDetails", mine=True, maxResults=50)   # find the id by title
 ```
+Viewers browse by place, so a travel video goes into **two** playlists:
+- **Its regional playlist:** a state, region or city ("阿拉斯加 | Alaska", "加州 | California",
+  "美东 | US East Coast", …). The local map is in `sessions/playlists.json`. If the place is new,
+  create a regional playlist named "中文 | English", public, with a one-line bilingual
+  description, then add the video to it.
+- **The general all-travel playlist.**
+
+Keep each playlist in chronological order. Newly created playlists can 404 for a few seconds, so
+retry the first insert.
 
 **Video location** — ⚠️ **cannot be set via the API.** `recordingDetails.recordingDate` writes
 fine, but `locationDescription` is silently dropped (YouTube removed location writes). Don't
