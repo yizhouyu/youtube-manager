@@ -245,6 +245,7 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
         last = f"v{i}"
 
     gain = E.AUDIO_GAIN.get(shot.get("audio", "voice"), 1.0) if E.speed(shot) <= 1 else 0.0
+    gain *= 10 ** (max(-24.0, min(12.0, float(shot.get("gain_db", 0) or 0))) / 20)  # lift a quiet speaker
     af = [f"aresample={SR}", "aformat=channel_layouts=stereo", f"volume={gain}"]
     if shot.get("denoise", edl.get("denoise_voice", False)) and shot.get("audio", "voice") == "voice":
         # boat engines / wind: cut the low rumble, then FFT denoise under the voice

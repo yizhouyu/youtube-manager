@@ -27,6 +27,8 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
       "enabled": true,                         # false = cut from the video (kept for undo)
       "grade": "default",                      # key into grades
       "audio": "voice",                        # voice (1.0) | ambient (0.35) | mute
+      "gain_db": 0,                            # optional per-shot level (dB, -24..+12): lift a quiet/distant
+                                               # speaker (e.g. a guide) before the final loudnorm
       "fade_in": 0, "fade_out": 0,             # seconds (video+audio)
       "title": {"text": "Day 1", "sub": "圣约翰岛 St. John", "dur": 3.0},   # optional card at shot start
       "tag": "Mongoose Junction",              # optional small place label, top-left, first 3 s
