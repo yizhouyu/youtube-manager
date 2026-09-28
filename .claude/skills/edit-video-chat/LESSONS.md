@@ -137,6 +137,9 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   also work in fullscreen (capture-phase key handler so native controls don't double-toggle).
   Browsers "click" a focused button on Space **keyup**: stop buttons taking focus on mousedown and
   swallow Space keyup too — otherwise Space after clicking fullscreen exits fullscreen.
+  With a native `<video controls>`, don't use its built-in fullscreen (focus lands on a shadow-DOM
+  button page handlers can't guard): `controlslist="nofullscreen"` + our own button that
+  fullscreens the container, and when the key target IS the <video>, let the browser handle Space.
 - The shot list follows playback (sticky player, active card scrolled into view, pause-follow on
   manual scroll). End the list with a visible "已经到最后一段了" marker, not blank space.
 - The "unsaved" flag must compare content, not fire on any input event.

@@ -345,6 +345,8 @@ main{max-width:1100px;margin:0 auto;padding:14px 20px 24px}
 #pvwrap{position:sticky;top:var(--barh,56px);z-index:5;background:var(--bg);padding:6px 0 10px;margin-bottom:4px}
 #pv{background:#000;border-radius:10px;overflow:hidden;display:flex;justify-content:center;align-items:center;min-height:80px;position:relative}
 #pv video{max-width:100%;max-height:40vh;display:block}
+#pvfs{position:absolute;right:10px;top:10px;z-index:2;border:0;border-radius:8px;padding:5px 10px;font-size:13px;background:rgba(0,0,0,.55);color:#fff;cursor:pointer}
+#pv:fullscreen{border-radius:0}#pv:fullscreen video{max-height:100vh;width:100%;height:100%}
 #follow{display:none;position:absolute;right:10px;bottom:10px;z-index:2;border:0;border-radius:999px;padding:4px 12px;font-size:13px;background:rgba(255,255,255,.92);color:var(--acc);box-shadow:0 1px 4px rgba(0,0,0,.25)}
 .shot.cur{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc2),0 2px 10px rgba(37,99,235,.12)}
 #pv .none{color:#aaa;padding:30px}
@@ -672,17 +674,23 @@ $('#mSplit').onclick=()=>{const i=modalShot,t=mv.currentTime; closeModal(); spli
 // (Space after clicking fullscreen used to exit fullscreen instead of pausing).
 document.addEventListener('mousedown',e=>{if(e.target.closest&&e.target.closest('button'))e.preventDefault()},true);
 document.addEventListener('keyup',e=>{if(e.code==='Space'&&!/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))e.preventDefault()},true);
+function pvToggleFs(){const box=document.getElementById('pv');
+  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); else if(box) box.requestFullscreen().catch(()=>{})}
+document.addEventListener('click',e=>{if(e.target.id==='pvfs') pvToggleFs()});
+document.addEventListener('dblclick',e=>{if(e.target.id==='pvv'){e.preventDefault(); pvToggleFs()}});
+document.addEventListener('fullscreenchange',()=>{const b=document.getElementById('pvfs'); if(b) b.textContent=document.fullscreenElement?'退出全屏':'⛶ 全屏'});
 // Preview player keys (also in fullscreen). Capture phase + preventDefault so the browser's own
 // media controls or a focused button don't handle the same key a second time.
 document.addEventListener('keydown',e=>{
   if(modalShot>=0||e.metaKey||e.ctrlKey||e.altKey) return;
   if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)||e.target.isContentEditable) return;
   const v=document.getElementById('pvv'); if(!v) return;
+  if(e.target===v && (e.code==='Space'||e.key==='k'||e.key.startsWith('Arrow'))) return;
   if(e.code==='Space'||e.key==='k'){e.preventDefault();e.stopPropagation(); v.paused?v.play():v.pause()}
   else if(e.key==='ArrowRight'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.min(v.duration||1e9,v.currentTime+5)}
   else if(e.key==='ArrowLeft'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.max(0,v.currentTime-5)}
   else if(e.key==='f'||e.key==='F'){e.preventDefault();e.stopPropagation();
-    document.fullscreenElement?document.exitFullscreen():v.requestFullscreen()}
+    pvToggleFs()}
 },true);
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();save();return}
@@ -697,7 +705,7 @@ document.addEventListener('keydown',e=>{
 // ---- preview, save, render
 async function loadPreview(){
   const r=await fetch('/preview.mp4',{method:'HEAD'});
-  $('#pv').innerHTML=(r.ok?`<video id="pvv" controls preload="metadata" src="/preview.mp4?v=${Date.now()}"></video>`
+  $('#pv').innerHTML=(r.ok?`<video id="pvv" controls controlslist="nofullscreen" disablepictureinpicture preload="metadata" src="/preview.mp4?v=${Date.now()}"></video><button id="pvfs" title="全屏（F）">⛶ 全屏</button>`
     :'<div class="none">还没有预览，点右上角「更新预览」生成</div>')+'<button id="follow">↩ 跟随播放</button>';
   $('#follow').onclick=()=>{resumeFollow(); curIdx=-2; onPreviewTime(true)};
   const v=$('#pvv'); if(v){v.addEventListener('timeupdate',()=>onPreviewTime(false)); v.addEventListener('seeked',()=>onPreviewTime(true))}
