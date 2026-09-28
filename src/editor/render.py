@@ -255,7 +255,15 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     gain = E.AUDIO_GAIN.get(shot.get("audio", "voice"), 1.0) if E.speed(shot) <= 1 else 0.0
     gain *= 10 ** (max(-24.0, min(12.0, float(shot.get("gain_db", 0) or 0))) / 20)  # lift a quiet speaker
     af = [f"aresample={SR}", "aformat=channel_layouts=stereo", f"volume={gain}"]
-    if shot.get("denoise", edl.get("denoise_voice", False)) and shot.get("audio", "voice") == "voice":
+    mode = shot.get("denoise", edl.get("denoise_voice", False))
+    if mode == "wind":
+        # heavy wind on an action cam: a higher cut + stronger FFT denoise; ambient beds also get
+        # tamed (and a touch quieter) so the music carries them instead of the roar
+        if shot.get("audio", "voice") == "voice":
+            af[2:2] = ["highpass=f=200", "afftdn=nr=24:nf=-28:tn=1", "equalizer=f=3000:t=q:w=1:g=2"]
+        elif shot.get("audio") == "ambient":
+            af[2:2] = ["highpass=f=250", "afftdn=nr=20:nf=-30:tn=1", "volume=0.6"]
+    elif mode and shot.get("audio", "voice") == "voice":
         # boat engines / wind: cut the low rumble, then FFT denoise under the voice
         af[2:2] = ["highpass=f=140", "afftdn=nr=18:nf=-30:tn=1"]
     # 12 ms edge fades on every shot: a hard cut on a non-zero sample (wind) clicks after loudnorm
