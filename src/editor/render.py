@@ -439,7 +439,7 @@ def render(project, mode):
                        progress=0.8 * done[0] / len(shots), mode=mode)
             return r
 
-        with ThreadPoolExecutor(max_workers=3) as ex:
+        with ThreadPoolExecutor(max_workers=E.jobs(3)) as ex:
             segs = list(ex.map(job, shots))
 
         if mode == "package":

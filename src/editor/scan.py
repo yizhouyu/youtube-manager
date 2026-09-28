@@ -45,7 +45,7 @@ def scan(project):
     out = os.path.join(E.edit_dir(project), "scan", "sheets")
     os.makedirs(out, exist_ok=True)
     clips = sorted(f[:-4] for f in os.listdir(src) if f.upper().endswith(".MP4"))
-    with ThreadPoolExecutor(6) as ex:
+    with ThreadPoolExecutor(E.jobs(6)) as ex:
         metas = list(ex.map(_sheet, [(os.path.join(src, c + ".MP4"), os.path.join(out, c + ".jpg")) for c in clips]))
     meta = dict(sorted(zip(clips, metas), key=lambda kv: (kv[1]["ctime"] or "9", kv[0])))
     with open(os.path.join(E.edit_dir(project), "scan", "meta.json"), "w") as f:

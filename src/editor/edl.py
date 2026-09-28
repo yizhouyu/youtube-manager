@@ -66,6 +66,19 @@ import os
 AUDIO_GAIN = {"voice": 1.0, "ambient": 0.35, "mute": 0.0}
 
 
+
+def jobs(default):
+    """Worker count for parallel ffmpeg (scan/render). Several episodes can run at once on one Mac,
+    so a supervisor can throttle live: env YT_EDITOR_JOBS, else ~/.config/yt-editor/jobs, else default."""
+    for raw in (os.environ.get("YT_EDITOR_JOBS"),):
+        if raw and raw.strip().isdigit():
+            return max(1, int(raw))
+    try:
+        with open(os.path.expanduser("~/.config/yt-editor/jobs")) as f:
+            return max(1, int(f.read().strip()))
+    except (OSError, ValueError):
+        return default
+
 def project_dir(project):
     """Resolve a project given as a path or a bare folder name. Projects get moved (e.g. from
     ~/Desktop/202512/ up to ~/Desktop/ once edited), so fall back to finding a folder with the same
