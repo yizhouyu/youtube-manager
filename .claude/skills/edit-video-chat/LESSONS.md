@@ -99,11 +99,16 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 ## Audio & music
 
 - YouTube Audio Library "no attribution required" tracks are the only claim-safe music. Record
-  licenses in `edit/music/LICENSES.md`. Download via the creator's logged-in Chrome: Studio →
-  Audio library → search the title → hover the row → **Download**. The file lands in ~/Downloads
-  as a hidden temp file and finalizes ~10 s later as a 320 kbps MP3 — just wait. Don't scrape the
-  preview stream (only 128 kbps) and don't try helper servers/text-file downloads (Chrome holds
-  those as "Unconfirmed").
+  licenses in `edit/music/LICENSES.md`. **Don't depend on the creator being at the keyboard:**
+  a plain click on Studio's Download makes Chrome ask for a manual confirmation (an earlier note
+  here claimed downloads "finalize after ~10 s" — that was the creator clicking Keep). Instead,
+  click Download, read the page's network requests (`read_network_requests`) for the full-quality
+  file URL, and `curl -L` it from bash (320 kbps); delete any `Unconfirmed *.crdownload` you caused.
+  Don't scrape the 128 kbps preview stream.
+- **Shared music library:** every track you fetch also goes to `~/Movies/yt-music-library/`
+  (outside the repo — audio isn't ours to redistribute) with a row in its `INDEX.md` (title, artist,
+  license, mood, used-in episodes). Check the library first; reuse is fine across episodes that
+  aren't back to back, and it keeps working when no browser is available.
 - Music by section, crossfaded; duck under speech (subtitle intervals). Start around
   `music_volume` 0.33 / `music_duck` 0.06; montage-only stretches can feel too quiet, but the
   creator found 0.42 too loud overall.
