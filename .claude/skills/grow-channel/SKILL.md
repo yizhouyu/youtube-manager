@@ -88,6 +88,18 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
 - **Cadence**: 2–4 Shorts a week. Publish each 1–3 days *after* its long video, so the link
   points somewhere public. Mine the back catalog too: a proven long video + a new Short
   pointing at it is the cheapest win.
+- **Making one**: write a JSON spec (source clips + in/out, crop x-centre keyframes that follow
+  the subject, captions, music) and run `scripts/make_short.py <spec> --check`. It crops 9:16 from
+  the 4K source (or letterboxes over a blurred fill), burns captions in the editor's style inside
+  the Shorts safe zone, ducks the episode's music under speech, normalizes to −14 LUFS, and ends
+  without a fade so the Short loops. Then look at the `_check/` frames at full size and on the
+  phone-size sheet (unsafe zones shaded): the subject's head must stay in frame, and captions must
+  not cover a face or the subject. When the subject sits low, raise `caption_bottom`. Keep the
+  spec next to the episode's EDL so the Short can be re-rendered.
+- **Upload**: private + `publishAt`, in a slot that doesn't clash with the long-video slots. Put
+  the long video's link on the description's first line (`完整版：<title> <url>`), add 2–3
+  hashtags, and add the Short to the episode's regional playlist. The API can't set Related video,
+  so list each Short → long video id for the creator to set in Studio.
 - Shorts views don't count toward long-form watch-time thresholds. Subscribers from Shorts
   do count. Judge Shorts by **subscribers gained** and **related-video clicks**, not
   views. [S24]
