@@ -26,6 +26,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   crash away from losing work.
 - **As soon as the upload is done, delete `edit/preview.mp4` and `/tmp/yt-editor/<project>`**
   (20+ GB of cached segments) — the master and the EDL are the source of truth.
+- **Two ASR models at once thrash a 16 GB Mac** (swap filled; 1 clip/min instead of 1 s/clip when
+  two episodes transcribed in parallel). Check `sysctl vm.swapusage` / other `src.editor.transcribe`
+  processes first; queue behind the other episode instead of competing.
+- **Shared scratchpad:** parallel agents of one session share the scratchpad dir — put your files in
+  a per-episode subfolder (`scratchpad/ep84/…`) so logs/frames don't collide.
 
 ## Speech → subtitles
 
@@ -56,6 +61,9 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   and a web search; never guess.
 - Subtitles on screen < 0.7 s are unreadable — merge or extend. Lines hanging 5 s after speech ends
   look broken — trim to the speech.
+- **Cross-check with a second model on the lines you keep** (whisper large-v3 with a proper-noun
+  prompt, in the background): on ep 84 it fixed "George's grandsons"→Girard's, "erection ball"→
+  wrecking ball, "meatwork"→beadwork, and exposed Qwen phantoms ("有 hold 有收藏的", "五块钱…").
 
 ## Picking and cutting shots
 
@@ -95,6 +103,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - Note captions are `{"kind": "note"}` with plain text — never a marker character in the text
   itself (a "※" prefix once rendered literally on screen).
 - Don't use internal jargon in shot `note`s — they're the creator-facing card titles.
+- **Decide folder boundaries from the footage, not the plan** (camera clock is ET in the 202512
+  batch, MT+2 h — daylight in the frames confirms it). Ep 84's "Santa Fe" day also held Bandelier;
+  keeping it made the episode's strongest ending + thumbnail. Moving raw clips between projects is
+  irreversible-ish: the auto-mode classifier blocks it — leave it to the creator and say so.
+- **Card shots (clip "") draw no subtitles/overlays** — put text for map/end cards into the image.
 
 ## Audio & music
 
@@ -204,3 +217,5 @@ analytics (retention graphs) once available.
 | 82 | Same cards on a nature episode | "太幼稚" — replaced by overlay chapter titles | No → overlay titles default |
 | 82 | Labelled arrows on tiny animals (orcas, bear, eagle) | Clear; must be located on 4K frames first | Yes, with Ken Burns |
 | 82 | 4× timelapse of a long process (filleting) + note caption | Turned a dull 90 s into ~12 s | Yes for long processes |
+| 84 | Animated route map card (`card.image` = Pillow-drawn 4K frames → mp4: dashed line drawing ABQ → Santa Fe → Bandelier → Ojo Caliente, inset of the whole state) after the opening title + a still recap with a "下一集" teaser as the end card | Reads in ~4 s, gives the day a shape and a calm end-screen background; reviewer-scored windows around it 8–9/10 | Yes for multi-stop days (script: 84's `edit/scripts/make_route_map.py`) |
+| 84 | Limiter after loudnorm (true peak −1.2 → −1.9 dBTP) | Meets the −1.5 dBTP spec with no audible change | Yes (renderer default now) |
