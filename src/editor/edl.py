@@ -12,6 +12,8 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
                                                # that shot; loops, crossfades into the next
   "music_volume": 0.30,                        # music gain when nobody is talking
   "music_duck": 0.08,                          # music gain under speech (subtitle intervals)
+  "denoise_voice": false,                      # highpass + FFT denoise on voice shots (boats, wind);
+                                               # per-shot "denoise": true/false overrides
   "shots": [
     {"id": "c01", "card": {"text": "两小时后……", "sub": "", "bg": "#ffd84d"}, "clip": "",
      "in": 0, "out": 2.2, "enabled": true, "sfx": [...]},   # generated time card, no source clip

@@ -24,7 +24,7 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   in `edit/history/` to see what was already done; resume the same agent with that summary.
 - **Push often** (feature branch, merge finished work to main). A long session is otherwise one
   crash away from losing work.
-- **After final export + publish, delete `edit/preview.mp4` and `/tmp/yt-editor/<project>`**
+- **As soon as the upload is done, delete `edit/preview.mp4` and `/tmp/yt-editor/<project>`**
   (20+ GB of cached segments) — the master and the EDL are the source of truth.
 
 ## Speech → subtitles
@@ -66,6 +66,10 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   approaching, person-waving-next-to-it; ~20 s total for the stretch).
 - **People on camera:** keep more of them facing the lens together (e.g. underwater peace signs);
   above-water close-ups with really messy wet hair are out — err strict: when in doubt, cut it.
+- **Keep the full arc of an action** (fishing: bite → reeling → landing → showing the catch →
+  release), trimming only dead waits — the process is the story; skip tighten on those shots.
+- **Translate foreign-language speech in the subtitles** (crew/locals speaking English → Chinese
+  subtitle of what they said), and turn creator facts into note captions ("太小了，放生").
 - **Tighten speech, but not visual pauses.** VAD-based `tighten` shrinks pauses and cuts fillers;
   disable it (`skip_on: false`) on pans, animals, scenery — the pause is the content. Check every
   jump cut doesn't land mid-word (a reviewer caught one).
@@ -88,8 +92,14 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   creator found 0.42 too loud overall.
 - Don't let a track restart from the top at a section boundary unless intended (reviewer caught one).
 - Final loudness −14 LUFS integrated, true peak ≤ −1.5 dBTP.
+- **Loud engine/wind noise (boats, cars): let music cover it.** Silent travel shots on a boat →
+  `audio: mute` (or ambient) and let the music carry; talking shots → denoise/high-pass the voice
+  and keep music a bit higher than usual under it.
 
 ## Rendering
+
+- The agent's shell is zsh: `for s in "A 1" "B 2"; do set -- $s` doesn't word-split — wrap such
+  loops in `bash -c '…'` or use arrays.
 
 - This ffmpeg has no drawtext/subtitles: all text is Pillow PNG overlays. Lay text out from the
   font's real ink box (`textbbox`) — heavy CJK faces overflow their nominal size (title/subtitle
