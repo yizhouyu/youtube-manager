@@ -151,6 +151,17 @@ Payoff (reveal/reaction/animal/laugh), Audio health (ducking, no jumps, same tra
 intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 4/10 = boredom risk;
 > 2 in a row = restructure that section. Put the score table in HANDOFF.md.
 
+**Every video must get better than the last (creator's standing ask):**
+- The reviewer doesn't only find faults: every round it also proposes 3–5 concrete *improvement
+  ideas* (e.g. re-cut a B-roll run to the music beat, a route/map animation between places, a
+  freeze-frame + label on a funny moment, a J-cut so the next place's sound leads the picture,
+  a picture-in-picture reaction, a before/after split, animated pop-in captions for key facts).
+  The editor applies the best ones and notes why others were skipped.
+- **Try at least one new technique per video.** If the renderer can't do it yet, add it as a small
+  generic, tested feature (commit + push per the repo rules).
+- **Log the experiment** in LESSONS.md → "Experiments": what was tried, on which video, how it
+  looked/felt (reviewer + viewer-critic scores), and whether it should become a default.
+
 **Mandatory QA before the creator sees it:** spawn a separate reviewer subagent that watches
 the whole preview (dense frame sheets), "listens" (re-transcribes the rendered audio and diffs it
 against captions.srt; ebur128 loudness over time for music-over-speech, pops, holes), fixes

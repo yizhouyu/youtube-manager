@@ -183,3 +183,12 @@ Bilibili practice (secondary): https://www.huasheng.ai/insights/bilibili-video-b
 storytelling: https://1of10.com/blog/storytelling-techniques-top-youtubers-use-to-keep-viewers-hooked/
 Travel-vlog-specific data is scarce; treat numbers as targets, and learn from the channel's own
 analytics (retention graphs) once available.
+
+## Experiments (one or more new techniques per video — keep what works)
+
+| Video | Technique | Result | Default from now on? |
+|---|---|---|---|
+| 81 | Original sunburst time cards + cartoon sfx | Liked on a light beach/food episode | Only for playful content |
+| 82 | Same cards on a nature episode | "太幼稚" — replaced by overlay chapter titles | No → overlay titles default |
+| 82 | Labelled arrows on tiny animals (orcas, bear, eagle) | Clear; must be located on 4K frames first | Yes, with Ken Burns |
+| 82 | 4× timelapse of a long process (filleting) + note caption | Turned a dull 90 s into ~12 s | Yes for long processes |
