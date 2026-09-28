@@ -461,7 +461,9 @@ def render(project, mode):
         _run(["ffmpeg", "-v", "error", "-y", "-i", f"{work}/video.mp4", "-i", f"{work}/voice.wav",
               "-i", f"{work}/music.wav", "-filter_complex",
               "[1:a][2:a]amix=inputs=2:normalize=0:duration=first,loudnorm=I=-14:TP=-1.5:LRA=11,"
-              f"aresample={SR}[a]", "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac",
+              # single-pass loudnorm overshoots its TP target (-1.2 dBTP measured on ep 84): a sample
+              # limiter at -2.2 dBFS leaves room for inter-sample + AAC peaks (-> about -2.0 dBTP)
+              f"aresample={SR},alimiter=limit=0.78:attack=5:release=50:level=false[a]", "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac",
               "-b:a", "320k", "-movflags", "+faststart", "-f", "mov" if out.endswith(".mov") else "mp4", tmp])
         os.replace(tmp, out)
         if mode != "final":
