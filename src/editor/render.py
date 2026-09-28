@@ -482,8 +482,9 @@ def render(project, mode):
         _run(["ffmpeg", "-v", "error", "-y", "-i", f"{work}/video.mp4", "-i", f"{work}/mix.wav",
               "-filter_complex", f"[1:a]{_loudnorm(f'{work}/mix.wav')},"
               # loudnorm can overshoot its TP target (-1.2 dBTP measured on ep 84): a sample
-              # limiter at -2.2 dBFS leaves room for inter-sample + AAC peaks (-> about -2.0 dBTP)
-              f"aresample={SR},alimiter=limit=0.78:attack=5:release=50:level=false[a]", "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac",
+              # limiter at -2.2 dBFS leaves room for inter-sample + AAC peaks (-> about -2.0 dBTP).
+              # Feed AAC s16, not float: straight from the float chain it overshot to +1.4 dBTP (ep 83).
+              f"aresample={SR},alimiter=limit=0.78:attack=5:release=50:level=false,aformat=sample_fmts=s16[a]", "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac",
               "-b:a", "320k", "-movflags", "+faststart", "-f", "mov" if out.endswith(".mov") else "mp4", tmp])
         os.replace(tmp, out)
         if mode != "final":
