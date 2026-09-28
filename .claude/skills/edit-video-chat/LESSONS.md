@@ -43,7 +43,9 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **Length is not a constraint (creator, 2026-09-28).** Up to ~20 min is fine, and 7 min is "not
   long". Don't drop good, fun or informative moments to hit a runtime. The retention rules (2b) are
   about pacing: trim dead air, timelapse the dull stretches, change something every <60 s. They are
-  not about removing content. When unsure, keep the moment and tighten around it.
+  not about removing content. When unsure, keep the moment and tighten around it. His own words
+  on pacing: "别一个一个同样的镜头放太久". Cap *static, unchanging* shots (a few seconds each). A
+  shot with change in it (movement, action, reaction, talk, a reveal) may run longer.
 - **Batch cost is mostly fixed, not per raw minute.** Rough-cut cost by episode:
   - 85: ~30% of the 5-hour window, starting from scratch.
   - 86–89: 11–15% each, where the prompt said "reuse the previous episode's build script and
