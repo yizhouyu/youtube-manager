@@ -243,6 +243,14 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
             inputs += ["-i", png]
             chains.append(f"[{last}][{i}:v]overlay=0:0:enable='between(t,{t0:.3f},{t1:.3f})'[v{i}]")
         last = f"v{i}"
+    if shot.get("gauge") and not clean:  # animated depth/altitude meter (PNG sequence, panel-sized)
+        pat, gx, gy = overlays.gauge_frames(shot["gauge"], dur, w, h, ov_dir)
+        gi = base_inputs + len(ovs)
+        inputs += ["-framerate", str(overlays.GAUGE_FPS), "-i", pat]
+        chains.append(f"[{gi}:v]format=rgba,setpts=PTS-STARTPTS[g{gi}]")
+        chains.append(f"[{last}][g{gi}]overlay={gx}:{gy}:eof_action=repeat[vg]")
+        last = "vg"
+        ovs.append(None)  # keeps the sfx input index below in step
 
     gain = E.AUDIO_GAIN.get(shot.get("audio", "voice"), 1.0) if E.speed(shot) <= 1 else 0.0
     gain *= 10 ** (max(-24.0, min(12.0, float(shot.get("gain_db", 0) or 0))) / 20)  # lift a quiet speaker

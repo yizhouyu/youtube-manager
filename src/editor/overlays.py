@@ -202,3 +202,72 @@ def arrow(label, x, y, w, h, cache_dir):
             d.text((bx + size * 0.4, by + size * 0.15), label, font=f, fill=(255, 214, 90, 255))
         return im
     return _cached(cache_dir, f"arrow|{label}|{x:.3f}|{y:.3f}|{w}x{h}", render)
+
+
+GAUGE_FPS = 10
+
+
+def gauge_frames(g, dur, w, h, cache_dir):
+    """Animated meter (depth / altitude) for one shot, as a PNG sequence at GAUGE_FPS.
+
+    g = {"from": 0, "to": -80, "max": -230, "label": "深度", "unit": "米", "step": 50,
+         "t0": 0, "t1": dur (shot-local s), "fade_in": false, "fade_out": false}
+    The value eases from→to between t0 and t1; a vertical track (0 at the top, `max` at the
+    bottom, ticks every `step`) fills up to a marker. Returns (pattern, x, y) for an
+    image2 input overlaid at (x, y) — the images are only the panel's size, not the frame's.
+    """
+    import math
+    v0, v1 = float(g.get("from", 0)), float(g.get("to", 0))
+    vmax = float(g.get("max", v1 or 1)) or 1.0
+    t0, t1 = float(g.get("t0", 0)), float(g.get("t1", dur))
+    label, unit, step = g.get("label", ""), g.get("unit", ""), float(g.get("step", 50))
+    pw, ph = int(w * 0.125), int(h * 0.60)
+    x, y = w - int(w * 0.03) - pw, int(h * 0.17)
+    n = max(1, int(math.ceil(dur * GAUGE_FPS)))
+    key = hashlib.sha1(f"{VERSION}|gauge|{sorted(g.items())}|{dur:.3f}|{w}x{h}".encode()).hexdigest()[:16]
+    d_out = os.path.join(cache_dir, f"gauge_{key}")
+    pattern = os.path.join(d_out, "%04d.png")
+    if os.path.exists(os.path.join(d_out, f"{n - 1:04d}.png")):
+        return pattern, x, y
+    os.makedirs(d_out, exist_ok=True)
+    fl, fv, ft = _font(SUB_FONTS, int(h * 0.030)), _font(TITLE_FONTS, int(h * 0.050)), _font(SUB_FONTS, int(h * 0.020))
+    ty0, ty1 = ph * 0.20, ph * 0.94                    # track top (value 0) / bottom (value max)
+    tx = pw * 0.30
+    yellow, white = (255, 214, 90, 255), (255, 255, 255, 235)
+
+    def ypos(v):
+        return ty0 + (ty1 - ty0) * max(0.0, min(1.0, v / vmax))
+
+    for k in range(n):
+        t = k / GAUGE_FPS
+        u = max(0.0, min(1.0, (t - t0) / max(1e-6, t1 - t0)))
+        v = v0 + (v1 - v0) * (0.5 - 0.5 * math.cos(math.pi * u))
+        im = Image.new("RGBA", (pw, ph), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        d.rounded_rectangle([0, 0, pw - 1, ph - 1], radius=int(pw * 0.12), fill=(0, 0, 0, 125))
+        if label:
+            d.text((pw / 2, ph * 0.035), label, font=fl, fill=white, anchor="mt")
+        val = f"{round(v):d}".replace("-", "−") + (f" {unit}" if unit else "")
+        d.text((pw / 2, ph * 0.09), val, font=fv, fill=yellow, anchor="mt",
+               stroke_width=max(2, h // 400), stroke_fill=(0, 0, 0, 220))
+        lw = max(4, int(w * 0.004))
+        d.line([(tx, ty0), (tx, ty1)], fill=(255, 255, 255, 110), width=lw)
+        m = 0.0
+        while abs(m) <= abs(vmax) + 1e-6:              # ticks every `step`, labelled
+            yy = ypos(m)
+            d.line([(tx - lw * 2, yy), (tx + lw * 2, yy)], fill=(255, 255, 255, 170), width=max(2, lw // 2))
+            d.text((tx + lw * 3.5, yy), f"{int(m)}".replace("-", "−"), font=ft, fill=(255, 255, 255, 190), anchor="lm")
+            m += step if vmax > 0 else -step
+        ym = ypos(v)
+        d.line([(tx, ty0), (tx, ym)], fill=yellow, width=lw)
+        r = lw * 2.4
+        d.ellipse([tx - r, ym - r, tx + r, ym + r], fill=yellow, outline=(0, 0, 0, 220), width=max(2, lw // 2))
+        a = 1.0
+        if g.get("fade_in"):
+            a = min(a, t / 0.3)
+        if g.get("fade_out"):
+            a = min(a, (dur - t) / 0.3)
+        if a < 1.0:
+            im.putalpha(im.getchannel("A").point(lambda p: int(p * max(0.0, a))))
+        im.save(os.path.join(d_out, f"{k:04d}.png"), compress_level=1)
+    return pattern, x, y

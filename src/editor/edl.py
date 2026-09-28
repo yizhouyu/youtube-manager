@@ -46,6 +46,10 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
       "speed": 4,                              # timelapse factor (audio muted when > 1)
       "marks": [{"t0": 3.0, "t1": 5.0, "x": 0.8, "y": 0.5, "label": "虎鲸"}],  # labelled arrows
                                                # pointing at (x, y) during [t0, t1] (source s)
+      "gauge": {"from": 0, "to": -80, "max": -230, "label": "地下深度", "unit": "米", "step": 50,
+                "fade_in": false, "fade_out": false},   # animated meter panel (right edge): value
+                                               # eases from→to over the shot (optional t0/t1, shot-local
+                                               # s); chain shots (to → next from) for a running depth count
       "zoom": {"from": 1.0, "to": 1.3, "x": 0.5, "y": 0.5},   # Ken Burns push/pull toward
                                                # focal point (x, y as 0-1 of the frame)
       "note": "why this shot"                  # agent's rationale, shown in review
