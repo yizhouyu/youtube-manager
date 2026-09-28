@@ -90,6 +90,33 @@ Write the EDL (a small build script is fine). Craft rules that make it comfortab
 Shot `note`s are the card titles the creator reads — plain Chinese descriptions of what's in
 the shot ("开场精华：魟鱼"), never internal jargon (round ids, "B-roll", "r2", QA remarks).
 
+## 2b. Make it worth watching (retention → likes, comments, subscribes)
+
+Evidence-based defaults (YouTube Help on retention/intro/chapters/end screens; creator-data posts —
+see LESSONS.md for sources). Treat them as the bar every cut must clear:
+1. **Hook in 0–8 s:** open cold on the single best moment (reveal, reaction, animal, first bite) and
+   land one captioned promise/question line (e.g. "没想到这里…") by ~8 s. No logo, no title card
+   > 2 s, no subscribe ask up front. Target ≥ 60–70 % still watching at 30 s.
+2. **The opening must pay off the thumbnail + title** — show that promised thing early.
+3. **Voice first:** speech clear or subtitled; drop/rescue wind-clipped lines; music ducked under
+   speech; integrated ≈ −14 LUFS.
+4. **Never > 60 s without a change** in picture or sound (new place, music section, chapter title,
+   map, montage); B-roll 2–5 s, talking stretches ≤ 15–25 s; an emotional turn or 弹幕-worthy moment
+   every 3–5 min.
+5. **Squeeze low-energy footage** (driving, waiting, processing): ≥ 4× timelapse or a 3–6-shot
+   montage ≤ 10 s with a bridge caption ("但下一站完全不一样"), or cut it.
+6. **Mini-arc per location:** place title → expectation → experience → reaction/verdict. Plant one
+   open question in the first 30 s and answer it near the end; save the strongest location for last.
+7. **Captions narrate when people don't:** where, what, how much, what surprised us (note style);
+   cut to a reaction shot after every reveal / first bite; use contrast (expected vs real).
+8. **Engagement asks, placed where they work:** one specific comment question tied to a moment
+   ("你会选A还是B?"; Bilibili: "选A扣1，选B扣2") and a light 三连/订阅 line right AFTER the emotional
+   peak, not at the start. Draft a pinned comment that asks a question (goes in publish metadata).
+9. **Leave the last 15–20 s for the end screen:** calm B-roll + a captioned teaser of the next
+   episode in the series (the next project folder) — no separate outro card.
+10. **Chapters = location names** (first at 0:00, ≥ 3, each ≥ 10 s) — written into publish metadata.
+11. **Shorts:** note 1–3 self-contained peak moments (≤ 60 s each) in HANDOFF.md for later cut-downs.
+
 ## 3. Render + review
 
 ```bash
@@ -108,6 +135,12 @@ a menu, an animal) earns its place — give it an editor's caption (`subs` entry
 Note captions have no speech to check against, so verify them across several frames (not one
 still): counts and species of animals are easy to get wrong (a "second stingray" was actually a
 small fish riding along). When unsure, stay generic ("小鱼") rather than guess.
+
+**Viewer-critic pass (part of every QA round):** score each 30 s window 0–2 on Novelty (change
+every ~10 s), Clarity (speech/subtitles, where/who/what), Momentum (arc moves or question open),
+Payoff (reveal/reaction/animal/laugh), Audio health (ducking, no jumps, same track ≤ 90 s unless
+intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 4/10 = boredom risk;
+> 2 in a row = restructure that section. Put the score table in HANDOFF.md.
 
 **Mandatory QA before the creator sees it:** spawn a separate reviewer subagent that watches
 the whole preview (dense frame sheets), "listens" (re-transcribes the rendered audio and diffs it

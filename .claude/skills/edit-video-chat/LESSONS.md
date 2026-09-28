@@ -170,3 +170,16 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - Keep title claims literally true (the stingrays were at Salt Pond Bay, not Trunk Bay — don't put
   them side by side in a title).
 - Never print cookie/token contents to output (redirect verbose CLI logs to a file, grep results).
+
+## Sources behind the retention rules (research 2026-09-28)
+
+YouTube Help — audience retention / intro metric: https://support.google.com/youtube/answer/9314415 ·
+chapters: https://support.google.com/youtube/answer/9884579 · end screens:
+https://support.google.com/youtube/answer/6388789 · related-video/Shorts guide:
+https://blog.youtube/creator-and-artist-stories/youtube-related-videos-traffic-guide/ · retention
+benchmarks: https://humbleandbrag.com/blog/youtube-audience-retention-benchmarks · audio quality vs
+credibility: https://dornsife.usc.edu/news/stories/norbert-schwarz-research-links-sound-quality-belief/ ·
+Bilibili practice (secondary): https://www.huasheng.ai/insights/bilibili-video-best-practices/ ·
+storytelling: https://1of10.com/blog/storytelling-techniques-top-youtubers-use-to-keep-viewers-hooked/
+Travel-vlog-specific data is scarce; treat numbers as targets, and learn from the channel's own
+analytics (retention graphs) once available.
