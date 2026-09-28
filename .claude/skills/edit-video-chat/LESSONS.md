@@ -64,6 +64,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **Cross-check with a second model on the lines you keep** (whisper large-v3 with a proper-noun
   prompt, in the background): on ep 84 it fixed "George's grandsons"→Girard's, "erection ball"→
   wrecking ball, "meatwork"→beadwork, and exposed Qwen phantoms ("有 hold 有收藏的", "五块钱…").
+- **Glossary keys are plain substring replacements, applied in insertion order.** Short keys ("Oh",
+  "there", "看") silently corrupt other lines ("Oh awesome" → " awesome", "看一看" → "一"). Use whole-line
+  keys only, longer keys first; re-read every cleaned transcript after editing the glossary (ep 85).
+- **A line both models agree on is not a phantom just because it's garbled in one of them** — ep 85's
+  glossary dropped "就把这里开放给大家看" and the cut then clipped it mid-word; round-2 QA restored it.
 
 ## Picking and cutting shots
 
@@ -108,6 +113,12 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   keeping it made the episode's strongest ending + thumbnail. Moving raw clips between projects is
   irreversible-ish: the auto-mode classifier blocks it — leave it to the creator and say so.
 - **Card shots (clip "") draw no subtitles/overlays** — put text for map/end cards into the image.
+- **A landmark that's only on screen for ~1 s** (the Rio Grande Gorge Bridge in a quick pan) can still
+  carry the hook and its payoff: freeze its best frame (card.image, same grade) with the question baked
+  in for the hook, and a labelled freeze-frame answer at the end.
+- **Sites with photo rules:** Taos Pueblo allows photos for personal use only (commercial use needs
+  approval/fees; residents only with permission; no photos inside the chapel). Keep identifiable
+  residents out, and list the rule as an open question for the creator (ep 85).
 
 ## Audio & music
 
@@ -139,6 +150,14 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   creator found 0.42 too loud overall.
 - Don't let a track restart from the top at a section boundary unless intended (reviewer caught one).
 - Final loudness −14 LUFS integrated, true peak ≤ −1.5 dBTP.
+- **Check every Audio Library track for vocals before placing it** (whisper-cli on the track; the
+  library's "mood" tags don't say). Ep 85's "When It Ends" (Cosplay) is a breakup song sung end to end
+  and "Sky Is The Limit" (Anno Domini Beats) starts singing at ~27.7 s — QA caught lyrics over the
+  finale. Instrumental-only under narration and note captions, or stop the section before the vocals.
+- **GoPro clips end with the camera's stop-button click**; in a quiet mix (or after a `gain_db` lift)
+  it lands 10–20 dB above its surroundings. Trim out-points ~0.1–0.3 s before the clip end.
+- **Synthetic sfx transients beat the limiter:** a white-noise shutter click at gain 0.6 pushed true
+  peak to −0.1 dBTP; 0.3 was still audible and measured −1.9. Re-measure true peak after adding sfx.
 - **Loud engine/wind noise (boats, cars): let music cover it.** Silent travel shots on a boat →
   `audio: mute` (or ambient) and let the music carry; talking shots → denoise/high-pass the voice
   and keep music a bit higher than usual under it.
@@ -160,6 +179,10 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   whole stretches of dead air that changed run to run. Always measure per-second loudness of the
   preview (no second below ~−35 dBFS) before handing it over.
 - Music entries accept `in` (skip a quiet intro) and `gain` (dB); tracks are auto-matched to −14 LUFS.
+- Shots accept `gain_db` (−24..+12) to lift a quiet/distant speaker (a guide ~6 LU under the creator
+  needed +8 dB on ep 85) before the final loudnorm.
+- **Music timing math:** a section's track fades in 2.5 s BEFORE its start shot, so the track time at
+  the start shot = `in` + 2.5 s. Needed for beat-synced cuts; also compute where vocals would land.
 - Final master: 4K HEVC Main10 ~100 Mb/s `.mov`, graded in 10-bit, at `02 - Export/<folder name>.mov`.
 
 ## Review surfaces (pages)
@@ -220,4 +243,7 @@ analytics (retention graphs) once available.
 | 84 | Animated route map card (`card.image` = Pillow-drawn 4K frames → mp4: dashed line drawing ABQ → Santa Fe → Bandelier → Ojo Caliente, inset of the whole state) after the opening title + a still recap with a "下一集" teaser as the end card | Reads in ~4 s, gives the day a shape and a calm end-screen background; reviewer-scored windows around it 8–9/10 | Yes for multi-stop days (script: 84's `edit/scripts/make_route_map.py`) |
 | 84 | Limiter after loudnorm (true peak −1.2 → −1.9 dBTP) | Meets the −1.5 dBTP spec with no audible change | Yes (renderer default now) |
 | 83 | Slow-motion reveal (`speed: 0.5`) on the bear's closest pass | Steppy: 30 fps source at 0.5× = 15 fps, fast pan, fence mesh strobed; reviewer 0/2 for looks | No — slow-mo without frame interpolation only on near-static shots (frame-to-frame change < ~5) |
+| 85 | Freeze-frame + label cards: the shot's last frame (same grade) as `card.image` with Pillow-drawn name boxes + leader lines to the subject and a soft shutter click (`sfx`, gain 0.3); used 3×: "who are these statues" (Oppenheimer / Groves), "whose Nobel medal" (Reines 1995, read off the plaque), and the answer to the hook question on a bridge that's only in frame for 1 s (script: 85's `edit/scripts/make_freeze_frames.py`) | Reads instantly, labels land on the right subject when located on 4K frames; reviewers found no issues in 3 rounds; windows with a freeze scored 9–10/10 | Yes, for "who/what is that" beats and hook answers; ≤ 1 per ~45 s, keep the click quiet |
+| 85 | J-cut into a new place with existing features: the arriving shot starts with 1.3 s of `broll` from the drive, so its first line ("我们先来到这里") is heard over the road | Smooth, no reviewer complaints; the chapter title appears over the B-roll (acceptable) | Yes at place changes that open on speech |
+| 85 | Beat-synced drive montage: tempo from onset-envelope autocorrelation (numpy in asrvenv; 105 BPM), each shot 4 beats long, frame-rounded so cuts land within ±13 ms (round 2 fixed a +53 ms drift from 69- vs 68-frame shots) | Tighter, livelier 9 s drive; 1:00 window 10/10 | Yes for montages ≥ 3 shots; compute track time with the 2.5 s crossfade lead |
 | 83 | Real-time punch-in "answer" beat: hard cut from the wide shot to a 1.25× static zoom on the same action, with the note answering the cold-open question ("这只黑熊，最后离我们有多近？" → "答案：隔着一道围栏，就在眼前") | Smooth and emphatic; reviewer 2/2; finale window 10/10 | Yes as the payoff beat for a hook question (the question must be one the footage can verify) |
