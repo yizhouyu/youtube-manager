@@ -31,6 +31,17 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   processes first; queue behind the other episode instead of competing.
 - **Shared scratchpad:** parallel agents of one session share the scratchpad dir — put your files in
   a per-episode subfolder (`scratchpad/ep84/…`) so logs/frames don't collide.
+- **Filming permissions, answered by the creator (don't re-ask):**
+  - Outdoor scenery on Native land (tour areas, pueblos) is OK.
+  - Tour guides agreed to be filmed, so keep their faces.
+  - A two-person, no-drone crew needs no national-park permit.
+  - Still open every time: identifiable children and strangers' faces (keep them out of shots and
+    thumbnails).
+- **Batch cost is mostly fixed, not per raw minute.** Rough-cut cost by episode:
+  - 85: ~30% of the 5-hour window, starting from scratch.
+  - 86–89: 11–15% each, where the prompt said "reuse the previous episode's build script and
+    features, targeted reviewer frames, ≤3 QA rounds, aim ≤15–20%".
+  - Always chain each episode from the previous one's `edit/` folder.
 
 ## Speech → subtitles
 
