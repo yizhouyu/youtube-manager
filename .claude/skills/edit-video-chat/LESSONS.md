@@ -83,6 +83,10 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   mark windows. There are usually MORE of them than a contact sheet shows; look carefully.
 - **Ken Burns on distant subjects** the speaker refers to (a donkey 30 m away, cruise ships):
   locate the subject's x/y on a real frame, push to ~1.8–1.9×, verify it stays in frame.
+- **Match transition style to the video's tone.** Cartoon sunburst cards + boing sfx worked for a
+  light beach/food episode but read as childish on a nature/adventure episode — there, use an
+  overlay chapter title on the next shot (`title` on the shot: white text + thin yellow rule), no sfx.
+  Default to the overlay title; use cartoon cards only for playful content.
 - **Time cards for jumps** ("一小时后……", "第二天……") with a light sfx. Never use copyrighted meme
   clips (Content ID); original cards look just as good.
 - Note captions are `{"kind": "note"}` with plain text — never a marker character in the text

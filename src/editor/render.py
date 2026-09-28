@@ -276,7 +276,8 @@ def music_sections(edl, total):
     for m in edl.get("music", []):
         path = os.path.join(E.edit_dir(edl["project"]), m["file"])
         if not os.path.exists(path):
-            continue
+            # never silently drop a section: a missing track left 20 s of dead air once
+            raise FileNotFoundError(f"music track missing: {m['file']}")
         t = None
         if m.get("start") in order:
             for sid in order[order.index(m["start"]):]:
