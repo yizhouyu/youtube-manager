@@ -204,10 +204,8 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   `audio: mute` (or ambient) and let the music carry; talking shots → denoise/high-pass the voice
   and keep music a bit higher than usual under it.
 - **A track can appear twice in `music` with different `in`s since e897dab (2026-09-28).** Before that, the second use silently replayed the first entry's `in`/`gain` (ep 96 QA: Cafecito at 110 s replayed its 20 s passage). EDLs of 86, 88, 89 and 91–95 reuse tracks, so their next render sounds different from what their QA heard. Also keep the two uses' passages apart: a section plays `in` → `in` + its length + 5 s, so the next use's `in` should start after that (ep 96's second Cafecito overlapped the first by 8 s).
-- **Crossfades overlap for 5 s at full level:** the incoming track fades in over the 2.5 s before its start shot, the outgoing one only fades after it. Unducked (no speech) it reads as two songs at once for ~1.5 s (ep 96 QA at 1:12 and at the recap). Start a new section on a talking shot, or on a card whose own sound carries it, until the renderer's crossfade shares one window.
-
-## Rendering
-
+- **Crossfades are equal-power over a 2.5 s window before the start shot (fixed 682f6ae, 2026-09-28).** Before the fix, both songs played at full level for up to 5 s (ep 96 QA). A section's track time at its start shot is unchanged.
+- **Qwen "oh oh" is NOT a reliable vocal detector for music.** It outputs "oh oh" on most instrumentals (even a waltz) and missed real chants. Listen to suspicious tracks, or ask for a listen at review.
 - The agent's shell is zsh: `for s in "A 1" "B 2"; do set -- $s` doesn't word-split — wrap such
   loops in `bash -c '…'` or use arrays.
 
