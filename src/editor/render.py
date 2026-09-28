@@ -17,6 +17,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -291,6 +292,28 @@ def music_sections(edl, total):
             if (secs[i + 1][1] if i + 1 < len(secs) else total) - t > 1.0]
 
 
+_LUFS_CACHE = {}
+
+
+def _track_lufs(path):
+    """Integrated loudness of a music file (cached by path + mtime)."""
+    key = (path, os.path.getmtime(path))
+    if key not in _LUFS_CACHE:
+        p = subprocess.run(["ffmpeg", "-nostats", "-i", path, "-af", "ebur128", "-f", "null", "-"],
+                           capture_output=True, text=True)
+        vals = re.findall(r"^\s+I:\s+(-?[\d.]+) LUFS", p.stderr, re.M)
+        _LUFS_CACHE[key] = float(vals[-1]) if vals else -14.0
+    return _LUFS_CACHE[key]
+
+
+def _track_gain_db(edl, path):
+    """Loudness-match every track to -14 LUFS (Audio Library tracks differ by 15+ LU), plus the
+    music entry's optional manual "gain" in dB."""
+    extra = next((m.get("gain", 0.0) for m in edl.get("music", [])
+                  if os.path.join(E.edit_dir(edl["project"]), m["file"]) == path), 0.0)
+    return max(-20.0, min(12.0, -14.0 - _track_lufs(path))) + extra
+
+
 def music_bed(edl, total, workdir, out_wav):
     secs = music_sections(edl, total)
     if not secs:
@@ -307,7 +330,8 @@ def music_bed(edl, total, workdir, out_wav):
         fades = [] if k == 0 else [f"afade=t=in:st=0:d={xf}"]
         if k + 1 < len(secs):
             fades.append(f"afade=t=out:st={max(0, d - xf):.3f}:d={xf}")
-        chain.append(f"[{k}:a]aresample={SR},aformat=channel_layouts=stereo,atrim=0:{d:.3f},"
+        chain.append(f"[{k}:a]aresample={SR},aformat=sample_fmts=fltp:channel_layouts=stereo,"
+                     f"volume={_track_gain_db(edl, path):.2f}dB,atrim=0:{d:.3f},"
                      f"asetpts=PTS-STARTPTS{',' + ','.join(fades) if fades else ''},"
                      f"adelay={int(a0 * 1000)}:all=1[m{k}]")
         labels.append(f"[m{k}]")
