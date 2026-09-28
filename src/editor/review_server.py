@@ -345,7 +345,7 @@ main{max-width:1100px;margin:0 auto;padding:14px 20px 24px}
 #pvwrap{position:sticky;top:var(--barh,56px);z-index:5;background:var(--bg);padding:6px 0 10px;margin-bottom:4px}
 #pv{background:#000;border-radius:10px;overflow:hidden;display:flex;justify-content:center;align-items:center;min-height:80px;position:relative}
 #pv video{max-width:100%;max-height:40vh;display:block}
-#pvfs{position:absolute;right:10px;top:10px;z-index:2;border:0;border-radius:8px;padding:5px 10px;font-size:13px;background:rgba(0,0,0,.55);color:#fff;cursor:pointer}
+.bigplay{position:absolute;left:50%;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;background:rgba(0,0,0,.55);pointer-events:none;z-index:3;transition:opacity .2s ease,transform .2s ease}.bigplay::after{content:'';position:absolute;left:33px;top:24px;border-style:solid;border-width:18px 0 18px 30px;border-color:transparent transparent transparent #fff}.bigplay.hide{opacity:0;transform:scale(1.25)}#pvv{cursor:pointer}
 #pv:fullscreen{border-radius:0}#pv:fullscreen video{max-height:100vh;width:100%;height:100%}
 #follow{display:none;position:absolute;right:10px;bottom:10px;z-index:2;border:0;border-radius:999px;padding:4px 12px;font-size:13px;background:rgba(255,255,255,.92);color:var(--acc);box-shadow:0 1px 4px rgba(0,0,0,.25)}
 .shot.cur{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc2),0 2px 10px rgba(37,99,235,.12)}
@@ -447,7 +447,7 @@ function skipScan(s,force){
   return {ranges:rs.filter(([a,b])=>b-a>0.02), n};
 }
 function kept(s){return skipScan(s).ranges}
-function sdur(s){return '_qdur' in s?s._qdur:kept(s).reduce((t,[a,b])=>t+b-a,0)}
+function sdur(s){return '_qdur' in s?s._qdur:kept(s).reduce((t,[a,b])=>t+b-a,0)/Math.max(0.25,+(s.speed||1))}  // timelapse shots play faster
 function local(s,t){let acc=0; for(const [a,b] of kept(s)){if(t<=b) return acc+Math.max(0,t-a); acc+=b-a} return acc}
 function subLive(s,x){const t0=Math.max(x.t0,s.in),t1=Math.min(x.t1,s.out); return t1>t0&&local(s,t1)-local(s,t0)>=0.3}
 function skipHtml(s,i){
@@ -674,11 +674,17 @@ $('#mSplit').onclick=()=>{const i=modalShot,t=mv.currentTime; closeModal(); spli
 // (Space after clicking fullscreen used to exit fullscreen instead of pausing).
 document.addEventListener('mousedown',e=>{if(e.target.closest&&e.target.closest('button'))e.preventDefault()},true);
 document.addEventListener('keyup',e=>{if(e.code==='Space'&&!/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))e.preventDefault()},true);
-function pvToggleFs(){const box=document.getElementById('pv');
-  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); else if(box) box.requestFullscreen().catch(()=>{})}
-document.addEventListener('click',e=>{if(e.target.id==='pvfs') pvToggleFs()});
-document.addEventListener('dblclick',e=>{if(e.target.id==='pvv'){e.preventDefault(); pvToggleFs()}});
-document.addEventListener('fullscreenchange',()=>{const b=document.getElementById('pvfs'); if(b) b.textContent=document.fullscreenElement?'退出全屏':'⛶ 全屏'});
+function pvToggleFs(){const v=document.getElementById('pvv');
+  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); else if(v) v.requestFullscreen().catch(()=>{})}
+document.addEventListener('fullscreenchange',()=>setTimeout(()=>{
+  // native fullscreen leaves focus on the controls' fullscreen button (shadow DOM): Space would
+  // re-trigger it. Blur it so Space reaches our handler and just plays/pauses.
+  const a=document.activeElement; if(a&&a.blur) a.blur(); document.body.focus&&document.body.focus()},0));
+// Click anywhere on the picture (not the control bar at the bottom) to play/pause, like YouTube.
+document.addEventListener('click',e=>{const v=e.target; if(!v||v.id!=='pvv') return;
+  const r=v.getBoundingClientRect(); if(e.clientY>r.bottom-Math.min(44,r.height*0.2)) return;  // native control bar
+  e.preventDefault(); v.paused?v.play().catch(()=>{}):v.pause()},true);
+setInterval(()=>{const v=document.getElementById('pvv'),g=document.getElementById('pvbig'); if(v&&g) g.classList.toggle('hide',!v.paused)},150);
 // Preview player keys (also in fullscreen). Capture phase + preventDefault so the browser's own
 // media controls or a focused button don't handle the same key a second time.
 document.addEventListener('keydown',e=>{
@@ -705,7 +711,7 @@ document.addEventListener('keydown',e=>{
 // ---- preview, save, render
 async function loadPreview(){
   const r=await fetch('/preview.mp4',{method:'HEAD'});
-  $('#pv').innerHTML=(r.ok?`<video id="pvv" controls controlslist="nofullscreen" disablepictureinpicture preload="metadata" src="/preview.mp4?v=${Date.now()}"></video><button id="pvfs" title="全屏（F）">⛶ 全屏</button>`
+  $('#pv').innerHTML=(r.ok?`<video id="pvv" controls preload="auto" src="/preview.mp4?v=${Date.now()}"></video><div class="bigplay" id="pvbig"></div>`
     :'<div class="none">还没有预览，点右上角「更新预览」生成</div>')+'<button id="follow">↩ 跟随播放</button>';
   $('#follow').onclick=()=>{resumeFollow(); curIdx=-2; onPreviewTime(true)};
   const v=$('#pvv'); if(v){v.addEventListener('timeupdate',()=>onPreviewTime(false)); v.addEventListener('seeked',()=>onPreviewTime(true))}

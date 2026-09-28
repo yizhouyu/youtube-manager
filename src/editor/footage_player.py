@@ -307,6 +307,7 @@ body:not(.showuse) .seg .u,body:not(.showuse) .item .ub,body:not(.showuse) .lege
 .cap span{background:rgba(8,8,8,.75);color:#fff;padding:.1em .45em;border-radius:3px;
   -webkit-box-decoration-break:clone;box-decoration-break:clone}
 .cap:empty{display:none}
+.bigplay{position:absolute;left:50%;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;background:rgba(0,0,0,.55);pointer-events:none;z-index:3;transition:opacity .2s ease,transform .2s ease}.bigplay::after{content:'';position:absolute;left:33px;top:24px;border-style:solid;border-width:18px 0 18px 30px;border-color:transparent transparent transparent #fff}.bigplay.hide{opacity:0;transform:scale(1.25)}
 .stage.ctl .cap{bottom:calc(96px + 3%)}
 .ov{position:absolute;left:0;right:0;bottom:0;padding:44px 16px 10px;z-index:4;color:#fff;
   background:linear-gradient(to bottom,transparent,rgba(0,0,0,.65));
@@ -367,6 +368,7 @@ aside .head span{color:var(--mute);font-weight:400}
     <video id="va" playsinline preload="auto"></video>
     <video id="vb" class="hidden" playsinline preload="auto" muted></video>
     <div class="msg" id="msg">加载中…</div>
+    <div class="bigplay" id="bigplay"></div>
     <div class="cap" id="cap"></div>
     <div class="ov" id="ov">
       <div class="tl-row"><div class="tl" id="tl"></div><div class="ph" id="ph"></div>
@@ -455,6 +457,8 @@ function onEnded(e){if(e.target!==cur)return;
 });
 
 function toggle(){if(cur.paused)cur.play().catch(()=>{});else cur.pause()}
+// YouTube-style big ▶ in the middle while paused (both <video> elements swap roles, so poll)
+setInterval(()=>{const b=document.getElementById('bigplay');if(b)b.classList.toggle('hide',!cur.paused)},150);
 function seekBy(d){const t=cur.currentTime+d;
   if(t<0&&idx>0){show(idx-1,Math.max(0,clips[idx-1].dur+t))}
   else if(t>=(clips[idx].dur||1e9)&&idx+1<clips.length){show(idx+1,t-clips[idx].dur)}
