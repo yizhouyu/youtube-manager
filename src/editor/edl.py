@@ -35,6 +35,9 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
       "skip": [[3.1, 3.7]], "skip_on": true,   # source spans jump-cut out (pauses / 嗯啊);
                                                # skip_on=false restores them
       "sfx": [{"file": "sfx/whoosh.mp3", "at": 0.0, "gain": 0.8}],   # sound effects (shot-local s)
+      "speed": 4,                              # timelapse factor (audio muted when > 1)
+      "marks": [{"t0": 3.0, "t1": 5.0, "x": 0.8, "y": 0.5, "label": "虎鲸"}],  # labelled arrows
+                                               # pointing at (x, y) during [t0, t1] (source s)
       "zoom": {"from": 1.0, "to": 1.3, "x": 0.5, "y": 0.5},   # Ken Burns push/pull toward
                                                # focal point (x, y as 0-1 of the frame)
       "note": "why this shot"                  # agent's rationale, shown in review
@@ -100,20 +103,25 @@ def kept_ranges(shot):
     return [(a, b) for a, b in rs if b - a > 0.02]
 
 
+def speed(shot):
+    """Playback speed factor (timelapse). >1 speeds up; audio is muted for sped-up shots."""
+    return max(0.25, float(shot.get("speed", 1.0) or 1.0))
+
+
 def shot_dur(shot):
     if "_qdur" in shot:  # frame-quantized length, set by the renderer for exact timeline math
         return shot["_qdur"]
-    return sum(b - a for a, b in kept_ranges(shot))
+    return sum(b - a for a, b in kept_ranges(shot)) / speed(shot)
 
 
 def src_to_local(shot, t):
     """Source-clip time -> time inside the rendered shot (skipped spans collapse)."""
-    acc = 0.0
+    acc, k = 0.0, speed(shot)
     for a, b in kept_ranges(shot):
         if t <= b:
-            return acc + max(0.0, t - a)
+            return (acc + max(0.0, t - a)) / k
         acc += b - a
-    return acc
+    return acc / k
 
 
 def shot_subs(shot):

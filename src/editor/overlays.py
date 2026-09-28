@@ -162,3 +162,41 @@ def card(text, sub, w, h, cache_dir, bg="#ffd84d", fg="#1f2937"):
         im = Image.alpha_composite(im, shadow.filter(ImageFilter.GaussianBlur(h * 0.006)))
         return Image.alpha_composite(im, layer).convert("RGB")
     return _cached(cache_dir, f"card|{text}|{sub}|{bg}|{fg}|{w}x{h}", render)
+
+
+def arrow(label, x, y, w, h, cache_dir):
+    """A bold labelled arrow whose tip points at (x, y) (0-1 of the frame) — for animals too
+    small to see. Tail sits above the target (below it if the target is near the top edge)."""
+    def render():
+        import math
+        im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        tx, ty = x * w, y * h
+        L = h * 0.16
+        up = ty > h * 0.3
+        ang = math.radians(-60 if up else 60)          # tail up-left (or down-left)
+        sx, sy = tx - L * math.cos(ang) * 0.6, ty + L * math.sin(ang)
+        gap = h * 0.012                                  # don't cover the animal itself
+        ex, ey = tx - gap * math.cos(ang) * 0.6, ty + gap * math.sin(ang)
+        lw, head = max(4, h // 110), h * 0.035
+        # shaft + head, drawn twice: dark outline then yellow
+        a = math.atan2(ey - sy, ex - sx)
+        pts = [(ex, ey), (ex - head * math.cos(a - 0.45), ey - head * math.sin(a - 0.45)),
+               (ex - head * math.cos(a + 0.45), ey - head * math.sin(a + 0.45))]
+        for col, extra in (((0, 0, 0, 200), lw * 0.9), ((255, 214, 90, 255), 0)):
+            d.line([(sx, sy), (ex - head * 0.6 * math.cos(a), ey - head * 0.6 * math.sin(a))],
+                   fill=col, width=int(lw + extra))
+            d.polygon(pts, fill=col, outline=col if extra else None)
+            if extra:
+                d.line(pts + [pts[0]], fill=col, width=int(extra))
+        if label:
+            size = int(h * 0.04)
+            f = _font(SUB_FONTS, size)
+            tw = d.textlength(label, font=f)
+            bx = min(max(sx - tw / 2 - size * 0.4, 8), w - tw - size - 8)
+            by = sy - size * 1.6 if up else sy + size * 0.2
+            d.rounded_rectangle([bx, by, bx + tw + size * 0.8, by + size * 1.4], radius=int(size * 0.4),
+                                fill=(0, 0, 0, 150))
+            d.text((bx + size * 0.4, by + size * 0.15), label, font=f, fill=(255, 214, 90, 255))
+        return im
+    return _cached(cache_dir, f"arrow|{label}|{x:.3f}|{y:.3f}|{w}x{h}", render)
