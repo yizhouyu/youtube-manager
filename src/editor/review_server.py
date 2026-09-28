@@ -15,6 +15,7 @@ Preview output is read from `<project>/02 - Export/edit/preview.mp4`.
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -265,6 +266,24 @@ def preview():
     return send_file(p, mimetype="video/mp4", conditional=True, max_age=0)
 
 
+@app.get("/api/preview_latest")
+def api_preview_latest():
+    vdir = os.path.join(edit_dir(), "previews")
+    names = sorted(f for f in os.listdir(vdir) if f.startswith("preview-")) if os.path.isdir(vdir) else []
+    return jsonify({"name": names[-1] if names else None})
+
+
+@app.get("/previews/<name>")
+def preview_version(name):
+    if not re.fullmatch(r"preview-\d{8}-\d{6}\.mp4", name):
+        abort(404)
+    p = os.path.join(edit_dir(), "previews", name)
+    if not os.path.isfile(p):
+        abort(404)
+    # versions never change once written, so the browser may cache them
+    return send_file(p, mimetype="video/mp4", conditional=True, max_age=3600)
+
+
 @app.get("/clip/<name>")
 def clip(name):
     if "/" in name or ".." in name:
@@ -345,6 +364,7 @@ main{max-width:1100px;margin:0 auto;padding:14px 20px 24px}
 #pvwrap{position:sticky;top:var(--barh,56px);z-index:5;background:var(--bg);padding:6px 0 10px;margin-bottom:4px}
 #pv{background:#000;border-radius:10px;overflow:hidden;display:flex;justify-content:center;align-items:center;min-height:80px;position:relative}
 #pv video{max-width:100%;max-height:40vh;display:block}
+#pvnew{display:none;position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:4;border:0;border-radius:999px;padding:6px 14px;font-size:13px;background:#2563eb;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}
 .bigplay{position:absolute;left:50%;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;background:rgba(0,0,0,.55);pointer-events:none;z-index:3;transition:opacity .2s ease,transform .2s ease}.bigplay::after{content:'';position:absolute;left:33px;top:24px;border-style:solid;border-width:18px 0 18px 30px;border-color:transparent transparent transparent #fff}.bigplay.hide{opacity:0;transform:scale(1.25)}#pvv{cursor:pointer}
 #pv:fullscreen{border-radius:0}#pv:fullscreen video{max-height:100vh;width:100%;height:100%}
 #follow{display:none;position:absolute;right:10px;bottom:10px;z-index:2;border:0;border-radius:999px;padding:4px 12px;font-size:13px;background:rgba(255,255,255,.92);color:var(--acc);box-shadow:0 1px 4px rgba(0,0,0,.25)}
@@ -709,13 +729,34 @@ document.addEventListener('keydown',e=>{
 });
 
 // ---- preview, save, render
-async function loadPreview(){
-  const r=await fetch('/preview.mp4',{method:'HEAD'});
-  $('#pv').innerHTML=(r.ok?`<video id="pvv" controls preload="auto" src="/preview.mp4?v=${Date.now()}"></video><div class="bigplay" id="pvbig"></div>`
+// Each render is a new versioned file; we never pull the file out from under a playing video.
+let PVNAME=null;
+async function latestPreview(){try{return (await (await fetch('/api/preview_latest')).json()).name}catch(e){return null}}
+async function loadPreview(keep){
+  const n=await latestPreview();
+  let src=null;
+  if(n){src='/previews/'+n; PVNAME=n}
+  else{const r=await fetch('/preview.mp4',{method:'HEAD'}); if(r.ok) src='/preview.mp4?v='+Date.now()}
+  const old=$('#pvv'); const wasMuted=old?old.muted:false;
+  if(old){old.pause(); old.removeAttribute('src'); old.load()}  // free its connections, or the new one stalls
+  $('#pv').innerHTML=(src?`<video id="pvv" controls preload="auto" src="${src}"></video><div class="bigplay" id="pvbig"></div><button id="pvnew">新预览已生成 · 点这里切换（从当前位置继续）</button>`
     :'<div class="none">还没有预览，点右上角「更新预览」生成</div>')+'<button id="follow">↩ 跟随播放</button>';
+  const nv=$('#pvv');
+  if(nv){nv.muted=wasMuted}
+  if(nv&&keep){const restore=()=>{nv.currentTime=Math.min(keep.t,Math.max(0,nv.duration-0.5)); if(keep.playing) nv.play().catch(()=>{})};
+    nv.readyState>=1?restore():nv.addEventListener('loadedmetadata',restore,{once:true})}
+  const nb=$('#pvnew'); if(nb) nb.onclick=()=>swapPreview();
   $('#follow').onclick=()=>{resumeFollow(); curIdx=-2; onPreviewTime(true)};
   const v=$('#pvv'); if(v){v.addEventListener('timeupdate',()=>onPreviewTime(false)); v.addEventListener('seeked',()=>onPreviewTime(true))}
 }
+function swapPreview(){const v=$('#pvv'); loadPreview(v?{t:v.currentTime,playing:!v.paused&&!v.ended}:null)}
+async function checkNewPreview(){
+  const n=await latestPreview(); if(!n||n===PVNAME) return;
+  const v=$('#pvv');
+  if(!v||v.paused||v.ended) swapPreview();                 // not watching: switch quietly, keep position
+  else {const b=$('#pvnew'); if(b) b.style.display='block'} // watching: offer, never interrupt
+}
+setInterval(checkNewPreview,5000);
 function seekPreview(t){
   const v=$('#pvv'); if(!v){showErr('还没有预览，先点「更新预览」');return}
   resumeFollow(); v.currentTime=t+0.01; v.play().catch(()=>{});
@@ -786,7 +827,7 @@ async function pollOnce(){
   } else if(st.state==='done'&&!st.active){
     stopPoll(); tabTitle(st.mode==='final'?'✅ 成片已导出':'✅ 预览已更新'); setTimeout(()=>tabTitle(''),6000); rs.className='done'; $('#rsbar').style.width='100%';
     $('#rstext').textContent=st.mode==='final'?'成片已导出'+(st.output?'：'+st.output:''):'预览已更新';
-    if(st.mode!=='final') loadPreview();
+    if(st.mode!=='final') checkNewPreview();
   } else { tabTitle(`⏳ ${p}% ${lbl}中`); rs.className=''; $('#rstext').textContent=`${lbl}中… ${st.step||''}（${p}%）`; }
 }
 function stopPoll(){clearInterval(polling); polling=null; setBusy(false)}

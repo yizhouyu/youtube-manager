@@ -146,6 +146,12 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - Click on the picture = play/pause with a big centered ▶ while paused (YouTube feel); exclude the
   native control bar (bottom ~20% / 44 px). Browser automation's clicks/keys often don't reach a
   background Chrome window — verify page logic with dispatched events and ask the creator to try.
+- **Never overwrite the file a page is playing.** Each preview render is also hardlinked to
+  `edit/previews/preview-<time>.mp4`; the page plays a version, polls for a newer one, swaps
+  quietly (keeping position) when paused, and only offers a "新预览已生成" button while playing.
+  Release the old <video> (`removeAttribute('src'); load()`) before swapping or the new one stalls.
+  Automation tabs are often `visibilityState: hidden`: Chrome defers media loading and drops
+  synthetic input there — don't mistake that for a page bug.
 - The shot list follows playback (sticky player, active card scrolled into view, pause-follow on
   manual scroll). End the list with a visible "已经到最后一段了" marker, not blank space.
 - The "unsaved" flag must compare content, not fire on any input event.

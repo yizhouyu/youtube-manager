@@ -362,6 +362,25 @@ def music_bed(edl, total, workdir, out_wav):
     return True
 
 
+def _version_preview(edit, out, keep=3):
+    """Hardlink the new preview as previews/preview-<time>.mp4 so a page that is still playing an
+    older version keeps streaming it (overwriting one path broke playback mid-watch)."""
+    vdir = os.path.join(edit, "previews")
+    os.makedirs(vdir, exist_ok=True)
+    name = time.strftime("preview-%Y%m%d-%H%M%S.mp4")
+    dst = os.path.join(vdir, name)
+    try:
+        os.link(out, dst)
+    except OSError:
+        shutil.copy2(out, dst)
+    for old in sorted(f for f in os.listdir(vdir) if f.startswith("preview-"))[:-keep]:
+        try:
+            os.remove(os.path.join(vdir, old))
+        except OSError:
+            pass
+    return name
+
+
 def render(project, mode):
     edl = E.load(project)
     edit = E.edit_dir(project)
@@ -429,6 +448,8 @@ def render(project, mode):
               f"aresample={SR}[a]", "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac",
               "-b:a", "320k", "-movflags", "+faststart", "-f", "mov" if out.endswith(".mov") else "mp4", tmp])
         os.replace(tmp, out)
+        if mode != "final":
+            _version_preview(edit, out)
         with open(os.path.join(edit, "captions.srt"), "w", encoding="utf-8") as f:
             f.write(E.to_srt(E.timeline_subs(dict(edl, shots=shots))))
         status.set(state="done", step=f"完成 {int(total // 60)}:{int(total % 60):02d}", progress=1.0,
