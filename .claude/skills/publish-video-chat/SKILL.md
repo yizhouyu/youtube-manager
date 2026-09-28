@@ -421,3 +421,10 @@ memory so the skill personalizes over time.
   folder name for the title — e.g. a "USVI 1" cut spanned two days; don't claim a day-count (or
   "攻略") the footage doesn't support. Confirm scope from content, not the filename.
 - Keep this skill **free of personal info** so it can ship with the repo.
+
+## Manual to-dos checklist (always)
+
+Anything the APIs can't do goes into `sessions/MANUAL_TODO.md` (local, gitignored) as a new section
+at the top for this episode, with checkboxes and clickable links: Studio location string,
+Test & compare thumbnail/title variants (once public), Bilibili 审核/live check, and anything else
+left for the creator. Never leave these only in the chat reply.
