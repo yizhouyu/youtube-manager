@@ -84,6 +84,12 @@ description hook, tags, and a **proper-noun glossary**.
 
 ## Step 3 — Design the thumbnail (by looking)
 
+**Options + art director loop (creator, 2026-09-28):**
+- Make several options: single-image variants plus a collage for multi-place episodes.
+- Then spawn an independent **art-director** sub-agent. It looks at every option at full size and at mobile size, compares it with the channel's best performers, and returns concrete critiques and suggestions.
+- Revise and re-show it, and iterate until the art director signs off.
+- Record the final pick and the art director's notes in `thumbnail/THUMBNAILS.md`.
+
 **Style by episode type (creator, from 86 on):** if the episode covers several distinct places, the **main** option is a collage of 2–3 of the places as split panels, with one short calm line. If it's essentially one place, use a single big image. Always offer both kinds so he can pick. Every panel must still read at mobile size.
 
 **Multi-pass frame extraction** (scratch → `/tmp`):
