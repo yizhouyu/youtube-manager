@@ -84,7 +84,7 @@ description hook, tags, and a **proper-noun glossary**.
 
 ## Step 3 — Design the thumbnail (by looking)
 
-**Multi-sight episodes:** when the video covers several distinct places, add a **collage variant** that shows 2–3 of the sights as split panels, with one short line of text. Test it on a mobile-sized preview: each panel must still read at thumbnail size. Offer it next to the single-image variants, since the creator asked to try this.
+**Style by episode type (creator, from 86 on):** if the episode covers several distinct places, the **main** option is a collage of 2–3 of the places as split panels, with one short calm line. If it's essentially one place, use a single big image. Always offer both kinds so he can pick. Every panel must still read at mobile size.
 
 **Multi-pass frame extraction** (scratch → `/tmp`):
 1. **Coarse** — the 12-frame `_scan.jpg` from Step 1 gives the whole arc.
