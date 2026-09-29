@@ -172,12 +172,14 @@ have the reviewer check it too. Every item is something he had to ask for by han
 - A key person gets a short 2–3-line intro (who they are, why they matter). Skip trivia nobody
   cares about.
 - The first mention of any proper noun is bilingual — places, peoples, site terms (e.g. "圣达菲 Santa Fe", "古普韦布洛人 Ancestral Puebloans", "基瓦 kiva", "大房子 great house"). After that, Chinese alone is fine.
+- Word order: when locals and signs use the English name (Point Loma, Cabrillo, Arch Rock, Malibu Seafood), put English first: "Point Loma 洛马角". Keep an established Chinese name first when one is standard (约书亚树国家公园, 洛杉矶机场 LAX).
 - When the day changes, add a day marker. When the order looks odd, a one-line reason (e.g. galleries while waiting for the museum tour).
 
 **Name the food:** every meal gets its dishes named, identified from the frames and menus
 (flautas, enchiladas, chile relleno, menudo…), plus the restaurant name when a sign, receipt,
 menu or GPS lookup shows it. If it can't be found, leave it out — don't ask the creator for it.
 Descriptions may name them too.
+Use plain food words ("美食中心" for a food court, "牛肉" not a guessed cut); no fancy menu prose.
 
 **Don't caption or label the obvious (creator, 2026-09-29):** no note captions or arrow labels for
 things viewers can plainly see ("一只海鸥在喝水", a "海鸥"/"鹈鹕" arrow, "小朋友离海狮很近",
