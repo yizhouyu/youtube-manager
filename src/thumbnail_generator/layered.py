@@ -143,8 +143,11 @@ def clean(img, boxes, protect=None, radius=9):
 
 # ---------------------------------------------------------------- building blocks
 
-def grade(img, warm=0.0, sat=1.0, bright=1.0, contrast=1.0, pop=False):
-    """Pull a layer into the scene's colour world. ``warm`` > 0 shifts toward gold (fractions, e.g. 0.04)."""
+def grade(img, warm=0.0, sat=1.0, bright=1.0, contrast=1.0, pop=False, gamma=1.0, lift=0, denoise=False):
+    """Pull a layer into the scene's colour world. ``warm`` > 0 shifts toward gold (fractions, e.g. 0.04).
+    ``gamma`` > 1 lifts shadows and mids without clipping highlights (for muddy, underexposed areas).
+    ``lift`` (0-255) raises the black point linearly (out = in * (255 - lift) / 255 + lift). Prefer it over a
+    strong gamma on crushed, compressed shadows, which posterise. ``denoise`` median-filters first."""
     rgba = img.mode == "RGBA"
     a = img.getchannel("A") if rgba else None
     im = img.convert("RGB")
@@ -152,6 +155,13 @@ def grade(img, warm=0.0, sat=1.0, bright=1.0, contrast=1.0, pop=False):
         im = ImageEnhance.Color(im).enhance(1.08)
         im = ImageEnhance.Contrast(im).enhance(1.06)
         im = im.filter(ImageFilter.UnsharpMask(radius=2, percent=100, threshold=3))
+    if denoise:
+        im = im.filter(ImageFilter.MedianFilter(3))
+    if lift:
+        im = im.point([round(v * (255 - lift) / 255 + lift) for v in range(256)] * 3)
+    if gamma != 1.0:
+        lut = [round(255 * (v / 255) ** (1 / gamma)) for v in range(256)]
+        im = im.point(lut * 3)
     if contrast != 1.0:
         im = ImageEnhance.Contrast(im).enhance(contrast)
     if bright != 1.0:
@@ -514,9 +524,16 @@ def compose(spec, size, bili=False):
             if g("leader"):                                     # thin line from the inset to a hero point
                 lx, ly = g("leader")
                 d = ImageDraw.Draw(canvas)
-                d.line((g("x") * W, g("y") * H, lx * W, ly * H), fill=WHITE + (235,), width=max(3, round(H * 0.006)))
-                rr = H * 0.012
-                d.ellipse((lx * W - rr, ly * H - rr, lx * W + rr, ly * H + rr), fill=WHITE + (255,))
+                lw = max(3, round(H * g("leader_w", 0.006)))
+                sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                ImageDraw.Draw(sh).line((g("x") * W, g("y") * H + lw * 0.4, lx * W, ly * H + lw * 0.4),
+                                        fill=(0, 0, 0, 110), width=lw + 2)
+                canvas.alpha_composite(sh.filter(ImageFilter.GaussianBlur(lw * 0.4)))
+                d = ImageDraw.Draw(canvas)
+                d.line((g("x") * W, g("y") * H, lx * W, ly * H), fill=WHITE + (240,), width=lw)
+                rr = max(H * 0.012, lw * 1.4)
+                d.ellipse((lx * W - rr, ly * H - rr, lx * W + rr, ly * H + rr), fill=WHITE + (255,),
+                          outline=(0, 0, 0, 90), width=max(1, lw // 4))
                 canvas.alpha_composite(lay, (boxes[i][0], boxes[i][1]))   # keep the inset above its own line
         elif kind == "popout":
             w, h = g("w", 0.4) * H, g("h", 0.4) * H
