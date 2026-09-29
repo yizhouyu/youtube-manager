@@ -290,6 +290,13 @@ retry the first insert.
 (e.g. 7:11–7:31 on a 7:31 video). The edit already reserves 15–20 s of calm B-roll/end card for it.
 Add it in Studio right after upload (scheduled videos accept it): Editor → End screen + → Apply template → **"1 video, 1 subscribe"** (the default template; its video element is "Best for viewer"), save. Shorts can't have end screens.
 
+**A/B test right after upload (creator, 2026-09-29):** if browser access is available, set it up in
+Studio immediately (Details → thumbnail/title "A/B Testing" → "Thumbnail only" or "Title only";
+avoid the combined mode, which confounds). Default: thumbnail-only, the creator's pick vs 1–2
+alternates; title-only on a few episodes. Save the page afterwards. No browser → add a MANUAL_TODO line.
+Heads-up: several Chrome instances may be connected; make sure the Studio page shows the main
+channel before changing anything.
+
 **Video location** — ⚠️ **cannot be set via the API.** `recordingDetails.recordingDate` writes
 fine, but `locationDescription` is silently dropped (YouTube removed location writes). Don't
 waste a call on it — instead **surface the location string** (e.g. "Sarasota, Florida") for the
