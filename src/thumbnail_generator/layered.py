@@ -511,7 +511,7 @@ def compose(spec, size, bili=False):
                 lay = circle_card(photo, h, ring=g("ring", 0.04), hairline=g("hairline", 0.0))
             if g("tag"):
                 t = pill(g("tag"), g("tag_size", 0.07) * H, fg=g("tag_fg", (25, 25, 25)), bg=g("tag_bg", WHITE))
-                pad_top = round(t.height * 0.55)
+                pad_top = round(t.height * g("tag_overlap", 0.55))    # how far the tag rides up over the card
                 holder = Image.new("RGBA", (max(lay.width, t.width), lay.height + t.height - pad_top), (0, 0, 0, 0))
                 holder.alpha_composite(lay, ((holder.width - lay.width) // 2, 0))
                 tx = {"center": (holder.width - t.width) // 2, "left": round(lay.width * 0.06),

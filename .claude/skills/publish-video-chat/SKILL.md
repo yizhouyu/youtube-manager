@@ -105,6 +105,8 @@ description hook, tags, and a **proper-noun glossary**.
   - Keep the cut-out's real base/ground so scale still reads.
   - Clean distractions with `clean()` clone boxes, not blur.
 - If the creator prefers a single image, the best layered option is usually that image plus one card.
+- Never offer equal side-by-side strips (2-up or 3-up) again, not even as an alternative (creator, 2026-09-29: "太丑").
+- If the thumbnail uses the creator's face, it must be a flattering frame: natural smile, eyes open, not mid-word, good light, no lens flare, no odd angle. The art director checks this explicitly. If no such frame exists, use a scene-based layout.
 - Pattern research and reasons: `sessions/thumbs/research/PATTERNS.md` (local).
 
 **Multi-pass frame extraction** (scratch → `/tmp`):
