@@ -124,9 +124,10 @@ see LESSONS.md for sources). Treat them as the bar every cut must clear:
    open question in the first 30 s and answer it near the end; save the strongest location for last.
 7. **Captions narrate when people don't:** where, what, how much, what surprised us (note style);
    cut to a reaction shot after every reveal / first bite; use contrast (expected vs real).
-8. **Engagement asks, placed where they work:** one specific comment question tied to a moment
-   ("你会选A还是B?"; Bilibili: "选A扣1，选B扣2") and a light 三连/订阅 line right AFTER the emotional
-   peak, not at the start. Draft a pinned comment that asks a question (goes in publish metadata).
+8. **Engagement asks, placed where they work:** the comment question goes in the **description and
+   the pinned comment**, not on screen. On-screen "评论区聊聊 / 你会选A还是B?" captions read stiff; the
+   creator asked to drop them. A light 三连/订阅 line right AFTER the emotional peak is fine.
+   Draft the comment question plainly, tied to a moment (Bilibili: "选A扣1，选B扣2"), in publish metadata.
 9. **Leave the last 15–20 s for the end screen:** calm B-roll + a captioned teaser of the next
    episode, but ONLY if the next episode is from the same trip. For the last episode of a trip,
    point to that region's playlist/合集 instead. No separate outro card.
