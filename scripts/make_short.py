@@ -412,9 +412,16 @@ def hook_png(hook, cache):
         scrim = Image.new("RGBA", (W, H), (0, 0, 0, 0))   # gentle top-down darkening behind the title
         sd = ImageDraw.Draw(scrim)
         y_end = y0 + block_h + 160
-        for yy in range(0, y_end, 4):
-            a = int(115 * min(1.0, (y_end - yy) / (y_end * 0.55)))
-            sd.rectangle([0, yy, W, yy + 4], fill=(0, 0, 0, a))
+        if top <= 0.3:   # title near the top: darken from the top edge down
+            for yy in range(0, y_end, 4):
+                a = int(115 * min(1.0, (y_end - yy) / (y_end * 0.55)))
+                sd.rectangle([0, yy, W, yy + 4], fill=(0, 0, 0, a))
+        else:            # title lower in the frame: a band behind the block only, so the sky/subject above stays bright
+            y_start = max(0, y0 - 160)
+            mid, half = (y_start + y_end) / 2, (y_end - y_start) / 2
+            for yy in range(y_start, y_end, 4):
+                a = int(115 * min(1.0, (half - abs(yy - mid)) / (half * 0.45)))
+                sd.rectangle([0, yy, W, yy + 4], fill=(0, 0, 0, max(0, a)))
         if part == "scrim":
             return scrim
         y = y0
@@ -422,7 +429,11 @@ def hook_png(hook, cache):
             _draw_marked_line(d, cx - _line_w(d, ln, f) / 2, y, ln, f, max(8, size // 10))
             y += lh
         if sub:
-            fs = O._font(O.TITLE_FONTS, 44)
+            fsz = 44
+            fs = O._font(O.TITLE_FONTS, fsz)
+            while fsz > 30 and d.textlength(sub, font=fs) + 64 > max_w:   # a long sub shrinks instead of spilling off-frame
+                fsz -= 2
+                fs = O._font(O.TITLE_FONTS, fsz)
             sw = d.textlength(sub, font=fs) + 64
             y += 22
             d.rounded_rectangle([cx - sw / 2, y, cx + sw / 2, y + 74], radius=37, fill=(0, 0, 0, 150))
