@@ -225,6 +225,11 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
 - **Creator-approved defaults (keep doing these):** the animated route map showing where the
   episode goes (the creator loves it), freeze-frame + labels, arrows on landmarks, clock tags
   through golden hour, scale-comparison cards.
+- **Outside material is allowed (creator, 2026-09-29, from ep 92):** when an idea needs more
+  than the footage has (a historic photo, a map, an official diagram, a short archival clip, a
+  fact card), download it and put it in. Prefer public-domain / freely licensed sources
+  (Wikimedia Commons, NPS/NASA/Library of Congress, official park maps), keep it short, and
+  credit the source on screen or in the description. No other creators' vlog footage or music.
 - **Try at least one new technique per video.** If the renderer can't do it yet, add it as a small
   generic, tested feature (commit + push per the repo rules).
 - **Log the experiment** in LESSONS.md → "Experiments": what was tried, on which video, how it
