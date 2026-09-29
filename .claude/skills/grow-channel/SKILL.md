@@ -215,3 +215,5 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
   YouTube SEO (Backlinko, Dec 2025) https://backlinko.com/how-to-rank-youtube-videos
 
 **Shorts covers:** every Short gets a vertical cover picked from options through the same independent art-director loop as long-form thumbnails. Keep the subject and text inside the center safe area, because the grid crops to about 1:1–4:5. Check rare glyphs at full size (the heavy title font leaves enclosed counters such as 魟's 魚 dots unstroked, so fill them with the stroke colour). Save the approved cover next to the file as `02 - Export/shorts/<slug>_cover.jpg`; the API accepts `thumbnails().set` on a Short, but the Shorts feed may still show a frame, so pick the frame in Studio if it doesn't take. Schedule Shorts like long videos, with `publishAt` at a fixed daily slot.
+
+**Silent clips:** when a Short's source has no speech, write narration captions (calm, factual, verified), and optionally add a synthetic voiceover. Test both against the viewer critic. Label it as narration; never imitate the creator's voice.
