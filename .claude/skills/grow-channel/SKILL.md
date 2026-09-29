@@ -99,6 +99,42 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
   `y` keyframes from a tracker so the subject is big and centred from the first frame. Keep the
   spec next to the episode's EDL (`02 - Export/edit/shorts/<slug>.json`) so the Short can be
   re-rendered.
+- **Engagement checklist (2025–26), with `"style": "punch"`**. Since 31 Mar 2025 a Shorts view
+  counts every start or replay, and "engaged views" are counted separately [S21]. Retention
+  (% viewed) and replays drive distribution: "a 30-second Short with 85% watch duration will
+  likely rank higher than a 60-second Short with only 50% retention" [S24]. So every rule below
+  serves retention and the loop. The sources are marketing blogs; the numbers marked *(h)* are
+  craft heuristics to A/B against the log, not rules.
+  1. **Hook in the first second**: motion on screen from frame 1 (an animal moving, the subject
+     in action, not a static wide), plus a big title that opens a *calm* curiosity gap: the
+     specific thing the Short will pay off (「沙丘上遇到一只 / {拉滑沙盘}的机器狗」,
+     「{海狮}和{海豹}怎么分」). No 你敢…吗, no fake stakes. Spec `hook` (pops in, fades by
+     ~2 s). If the first 2–3 s don't hold, viewers swipe [S31][S32].
+  2. **Pace**: a new shot or a punch-in every 1–2.5 s *(h)*. make_short's report warns above
+     3.5 s. Kill dead air with `cuts` (jump cuts; `jump_zoom` 1.08–1.12 hides the jump) and
+     speed through walking with `ramp`. "Every frame serves a purpose" [S34].
+  3. **Captions**: bold, large, burned in, one idea per caption, {keyword} in yellow; most
+     feed viewers start with the sound off [S32]. Speech stays verbatim. Put a manual `\n` at
+     a word boundary when a line runs past ~9 CJK characters (the auto-balance can split 自/己).
+     Short-only notes carry facts and context (white on a dark plate).
+  4. **Voice over B-roll**: when the best line was said over a dull picture, play it under the
+     subject with `audio_from` (J/L cut).
+  5. **Music**: an upbeat, vocal-free Audio Library bed (funky / electronic / surf rock), entered
+     at its high-energy passage (measure 5 s loudness windows and set `in`), `match: true`,
+     volume ~0.45, duck ~0.12 under speech. For animals, let 0.5 s of natural sound lead
+     (`start`). Audio Library music keeps a Short under 60 s claim-free [S31].
+  6. **Payoff / reveal** before the end: the answer to the hook (the third difference, the
+     place, the reaction line).
+  7. **Loop**: end on footage that leads into the opening shot, plus `loop_xfade` 0.3–0.4, so
+     the replay is invisible. Design for the rewatch [S31][S33].
+  8. **CTA in the last ~2.3 s**: spec `cta` (default 「关注我 · 带你看更多美国宝藏景点」, a
+     red 「＋ 关注」 pill and an arrow bobbing toward the channel row). It sits in the lower third,
+     and captions still on screen are lifted above it. Frame the payoff shot so the subject is
+     in the upper half there. No on-screen 评论区 prompts: the question goes in the description.
+  9. **Length 15–35 s** *(h)*. Under 15 s tends to loop more, but gives no room for a payoff
+     plus the CTA [S31]; beyond 35 s, cut.
+  Then run the viewer critic (swipe risk at 0–1 s / 3 s / 10 s) on the 1 fps sheet
+  (`_check/sheet_1fps.jpg`) and full-size frames of the hook and the CTA.
 - **Archive the final file**: make_short writes to `<episode>/02 - Export/shorts/<slug>.mp4` by
   default (next to `thumbnail/`). Keep that file after upload, never render only to a temp dir,
   and add a row to `02 - Export/shorts/README.md`: file → YouTube id, publish time, spec, related
@@ -210,6 +246,10 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
 - S28 Subscription source: https://support.google.com/youtube/answer/9717879
 - S29 Engagement tab: https://support.google.com/youtube/answer/9313698
 - S30 Key moments for retention: https://support.google.com/youtube/answer/9314415
+- S31 YouTube Shorts best practices (Hootsuite, Jul 2025): https://blog.hootsuite.com/youtube-shorts/
+- S32 YouTube Shorts guide (Later, Jun 2025): https://later.com/blog/youtube-shorts/
+- S33 YouTube Shorts tips, looping (Sprout Social): https://sproutsocial.com/insights/youtube-shorts/
+- S34 YouTube Shorts examples (HubSpot, Nov 2024): https://blog.hubspot.com/marketing/youtube-shorts
 - Also: impressions funnel https://support.google.com/youtube/answer/9314486 ·
   understand your audience https://www.youtube.com/creators/grow/understand-your-audience/ ·
   YouTube SEO (Backlinko, Dec 2025) https://backlinko.com/how-to-rank-youtube-videos
