@@ -223,14 +223,16 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
   a picture-in-picture reaction, a before/after split, animated pop-in captions for key facts).
   The editor applies the best ones and notes why others were skipped.
 - **Creator-approved defaults (keep doing these):** the animated route map showing where the
-  episode goes (the creator loves it), freeze-frame + labels, arrows on landmarks, clock tags
+  episode goes (the creator loves it), the city "postcard" title card whose letters are live
+  windows onto the day's shots (loved on 91; use for a new city/trip, not every episode), freeze-frame + labels, arrows on landmarks, clock tags
   through golden hour, scale-comparison cards.
 - **Outside material is allowed (creator, 2026-09-29, from ep 92):** when an idea needs more
   than the footage has (a historic photo, a map, an official diagram, a short archival clip, a
   fact card), download it and put it in. Prefer public-domain / freely licensed sources
   (Wikimedia Commons, NPS/NASA/Library of Congress, official park maps), keep it short, and
   credit the source on screen or in the description. No other creators' vlog footage or music.
-- **Try at least one new technique per video.** If the renderer can't do it yet, add it as a small
+- **Try at least one new technique per video — mandatory.** The creator explicitly wants every
+  episode to bring something new. If the renderer can't do it yet, add it as a small
   generic, tested feature (commit + push per the repo rules).
 - **Log the experiment** in LESSONS.md → "Experiments": what was tried, on which video, how it
   looked/felt (reviewer + viewer-critic scores), and whether it should become a default.

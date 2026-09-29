@@ -84,6 +84,15 @@ description hook, tags, and a **proper-noun glossary**.
 
 ## Step 3 — Design the thumbnail (by looking)
 
+**What the creator actually picks (88–94, 2026-09-29):** a calm, iconic *hero photo that says the
+place* (the dunes at sunset, the carrier, the UFO welcome sign, the cove, the sunset tide pools), or
+the most *unusual close-up* of the day (the teddy-bear cholla on a shoe beat a generic Joshua tree);
+a big place name or 2-line title in clean large type in empty sky; and **1–2 white-bordered tilted
+photo cards** (a circle inset with a pointer line is fine). Restraint wins: hero + ≤2 extras, no
+clutter. The art director's top pick lost 3 of 7 times, always to the option with the more
+distinctive hero or fewer elements — weight those. Never offer equal strips/grids again (not even
+as "old" comparison options), and use his face only in a clearly flattering frame.
+
 **Options + art director loop (creator, 2026-09-28):**
 - Make several options: single-image variants plus a collage for multi-place episodes.
 - Then spawn an independent **art-director** sub-agent. It looks at every option at full size and at mobile size, compares it with the channel's best performers, and returns concrete critiques and suggestions.
