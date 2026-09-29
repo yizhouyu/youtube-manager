@@ -177,6 +177,11 @@ things viewers can plainly see ("一只海鸥在喝水", a "海鸥"/"鹈鹕" arr
 "关掉音乐，听听海边的声音"). A note or label must add information viewers don't have: a name,
 a fact, a number, a correction. No prices unless they're the point of the scene.
 
+**Caption lines must be whole phrases (creator, 2026-09-29):** never split a caption mid-phrase
+("…叫 Taste of Hunan" / "的餐厅吃完了午饭", "…看到太平" / "洋的…"). ASR segments often break at
+English words or pauses; merge adjacent pieces when the next starts with 的/了/们 or completes a
+name, as long as the line fits (~24 CJK chars); otherwise split at a natural clause boundary.
+
 **Captions must be what was actually said:**
 - Background chatter and PA announcements are NOT captions. Before keeping a quiet line, check its
   level vs his voice and cross-check it with a second ASR.
