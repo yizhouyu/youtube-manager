@@ -156,7 +156,7 @@ have the reviewer check it too. Every item is something he had to ask for by han
 - At the start of a museum or site, a note says what it is and what it exhibits.
 - A key person gets a short 2–3-line intro (who they are, why they matter). Skip trivia nobody
   cares about.
-- The first mention of a place is bilingual, e.g. "圣达菲 Santa Fe".
+- The first mention of any proper noun is bilingual — places, peoples, site terms (e.g. "圣达菲 Santa Fe", "古普韦布洛人 Ancestral Puebloans", "基瓦 kiva", "大房子 great house"). After that, Chinese alone is fine.
 - When the day changes, add a day marker. When the order looks odd, a one-line reason (e.g. galleries while waiting for the museum tour).
 
 **Name the food:** every meal gets its dishes named, identified from the frames and menus
