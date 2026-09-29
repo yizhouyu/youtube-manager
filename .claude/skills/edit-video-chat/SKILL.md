@@ -160,8 +160,9 @@ have the reviewer check it too. Every item is something he had to ask for by han
 - When the day changes, add a day marker. When the order looks odd, a one-line reason (e.g. galleries while waiting for the museum tour).
 
 **Name the food:** every meal gets its dishes named, identified from the frames and menus
-(flautas, enchiladas, chile relleno, menudo…), plus the restaurant name. Descriptions may name
-them too.
+(flautas, enchiladas, chile relleno, menudo…), plus the restaurant name when a sign, receipt,
+menu or GPS lookup shows it. If it can't be found, leave it out — don't ask the creator for it.
+Descriptions may name them too.
 
 **Captions must be what was actually said:**
 - Background chatter and PA announcements are NOT captions. Before keeping a quiet line, check its
