@@ -222,6 +222,9 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
   freeze-frame + label on a funny moment, a J-cut so the next place's sound leads the picture,
   a picture-in-picture reaction, a before/after split, animated pop-in captions for key facts).
   The editor applies the best ones and notes why others were skipped.
+- **Creator-approved defaults (keep doing these):** the animated route map showing where the
+  episode goes (the creator loves it), freeze-frame + labels, arrows on landmarks, clock tags
+  through golden hour, scale-comparison cards.
 - **Try at least one new technique per video.** If the renderer can't do it yet, add it as a small
   generic, tested feature (commit + push per the repo rules).
 - **Log the experiment** in LESSONS.md → "Experiments": what was tried, on which video, how it
