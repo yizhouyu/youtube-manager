@@ -57,6 +57,12 @@ def _wrap(draw, text, font, max_w):
     lines, cur = [], ""
     for ch in text:
         if draw.textlength(cur + ch, font=font) > max_w and cur:
+            # keep a "（译文）" gloss whole: an English line + its Chinese translation wraps as two
+            # lines, not "…City Hall（马上路过" / "帕萨迪纳市政厅）"
+            gl = cur.rfind("（")
+            if gl > 0 and "）" not in cur[gl:]:
+                lines.append(cur[:gl].rstrip()); cur = cur[gl:] + ch
+                continue
             # don't split an ASCII word if we can back up to a space
             cut = cur.rfind(" ") if ch.isascii() and ch != " " else -1
             if cut > 0:
