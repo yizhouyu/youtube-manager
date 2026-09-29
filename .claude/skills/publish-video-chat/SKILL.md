@@ -395,6 +395,7 @@ playlists (阿拉斯加, 加州, 美东, 美国西南：亚利桑那·犹他·�
 use the script:
 - `./venv/bin/python scripts/bili_season.py --list`
 - `./venv/bin/python scripts/bili_season.py --season "<name>" --desc "<one line>" <BV…>`
+- Change the cover of an already-submitted (even scheduled) video: `./venv/bin/python scripts/bili_cover.py <BV> <cover.jpg>` (dry run) then add `--go`. It re-sends every field unchanged except the cover, keeps dtime and 合集, and triggers a re-审核 (复核中). Don't edit title/desc this way unless needed — each edit re-queues review.
 
 If the 合集 doesn't exist yet, the script creates it. A video can be in only one 合集.
 
