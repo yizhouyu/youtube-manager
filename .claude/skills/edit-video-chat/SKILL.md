@@ -173,6 +173,7 @@ them too.
 **Look closer:** push in (Ken Burns zoom) on small animals and small exhibits, located on 4K frames.
 
 **Music:**
+- Openings must NOT be dark, eerie or harsh ("诡异刺耳"): no dramatic-ambient drones in the hook. Open bright, warm or curious.
 - Fresh tracks each episode.
 - No vocals, including "oh oh oh" chants.
 
