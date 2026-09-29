@@ -21,8 +21,8 @@ Do the whole first cut + QA + thumbnails yourself; don't wait on him. Render the
 for QA, then write `edit/HANDOFF.md` (template in the project template: status, structure with
 timestamps, decisions, drops, music, thumbnail links, QA summary, open questions, how to review)
 and **keep `edit/preview.mp4`** so the creator can review right away (creator, 2026-09-29); delete
-`edit/previews/` and `/tmp/yt-editor/<project>`. The preview is deleted only after the video is
-uploaded (publish Step 7.9). The EDL stays the source of truth. No final render, no upload. Projects parked in a batch folder (e.g.
+`edit/previews/` and `/tmp/yt-editor/<project>`. Once the creator approves and the final render is
+done, delete the preview right away; don't wait for the upload. The EDL stays the source of truth. No final render, no upload. Projects parked in a batch folder (e.g.
 `~/Desktop/202512/`): **move the project folder up to `~/Desktop/` BEFORE starting it**, so its
 path never changes mid-edit (don't rely on path fallbacks). Track every project in
 `sessions/QUEUE.md` (local, gitignored). When he returns, per video: start the raw-footage player
