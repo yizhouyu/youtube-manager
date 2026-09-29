@@ -430,6 +430,13 @@ The loop **proposes**; the human stays the gate. Human corrections during review
 memory so the skill personalizes over time.
 
 ## Gotchas
+- **YouTube Data API quota is 10,000 units/day** (resets 00:00 PT = 03:00 ET); no increase is
+  requested (the audit form isn't worth it for a personal uploader). Budget before a batch:
+  `videos.insert` ≈ 1,600, `thumbnails.set` / `playlistItems.insert|update` / `videos.update` = 50,
+  list calls = 1. That is ~5 uploads/day. Never bulk-reorder playlists via the API (50 per move);
+  insert new items at the right position instead. Studio-only steps (location, related video)
+  cost nothing. When `quotaExceeded` hits, finish the Bilibili side, write the remaining YouTube
+  steps into the session state, and resume after the reset.
 
 - **Never touch `01 - Unedited/`.** **Never delete the source** (`cleanup=False`).
 - **Verify before destroying**: never delete/rename an export until confirmed correct & intact.
