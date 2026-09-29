@@ -81,28 +81,30 @@ def main():
         if os.path.exists(cpath):
             a.context = " ".join(l.strip() for l in open(cpath, encoding="utf-8") if not l.startswith("#"))
 
-    from mlx_qwen3_asr import load_model, transcribe
-    from opencc import OpenCC
-    t2s = OpenCC("t2s").convert
-    model = load_model(MODEL)
-    model = model[0] if isinstance(model, tuple) else model
+    from .asrlock import asr_lock
+    with asr_lock():  # one ASR model at a time on this machine
+        from mlx_qwen3_asr import load_model, transcribe
+        from opencc import OpenCC
+        t2s = OpenCC("t2s").convert
+        model = load_model(MODEL)
+        model = model[0] if isinstance(model, tuple) else model
 
-    src = os.path.join(E.project_dir(a.project), "01 - Unedited")
-    out = os.path.join(E.edit_dir(a.project), "scan", "srt")
-    os.makedirs(out, exist_ok=True)
-    clips = sorted(glob.glob(os.path.join(src, "*.MP4")))
-    if a.only:
-        clips = [c for c in clips if os.path.basename(c)[:-4] in a.only.split(",")]
-    for c in clips:
-        name = os.path.basename(c)[:-4]
-        with tempfile.NamedTemporaryFile(suffix=".wav") as f:
-            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", c, "-vn", "-ac", "1", "-ar", "16000", f.name],
-                           check=True)
-            r = transcribe(f.name, model=model, context=a.context, return_timestamps=True)
-        lines = _lines(t2s(r.text or ""), [dict(w, text=t2s(w["text"])) for w in (r.segments or [])])
-        with open(os.path.join(out, name + ".srt"), "w", encoding="utf-8") as fh:
-            fh.write(E.to_srt(lines))
-        print(f"{name}: {len(lines)} lines", flush=True)
+        src = os.path.join(E.project_dir(a.project), "01 - Unedited")
+        out = os.path.join(E.edit_dir(a.project), "scan", "srt")
+        os.makedirs(out, exist_ok=True)
+        clips = sorted(glob.glob(os.path.join(src, "*.MP4")))
+        if a.only:
+            clips = [c for c in clips if os.path.basename(c)[:-4] in a.only.split(",")]
+        for c in clips:
+            name = os.path.basename(c)[:-4]
+            with tempfile.NamedTemporaryFile(suffix=".wav") as f:
+                subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", c, "-vn", "-ac", "1", "-ar", "16000", f.name],
+                               check=True)
+                r = transcribe(f.name, model=model, context=a.context, return_timestamps=True)
+            lines = _lines(t2s(r.text or ""), [dict(w, text=t2s(w["text"])) for w in (r.segments or [])])
+            with open(os.path.join(out, name + ".srt"), "w", encoding="utf-8") as fh:
+                fh.write(E.to_srt(lines))
+            print(f"{name}: {len(lines)} lines", flush=True)
 
 
 if __name__ == "__main__":

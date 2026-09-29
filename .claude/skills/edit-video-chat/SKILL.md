@@ -27,6 +27,12 @@ path never changes mid-edit (don't rely on path fallbacks). Track every project 
 `sessions/QUEUE.md` (local, gitignored). When he returns, per video: start the raw-footage player
 → re-render the preview → review page → apply his notes → final render → publish.
 
+## One ASR at a time
+
+`src/editor/transcribe.py` takes the machine-wide ASR lock itself. Wrap any other ASR run
+(whisper, ad-hoc Qwen checks) with `./venv/bin/python -m src.editor.asrlock -- <command>` so
+parallel editors queue instead of loading two models (16 GB Mac). Don't hand-roll the lock.
+
 ## Budget (long batches)
 
 `python3 scripts/claude_usage.py --log "<project> start"` before a video and `... "<project> end"`
