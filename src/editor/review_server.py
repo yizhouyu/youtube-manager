@@ -25,6 +25,7 @@ import time
 from flask import Flask, Response, abort, jsonify, request, send_file
 
 from . import edl as E
+from . import questions as QS
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CACHE_ROOT = "/tmp/yt-editor"
@@ -37,6 +38,9 @@ _thumb_sem = threading.Semaphore(4)
 
 
 # ---------------------------------------------------------------- helpers
+
+QS.register(app, lambda: PROJECT)
+
 
 def edit_dir():
     return E.edit_dir(PROJECT)
@@ -414,6 +418,20 @@ summary{cursor:pointer;color:var(--mut);font-size:13px;user-select:none}
 #modal .row{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
 #mt{font-variant-numeric:tabular-nums;color:var(--mut)}
 .hint{color:var(--mut);font-size:13px}
+#pvrow{display:flex;gap:12px;align-items:stretch}
+#pvcol{flex:1;min-width:0}
+#qside{display:none;width:310px;flex:none;position:relative;min-height:230px}
+body.hasq #qside{display:block}
+#qpanel{position:absolute;inset:0;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}
+#qstrip{display:none;position:relative;height:14px;margin:5px auto 0;cursor:default}
+body.hasq #qstrip.on{display:block}
+#qstrip .tr{position:absolute;left:0;right:0;top:5px;height:4px;border-radius:2px;background:var(--line)}
+#qstrip .ph{position:absolute;top:2px;width:2px;height:10px;margin-left:-1px;background:var(--mut);border-radius:1px}
+#qstrip .qm{position:absolute;top:0;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#f59e0b;border:2px solid #fff;
+  box-shadow:0 0 0 1px #d97706;cursor:pointer}
+#qstrip .qm.done{background:#22a55a;box-shadow:0 0 0 1px #067647}
+@media (max-width:820px){#pvrow{flex-direction:column}#qside{width:auto}}
+__QA_CSS__
 </style></head><body>
 <div id="bar">
  <div class="top">
@@ -431,7 +449,9 @@ summary{cursor:pointer;color:var(--mut);font-size:13px;user-select:none}
 <main>
   <div id="help">① 看上面的预览 ② 不要的镜头点「删掉」，想短一点就拖/改开始结束 ③ 点「更新预览」看效果 ④ 满意了点「导出成片」</div>
   <div id="errbox"></div>
-  <div id="pvwrap"><div id="pv"><div class="none">还没有预览，点右上角「更新预览」生成</div></div></div>
+  <div id="pvwrap"><div id="pvrow"><div id="pvcol"><div id="pv"><div class="none">还没有预览，点右上角「更新预览」生成</div></div>
+    <div id="qstrip" title="黄点 = 有问题想问你（点一下跳过去），绿点 = 已回答"><div class="tr"></div><div class="ph"></div><div id="qmarks"></div></div></div>
+    <div id="qside"><div id="qpanel"></div></div></div></div>
   <div id="list"></div>
   <div id="listEnd">— 已经到最后一段了 —<br><span id="listEndInfo"></span><br><a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false">↑ 回到顶部</a></div>
 </main>
@@ -848,8 +868,43 @@ $('#bReload').onclick=async()=>{await fetchEdl(); render()};
 window.addEventListener('focus',checkRemote);
 setInterval(checkRemote,15000);
 load();
+</script>
+<script>
+__QA_JS__
+// ---- questions for the creator, popping up next to the preview at their cut time
+(()=>{
+  const pv=()=>document.getElementById('pvv');
+  let QI=[], qDur=0, qW=0;
+  function drawMarks(){
+    const v=pv(), box=document.getElementById('qmarks'), d=v&&v.duration;
+    qDur=d||0; if(!box) return;
+    box.innerHTML=d?QI.map(({q,p})=>`<div class="qm${q.answer?' done':''}" data-id="${esc(q.id)}" style="left:${Math.min(100,p/d*100)}%" title="${esc(fmt(p)+' '+q.text)}"></div>`).join(''):'';
+  }
+  const api=initQuestions({
+    root:document.getElementById('qpanel'),
+    pos:q=>typeof q.t==='number'?q.t:null,
+    now:()=>{const v=pv(); return v&&v.readyState>=1?v.currentTime:null},
+    playing:()=>{const v=pv(); return !!v&&!v.paused&&!v.ended},
+    pause:()=>{const v=pv(); if(v) v.pause()},
+    seek:t=>seekPreview(t),
+    label:(q,p)=>fmt(p),
+    markers:it=>{QI=it; drawMarks()},
+    onTick:pos=>{
+      const v=pv(), st=document.getElementById('qstrip');
+      st.classList.toggle('on',!!v);
+      if(!v) return;
+      if((v.duration||0)!==qDur) drawMarks();
+      const w=v.clientWidth; if(w&&w!==qW){qW=w; st.style.width=w+'px'}   // line up under the picture
+      if(qDur&&pos!=null) st.querySelector('.ph').style.left=Math.min(100,pos/qDur*100)+'%';
+    }
+  });
+  document.getElementById('qmarks').addEventListener('click',e=>{const m=e.target.closest('.qm'); if(m) api.jump(m.dataset.id)});
+})();
 </script></body></html>
 """
+
+
+PAGE = QS.inject(PAGE)
 
 
 def main():

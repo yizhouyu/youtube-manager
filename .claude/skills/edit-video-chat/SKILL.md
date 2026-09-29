@@ -182,6 +182,13 @@ them too.
 **Decide craft calls yourself** (zoom, speed, trims, B-roll, music, caption wording). Ask him only
 about facts only he knows.
 
+**Open questions go into `edit/questions.json`, not a list in chat.** He can't answer "what was the
+restaurant called?" before he has watched the footage. Anchor each question to the moment it is
+about; it pops up beside the video on both pages (8765 cut / 8766 raw) and his answer is saved
+back into the file (poll it; add questions any time, the pages pick them up without a reload):
+`./venv/bin/python -m src.editor.questions "<project>" add "问题" --clip GX015467 --clip-t 1.0 [--t <cut s>] [--context "…"]`
+(give either anchor; the other is filled from the EDL). `... questions "<project>" list` shows answers.
+
 ## 3. Render + review
 
 ```bash

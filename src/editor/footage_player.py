@@ -25,6 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, Response, abort, jsonify, send_file
 
 from . import edl as E
+from . import questions as QS
 
 CACHE_ROOT = "/tmp/yt-editor"
 DEFAULT_SOURCE = "01 - Unedited"
@@ -34,6 +35,7 @@ PROJECT = None            # absolute project dir
 _lock = threading.Lock()
 _clips = {"key": None, "list": []}
 _thumb_sem = threading.Semaphore(3)
+QS.register(app, lambda: PROJECT)
 
 
 # ---------------------------------------------------------------- helpers
@@ -359,6 +361,16 @@ aside .head span{color:var(--mute);font-weight:400}
 .item .ub.noedl{background:#e5e7eb}
 .item .ub i{position:absolute;top:0;bottom:0;background:var(--used)}
 .item .first{color:var(--mute);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#qpanel{display:none;flex:none;max-height:55vh;overflow-y:auto;padding:10px 10px 6px;border-bottom:1px solid var(--line)}
+body.hasq #qpanel{display:block}
+.qms{position:absolute;left:0;right:0;top:-11px;height:0;z-index:3}
+.qm{position:absolute;top:0;width:0;height:0;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;
+  border-top:8px solid #fbbf24;cursor:pointer;filter:drop-shadow(0 0 1px rgba(0,0,0,.8))}
+.qm.done{border-top-color:#34d27a}
+.qafs{display:none;position:absolute;top:12px;right:12px;z-index:5;background:rgba(255,251,235,.95);color:#8a6100;
+  font-size:13px;padding:4px 12px;border-radius:999px;pointer-events:none}
+.stage:fullscreen .qafs.on{display:block}
+__QA_CSS__
 </style></head><body>
 <div class="app">
 <main>
@@ -370,8 +382,9 @@ aside .head span{color:var(--mute);font-weight:400}
     <div class="msg" id="msg">加载中…</div>
     <div class="bigplay" id="bigplay"></div>
     <div class="cap" id="cap"></div>
+    <div class="qafs" id="qafs">❓ 有个问题想问你 · 按 F 退出全屏回答</div>
     <div class="ov" id="ov">
-      <div class="tl-row"><div class="tl" id="tl"></div><div class="ph" id="ph"></div>
+      <div class="tl-row"><div class="tl" id="tl"></div><div class="ph" id="ph"></div><div class="qms" id="qms"></div>
         <div class="hover" id="hover"></div></div>
       <div class="bar">
         <button id="play">▶ 播放</button>
@@ -389,7 +402,7 @@ aside .head span{color:var(--mute);font-weight:400}
     <label class="tog"><input type="checkbox" id="showuse">显示成片用到的部分</label>
   </div>
 </main>
-<aside><div class="head">全部片段 <span id="count"></span></div><div class="list" id="list"></div></aside>
+<aside><div id="qpanel"></div><div class="head">全部片段 <span id="count"></span></div><div class="list" id="list"></div></aside>
 </div>
 <script>
 const SPEEDS=[1,1.25,1.5,2,3];
@@ -535,6 +548,7 @@ document.addEventListener('mousedown',e=>{if(e.target.closest&&e.target.closest(
 document.addEventListener('keyup',e=>{if(e.code==='Space'&&!/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))e.preventDefault()},true);
 document.addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey||!clips.length)return;
+  if(e.target.closest&&e.target.closest('textarea,input[type=text]'))return;  // typing an answer
   const k=e.key;
   if(k===' '){toggle()}
   else if(k==='ArrowLeft')seekBy(-5);
@@ -574,12 +588,33 @@ setInterval(updEst,2000);
     try{localStorage.setItem('fp_showuse',e.target.checked?'1':'0')}catch(_){}};await loadUsage();
   $('msg').textContent='';show(0,0,false);requestAnimationFrame(tick);
   setInterval(loadUsage,10000);
+  initQA();
 })();
+// ---- questions for the creator, popping up beside the video at their raw-clip time
+function initQA(){
+  const pos=q=>{if(!q.clip||typeof q.clip_t!=='number')return null;
+    const i=clips.findIndex(c=>c.clip===q.clip);return i<0?null:starts[i]+Math.min(q.clip_t,clips[i].dur||q.clip_t)};
+  const api=initQuestions({
+    root:$('qpanel'), pos,
+    now:()=>clips.length&&cur.readyState>=1?starts[idx]+(cur.currentTime||0):null,
+    playing:()=>!cur.paused&&!cur.ended,
+    pause:()=>cur.pause(),
+    seek:g=>{let i=0;while(i+1<clips.length&&starts[i+1]<=g)i++;show(i,g-starts[i],true)},
+    label:q=>`${q.clip} · ${fmt(q.clip_t)}`,
+    markers:it=>{$('qms').innerHTML=total?it.map(({q,p})=>`<div class="qm${q.answer?' done':''}" data-id="${esc(q.id)}" style="left:${p/total*100}%" title="${esc(q.clip+' · '+fmt(q.clip_t)+' '+q.text)}"></div>`).join(''):''},
+    onTick:(p,q)=>$('qafs').classList.toggle('on',!!q)
+  });
+  $('qms').addEventListener('click',e=>{const m=e.target.closest('.qm');if(m)api.jump(m.dataset.id)});
+}
 // tab title follows playback: "▶ 12/79 · 81 - USVI · 原片预览"
 setInterval(()=>{if(!clips.length)return;
   document.title=(cur.paused?'':'▶ ')+(idx+1)+'/'+clips.length+' · '+PNAME+' · 原片预览'},1000);
+</script>
+<script>
+__QA_JS__
 </script></body></html>
 """
+PAGE = QS.inject(PAGE)
 
 
 def main():
