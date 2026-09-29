@@ -731,7 +731,8 @@ document.addEventListener('keydown',e=>{
   if(modalShot>=0||e.metaKey||e.ctrlKey||e.altKey) return;
   if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)||e.target.isContentEditable) return;
   const v=document.getElementById('pvv'); if(!v) return;
-  if(e.target===v && (e.code==='Space'||e.key==='k'||e.key.startsWith('Arrow'))) return;
+  // Handle keys even when the <video> itself has focus (after a click or in native fullscreen):
+  // Chrome's media element does not toggle on Space by itself, so leaving it to the browser did nothing.
   if(e.code==='Space'||e.key==='k'){e.preventDefault();e.stopPropagation(); v.paused?v.play():v.pause()}
   else if(e.key==='ArrowRight'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.min(v.duration||1e9,v.currentTime+5)}
   else if(e.key==='ArrowLeft'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.max(0,v.currentTime-5)}

@@ -441,7 +441,7 @@ function show(i,t,autoplay){
   i=Math.max(0,Math.min(clips.length-1,i));
   const wasPlaying=autoplay!==undefined?autoplay:!cur.paused;
   if(i===nxtIdx&&i!==idx){          // swap in the preloaded element: no gap
-    cur.pause();const old=cur;cur=nxt;nxt=old;
+    swapping=true;cur.pause();swapping=false;const old=cur;cur=nxt;nxt=old;
     cur.classList.remove('hidden');nxt.classList.add('hidden');
     cur.muted=false;nxt.removeAttribute('src');nxt.load();nxtIdx=-1;
   }else if(i!==idx||!cur.getAttribute('src')){prepare(cur,i)}
@@ -463,8 +463,8 @@ function onEnded(e){if(e.target!==cur)return;
 
 [$('va'),$('vb')].forEach(v=>{
   v.addEventListener('ended',onEnded);
-  v.addEventListener('play',()=>{if(v===cur){$('play').textContent='⏸ 暂停';clearTimeout(hideT);hideT=setTimeout(maybeHide,2500)}});
-  v.addEventListener('pause',()=>{if(v===cur){$('play').textContent='▶ 播放';stage.classList.add('ctl')}});
+  v.addEventListener('play',()=>{if(v===cur){$('play').textContent='⏸ 暂停';if(stage.classList.contains('ctl')){clearTimeout(hideT);hideT=setTimeout(maybeHide,2500)}}});
+  v.addEventListener('pause',()=>{if(v===cur&&!swapping&&!v.ended){$('play').textContent='▶ 播放';stage.classList.add('ctl')}});
   v.addEventListener('ratechange',()=>{if(v.playbackRate!==speed)v.playbackRate=speed});
   v.addEventListener('error',()=>{if(v===cur&&v.getAttribute('src'))$('msg').textContent='这段播放失败（浏览器可能不支持此编码）'});
 });
@@ -529,8 +529,14 @@ ov.addEventListener('dblclick',e=>e.stopPropagation());
 // YouTube-style auto-hide: visible while paused, on mouse movement, or hovering the controls
 const PIN=new URLSearchParams(location.search).has('ctl');
 let hideT=0;
-function showCtl(){stage.classList.add('ctl');clearTimeout(hideT);hideT=setTimeout(maybeHide,2500)}
-function maybeHide(){if(PIN||cur.paused||ov.matches(':hover'))return;stage.classList.remove('ctl')}
+let lastUse=0, swapping=false;   // last time the viewer touched the controls; clip hand-off in progress
+function showCtl(){lastUse=Date.now();stage.classList.add('ctl');clearTimeout(hideT);hideT=setTimeout(maybeHide,2500)}
+// Don't hide while the viewer is using the controls (e.g. picking a speed right as the next clip
+// starts): the new clip's 'play' event used to restart the timer and fold the bar mid-click.
+function maybeHide(){if(PIN||cur.paused||ov.matches(':hover'))return;
+  const idle=Date.now()-lastUse; if(idle<2500){clearTimeout(hideT);hideT=setTimeout(maybeHide,2600-idle);return}
+  stage.classList.remove('ctl')}
+['mousedown','touchstart','wheel'].forEach(ev=>stage.addEventListener(ev,()=>{lastUse=Date.now()},{passive:true,capture:true}));
 stage.addEventListener('mousemove',showCtl);
 stage.addEventListener('mouseleave',()=>{clearTimeout(hideT);if(!PIN&&!cur.paused)stage.classList.remove('ctl')});
 function toggleFs(){
@@ -555,7 +561,7 @@ document.addEventListener('keydown',e=>{
   else if(k==='ArrowRight')seekBy(5);
   else if(k==='ArrowUp')show(idx-1,0);
   else if(k==='ArrowDown')show(idx+1,0);
-  else if(k>='1'&&k<='5')setSpeed(SPEEDS[+k-1]);
+  else if(k>='1'&&k<='5'){setSpeed(SPEEDS[+k-1]);showCtl()}  // show the bar so the new speed is visible
   else if(k==='f'||k==='F')toggleFs();
   else return;
   e.preventDefault();e.stopPropagation()},true);
