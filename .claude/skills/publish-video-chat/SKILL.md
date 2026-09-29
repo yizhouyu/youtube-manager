@@ -288,7 +288,7 @@ retry the first insert.
 **End screen (creator's standard, Studio only; the API can't set it):** every long video gets a
 **Subscribe element + a Video element set to "Best for viewer"**, both over the last ~20 s
 (e.g. 7:11–7:31 on a 7:31 video). The edit already reserves 15–20 s of calm B-roll/end card for it.
-Add it in Studio right after upload (scheduled videos accept it). Shorts can't have end screens.
+Add it in Studio right after upload (scheduled videos accept it): Editor → End screen + → Apply template → **"1 video, 1 subscribe"** (the default template; its video element is "Best for viewer"), save. Shorts can't have end screens.
 
 **Video location** — ⚠️ **cannot be set via the API.** `recordingDetails.recordingDate` writes
 fine, but `locationDescription` is silently dropped (YouTube removed location writes). Don't
