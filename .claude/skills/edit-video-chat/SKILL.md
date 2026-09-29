@@ -172,6 +172,11 @@ have the reviewer check it too. Every item is something he had to ask for by han
 menu or GPS lookup shows it. If it can't be found, leave it out — don't ask the creator for it.
 Descriptions may name them too.
 
+**Don't caption or label the obvious (creator, 2026-09-29):** no note captions or arrow labels for
+things viewers can plainly see ("一只海鸥在喝水", a "海鸥"/"鹈鹕" arrow, "小朋友离海狮很近",
+"关掉音乐，听听海边的声音"). A note or label must add information viewers don't have: a name,
+a fact, a number, a correction. No prices unless they're the point of the scene.
+
 **Captions must be what was actually said:**
 - Background chatter and PA announcements are NOT captions. Before keeping a quiet line, check its
   level vs his voice and cross-check it with a second ASR.
