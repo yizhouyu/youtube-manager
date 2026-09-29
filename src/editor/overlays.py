@@ -8,7 +8,7 @@ import os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 # Bump when the look of any overlay changes: invalidates cached PNGs and rendered segments.
-VERSION = 5
+VERSION = 6
 
 _REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SUB_FONTS = ["/System/Library/Fonts/STHeiti Medium.ttc",
@@ -79,8 +79,17 @@ def title_card(text, sub, w, h, cache_dir):
     def render():
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         big, small = int(h * 0.12), int(h * 0.045)
-        fb, fs = _font(TITLE_FONTS, big), _font(SUB_FONTS, small)
         x, y = int(w * 0.07), int(h * 0.58)
+        # Shrink to fit: long EN+ZH titles ran off the right edge (ep 100 QA). Keep ink inside 93 % of the width.
+        probe = ImageDraw.Draw(im)
+        fb = _font(TITLE_FONTS, big)
+        while big > h * 0.05 and probe.textbbox((x, y), text, font=fb)[2] > w * 0.93:
+            big = int(big * 0.94)
+            fb = _font(TITLE_FONTS, big)
+        fs = _font(SUB_FONTS, small)
+        while sub and small > h * 0.025 and probe.textbbox((x, y), sub, font=fs)[2] > w * 0.93:
+            small = int(small * 0.94)
+            fs = _font(SUB_FONTS, small)
         # Lay out from the glyphs' real ink box — heavy CJK faces run well below the nominal size.
         bottom = ImageDraw.Draw(im).textbbox((x, y), text, font=fb)[3]
         gap, bar_h = int(h * 0.022), max(3, h // 300)
