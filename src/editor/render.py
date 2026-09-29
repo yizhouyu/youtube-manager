@@ -156,6 +156,10 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     brg = {b.get("grade", "default"): edl.get("grades", {}).get(b.get("grade", "default"), "")
            for b in shot.get("broll", [])}
     extra = ["zoomfix"] if shot.get("zoom") else []
+    for pp in shot.get("pip", []):  # re-render when a pip file (e.g. a mini-map animation) changes
+        if pp.get("file"):
+            fp = os.path.join(E.edit_dir(edl["project"]), pp["file"])
+            extra.append(os.path.getmtime(fp) if os.path.exists(fp) else "missing")
     if (shot.get("card") or {}).get("image"):  # re-render when the card's image/animation file changes
         ip = _card_image_path(edl, shot["card"])
         extra.append(os.path.getmtime(ip) if os.path.exists(ip) else "missing")
@@ -251,6 +255,11 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
         chains.append(f"[{last}][g{gi}]overlay={gx}:{gy}:eof_action=repeat[vg]")
         last = "vg"
         ovs.append(None)  # keeps the sfx input index below in step
+    for j, pp in enumerate(shot.get("pip", []) if not clean else []):
+        got = _pip_chain(edl, pp, j, dur, fps_str, preset, inputs, base_inputs + len(ovs), last, chains)
+        if got:
+            last = got
+            ovs.append(None)
 
     gain = E.AUDIO_GAIN.get(shot.get("audio", "voice"), 1.0) if E.speed(shot) <= 1 else 0.0
     gain *= 10 ** (max(-24.0, min(12.0, float(shot.get("gain_db", 0) or 0))) / 20)  # lift a quiet speaker
@@ -285,6 +294,53 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
 
 
 EDGE_FADE = 0.012
+
+
+def _pip_chain(edl, pp, j, dur, fps_str, preset, inputs, idx, last, chains):
+    """Picture-in-picture: a framed inset over the shot for [t0, t1] (shot-local rendered seconds).
+    Source is an edit/ file (`file`: .png/.jpg still or .mp4/.mov animation, e.g. a live mini-map)
+    or another raw clip (`clip` + `in`, optional `grade`, `speed`) for a second angle / reaction.
+    `x`, `y` = top-left of the inset as frame fractions, `w` = width fraction, `aspect` (w/h,
+    default 16/9), `border` = white frame in px at 1080p (default 6, 0 = none), `fade` (s).
+    Appends one input; returns the new video label, or None if the entry is unusable."""
+    w, h = preset["w"], preset["h"]
+    t0 = max(0.0, float(pp.get("t0", 0.0)))
+    t1 = min(dur, float(pp.get("t1", dur)))
+    if t1 - t0 < 0.2:
+        return None
+    span = t1 - t0
+    pw = int(w * float(pp.get("w", 0.3))) // 2 * 2
+    ph = int(pw / float(pp.get("aspect", 16 / 9))) // 2 * 2
+    b = int(round(float(pp.get("border", 6)) * h / 1080)) // 2 * 2
+    fade = float(pp.get("fade", 0.3))
+    grade = edl.get("grades", {}).get(pp.get("grade", "default"), "") if pp.get("clip") else ""
+    if pp.get("clip"):
+        k = max(0.25, float(pp.get("speed", 1.0) or 1.0))
+        inputs += ["-ss", f"{float(pp.get('in', 0.0)):.3f}", "-t", f"{span * k + 0.3:.3f}", "-i", E.clip_path(edl, pp["clip"])]
+        head = f"[{idx}:v]setpts=(PTS-STARTPTS)/{k},"
+    else:
+        path = os.path.join(E.edit_dir(edl["project"]), pp["file"])
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"pip file not found: {path}")
+        if os.path.splitext(path)[1].lower() in (".mp4", ".mov", ".m4v"):
+            inputs += ["-stream_loop", "-1", "-t", f"{span + 0.3:.3f}", "-i", path]
+        else:
+            inputs += ["-loop", "1", "-framerate", fps_str, "-t", f"{span + 0.3:.3f}", "-i", path]
+        head = f"[{idx}:v]setpts=PTS-STARTPTS,"
+    vf = [f"fps={fps_str}", f"trim=0:{span:.3f}", f"scale={pw}:{ph}:flags=lanczos"]
+    if grade:
+        vf.append(grade)
+    if b:
+        vf.append(f"pad={pw + 2 * b}:{ph + 2 * b}:{b}:{b}:color=white")
+    vf.append("format=rgba")
+    if fade:
+        vf += [f"fade=t=in:st=0:d={fade}:alpha=1", f"fade=t=out:st={max(0, span - fade):.3f}:d={fade}:alpha=1"]
+    vf.append(f"setpts=PTS+{t0:.3f}/TB")
+    x = int(w * float(pp.get("x", 0.66)))
+    y = int(h * float(pp.get("y", 0.06)))
+    chains.append(head + ",".join(vf) + f"[pp{j}]")
+    chains.append(f"[{last}][pp{j}]overlay={x}:{y}:eof_action=pass:enable='between(t,{t0:.3f},{t1:.3f})'[vp{j}]")
+    return f"vp{j}"
 
 
 def _speech_windows(edl, pad=0.35):

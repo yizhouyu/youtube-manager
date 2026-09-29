@@ -50,6 +50,11 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
                 "fade_in": false, "fade_out": false},   # animated meter panel (right edge): value
                                                # eases from→to over the shot (optional t0/t1, shot-local
                                                # s); chain shots (to → next from) for a running depth count
+      "pip": [{"file": "maps/mini.mp4", "t0": 0, "t1": 6, "x": 0.7, "y": 0.06, "w": 0.26}],
+                                               # picture-in-picture inset (white frame, alpha fades) for
+                                               # [t0, t1] shot-local s: an edit/ still/animation (live
+                                               # mini-map) or {"clip", "in", "grade", "speed"} = a second
+                                               # angle / reaction; optional aspect, border, fade
       "zoom": {"from": 1.0, "to": 1.3, "x": 0.5, "y": 0.5},   # Ken Burns push/pull toward
                                                # focal point (x, y as 0-1 of the frame)
       "note": "why this shot"                  # agent's rationale, shown in review
