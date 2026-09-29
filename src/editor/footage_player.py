@@ -446,7 +446,7 @@ function show(i,t,autoplay){
     cur.muted=false;nxt.removeAttribute('src');nxt.load();nxtIdx=-1;
   }else if(i!==idx||!cur.getAttribute('src')){prepare(cur,i)}
   idx=i;cur.playbackRate=speed;
-  const seek=()=>{if(t)cur.currentTime=Math.min(t,Math.max(0,(clips[i].dur||0)-0.05))};
+  const seek=()=>{if(t!=null)cur.currentTime=Math.min(t,Math.max(0,(clips[i].dur||0)-0.05))};
   if(cur.readyState>=1)seek();else cur.addEventListener('loadedmetadata',seek,{once:true});
   if(wasPlaying)cur.play().catch(()=>{});
   $('msg').textContent='';
