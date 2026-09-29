@@ -302,6 +302,10 @@ alternates; title-only on a few episodes. Save the page afterwards. No browser �
 Heads-up: several Chrome instances may be connected; make sure the Studio page shows the main
 channel before changing anything.
 
+**Location = the city (creator, 2026-09-29):** set Studio's video location to the city/town
+(e.g. "San Diego, California", "Albuquerque, New Mexico", "Carlsbad, New Mexico"), not a park,
+landmark or venue.
+
 **Video location** — ⚠️ **cannot be set via the API.** `recordingDetails.recordingDate` writes
 fine, but `locationDescription` is silently dropped (YouTube removed location writes). Don't
 waste a call on it — instead **surface the location string** (e.g. "Sarasota, Florida") for the
