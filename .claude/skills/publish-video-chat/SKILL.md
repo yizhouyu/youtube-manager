@@ -243,6 +243,9 @@ Reuse what you see. **Example channel** (Chinese-first bilingual travel) pattern
 with `title`, bilingual `description` (Chinese with keywords up front, `---`, then English),
 `tags` (8–12 mixed), `hashtags` (3–5). Keep the title hook and the thumbnail text **distinct**
 (curiosity gap), not repetitive. Write the working draft to `02 - Export/proposals.md`.
+Write it the way the channel's own descriptions read. Avoid AI-isms such as strings of punchy
+fragments, stacked numbers, "不是…而是…", dash-heavy lines and empty hype words. The accuracy
+critic in Step 5 flags them (Deedy Das, "Opus video workflow", LinkedIn 2026-09: https://lnkd.in/p/g34Cz6pf).
 
 ## Step 5 — Critique with sub-agents
 

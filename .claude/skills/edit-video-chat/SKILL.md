@@ -24,7 +24,9 @@ and **keep `edit/preview.mp4`** so the creator can review right away (creator, 2
 `edit/previews/` and `/tmp/yt-editor/<project>`. Once the creator approves and the final render is
 done, delete the preview right away; don't wait for the upload. The EDL stays the source of truth. No final render, no upload. Projects parked in a batch folder (e.g.
 `~/Desktop/202512/`): **move the project folder up to `~/Desktop/` BEFORE starting it**, so its
-path never changes mid-edit (don't rely on path fallbacks). Track every project in
+path never changes mid-edit (don't rely on path fallbacks). Each episode director's brief states
+the episode's promise, the formats (16:9, plus any 9:16 Shorts), the target length range, the style
+and tone rules, and the new technique to try. Track every project in
 `sessions/QUEUE.md` (local, gitignored). When he returns, per video: start the raw-footage player
 → re-render the preview → review page → apply his notes → final render → publish.
 
@@ -83,6 +85,11 @@ As soon as the creator hands over a folder, start these side by side (subagents)
   verify.
 
 ## 2. Make the cut (judgment layer)
+
+**Plan before you cut:** write a one-page beat sheet in `edit/outline.md` before the EDL. It covers
+the 0–8 s hook and promise line, one mini-arc per place, the open question and where it pays off,
+this episode's new technique, and the end screen. The reviewer checks the cut against it
+(Deedy Das, "Opus video workflow", LinkedIn 2026-09: https://lnkd.in/p/g34Cz6pf).
 
 Write the EDL (a small build script is fine). Craft rules that make it comfortable to watch:
 - **Story:** 15–20 s cold open of the best moments over music → a title card → chronological
@@ -197,6 +204,9 @@ name, as long as the line fits (~24 CJK chars); otherwise split at a natural cla
 - No vocals, including "oh oh oh" chants.
 
 **Tone:** calm and informative. No dramatic or gimmicky hook questions ("这座桥到底有多高？", "你敢…吗？"). The hook states what the episode covers, and comment questions are asked plainly.
+Write every note, card and label like a knowledgeable guide explaining calmly, in whole sentences.
+Avoid AI-isms: strings of short punchy fragments, stacked numbers, "不是…而是…", dash-heavy lines,
+and hype words (绝了 / 太震撼了 / 简直) (Deedy Das, LinkedIn 2026-09).
 
 **Decide craft calls yourself** (zoom, speed, trims, B-roll, music, caption wording). Ask him only
 about facts only he knows.
@@ -248,9 +258,16 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
   fact card), download it and put it in. Prefer public-domain / freely licensed sources
   (Wikimedia Commons, NPS/NASA/Library of Congress, official park maps), keep it short, and
   credit the source on screen or in the description. No other creators' vlog footage or music.
+  Short video clips may come from YouTube via `yt-dlp` only when the watch page says "Creative
+  Commons Attribution": keep them ≤ ~10 s, credit the uploader on screen and in the description,
+  and expect that Content ID can still claim a CC re-upload (Deedy Das, LinkedIn 2026-09).
 - **Try at least one new technique per video — mandatory.** The creator explicitly wants every
   episode to bring something new. If the renderer can't do it yet, add it as a small
   generic, tested feature (commit + push per the repo rules).
+- **Animatic before the full render for new motion cards:** render 3–5 keyframe stills first
+  (start, mid-build, text fully in, end) and look at them at full size. Encode the `card.image` mp4
+  only after those stills pass. Overlaps, black corners and cut-off text are cheap to fix at this
+  stage (Deedy Das, LinkedIn 2026-09).
 - **Log the experiment** in LESSONS.md → "Experiments": what was tried, on which video, how it
   looked/felt (reviewer + viewer-critic scores), and whether it should become a default.
 

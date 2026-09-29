@@ -92,6 +92,12 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   keys only, longer keys first; re-read every cleaned transcript after editing the glossary (ep 85).
 - **A line both models agree on is not a phantom just because it's garbled in one of them** — ep 85's
   glossary dropped "就把这里开放给大家看" and the cut then clipped it mid-word; round-2 QA restored it.
+- **Word-level timings already exist; use them when re-timing.** `transcribe.py` calls Qwen3-ASR with
+  `return_timestamps=True` (its forced aligner gives per-word start/end) but keeps only grouped SRT lines.
+  To re-time a caption, place a skip or split a line at a word boundary, re-run `transcribe()` with
+  `return_timestamps=True` on that span (under the ASR lock) instead of guessing from line cues. The
+  same data can drive word-by-word Shorts captions (idea from Deedy Das's video-workflow post, LinkedIn
+  2026-09: https://lnkd.in/p/g34Cz6pf).
 
 ## Picking and cutting shots
 
