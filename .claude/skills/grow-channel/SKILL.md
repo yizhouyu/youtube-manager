@@ -218,4 +218,4 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
 
 **Silent clips:** when a Short's source has no speech, write captions made for the Short itself: they don't have to appear in the long video. Be creative (a mini story arc, an observation, a small verified fact, light wit), but not cheesy, and optionally add a synthetic voiceover. Test both against the viewer critic. Label it as narration; never imitate the creator's voice.
 
-**Setting a Short's cover:** `thumbnails.set` on a Short returns success and the API reports the image, but Studio and the feed kept showing a blank placeholder (2026-09-28). Upload the cover in Studio (the Thumbnail "Upload file" input on the Short's details page), save, and check the Shorts list shows it.
+**Setting a Short's cover:** use the API (`thumbnails.set`) as the default. Verify it by fetching `videos.list` + downloading the maxres image. Studio's Shorts list can keep showing a blank placeholder until the page is reloaded, so reload before concluding it failed. Fall back to Studio's Thumbnail "Upload file" only if the image is still missing after a reload.
