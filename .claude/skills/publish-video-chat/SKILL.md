@@ -464,8 +464,9 @@ memory so the skill personalizes over time.
 ## Gotchas
 - **YouTube Data API quota is 10,000 units/day** (resets 00:00 PT = 03:00 ET); no increase is
   requested (the audit form isn't worth it for a personal uploader). Budget before a batch:
-  `videos.insert` ≈ 1,600, `thumbnails.set` / `playlistItems.insert|update` / `videos.update` = 50,
-  list calls = 1. That is ~5 uploads/day. Never bulk-reorder playlists via the API (50 per move);
+  `videos.insert` measured at ~100 on 2026-09-29 (4 uploads + post-steps = 2,421 units; the docs
+  still say 1,600, so check Cloud Console → Quotas when planning a big batch), `thumbnails.set` /
+  `playlistItems.insert|update` / `videos.update` = 50, list calls = 1. Never bulk-reorder playlists via the API (50 per move);
   insert new items at the right position instead. Studio-only steps (location, related video)
   cost nothing. When `quotaExceeded` hits, finish the Bilibili side, write the remaining YouTube
   steps into the session state, and resume after the reset.
