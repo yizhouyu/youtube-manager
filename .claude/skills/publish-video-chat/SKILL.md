@@ -93,6 +93,11 @@ clutter. The art director's top pick lost 3 of 7 times, always to the option wit
 distinctive hero or fewer elements — weight those. Never offer equal strips/grids again (not even
 as "old" comparison options), and use his face only in a clearly flattering frame.
 
+**Local review pages get a favicon (creator, 2026-09-29):** every HTML page made for the creator
+(thumbnail `review.html`, Shorts compare pages, …) includes a clean favicon so its tab is
+recognisable: `from src.editor.favicon import link` → put `link("thumb")` (or "short"/"cut"/"raw")
+in `<head>`, plus a `<title>` with the episode number and name.
+
 **Options + art director loop (creator, 2026-09-28):**
 - Make several options: single-image variants plus a collage for multi-place episodes.
 - Then spawn an independent **art-director** sub-agent. It looks at every option at full size and at mobile size, compares it with the channel's best performers, and returns concrete critiques and suggestions.
