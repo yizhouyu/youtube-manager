@@ -23,8 +23,10 @@ removed — the agent now does the generating, looking, and listening itself.)
   `locationDescription` is NOT settable via the API (set it manually in Studio); the
   hashtag prepend can duplicate the description's hashtag line — push DESCRIPTION as-is.
 - **`src/thumbnail_generator/`** — `generator.add_text_to_image` (pure Pillow, 1280×720 crop +
-  outlined text), `compositor.render_option` (the thin wrapper), and `polish.render`
-  (color-grade + vignette + dual-stroke text — the nicer renderer).
+  outlined text), `compositor.render_option` (the thin wrapper), `polish.render`
+  (color-grade + vignette + dual-stroke text — the nicer renderer), `collage.py` (frame grab +
+  split panels, legacy) and `layered.py` (multi-place thumbnails: hero + tilted cards / circle
+  insets / rembg cut-outs / text behind the subject / route line; native 16:9 + Bilibili 16:10).
 - **`src/analytics/`** — channel metrics; kept for the self-evolving packaging loop.
 - **`scripts/`** — `preprocess_video.sh` (frame scan + whisper transcript + export QA),
   `transcribe_accurate.sh` (large-v3-turbo + glossary `--prompt` + VAD), `upload_captions.py`

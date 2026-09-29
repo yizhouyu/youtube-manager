@@ -5,6 +5,8 @@ google-auth-httplib2==0.2.0
 
 # Thumbnail rendering / polish
 pillow>=9.0.0
+# Layered thumbnails: subject cut-outs (model downloads on first use) + OpenCV clean-up
+rembg[cpu]>=2.0
 
 # Video editor: review page + Traditional->Simplified subtitle cleanup
 flask>=3.0

@@ -90,7 +90,22 @@ description hook, tags, and a **proper-noun glossary**.
 - Revise and re-show it, and iterate until the art director signs off.
 - Record the final pick and the art director's notes in `thumbnail/THUMBNAILS.md`.
 
-**Style by episode type (creator, from 86 on):** if the episode covers several distinct places, the **main** option is a collage of 2–3 of the places as split panels, with one short calm line. If it's essentially one place, use a single big image. Always offer both kinds so he can pick. Every panel must still read at mobile size.
+**Style by episode type (creator, from 86 on):** if the episode covers several distinct places, the **main** option is a multi-place thumbnail with one short calm line. If it's essentially one place, use a single big image. Always offer both kinds so he can pick.
+
+**Multi-place = layered, never equal strips (creator, 2026-09-28: "三个并排放很不好。应该有一点层次，或者叠上去").** Build it with `src/thumbnail_generator/layered.py`:
+- Structure: one dominant hero image (the strongest place, or his normal smile with a subject) fills the frame. One or two other places sit on top of it.
+- Ways to layer them:
+  - tilted white-bordered photo cards with shadows and small place tags;
+  - a ringed circle inset;
+  - rembg cut-outs, with a white outline or graded into the scene and given a contact shadow;
+  - a big place word set *behind* the hero's subject (the `subject` layer).
+- Keep all layers in one colour world.
+- Limits:
+  - At most 2 insets. Drop any place that is too small to read at 168 px (e.g. a distant landmark) and put it in the title instead.
+  - Keep the cut-out's real base/ground so scale still reads.
+  - Clean distractions with `clean()` clone boxes, not blur.
+- If the creator prefers a single image, the best layered option is usually that image plus one card.
+- Pattern research and reasons: `sessions/thumbs/research/PATTERNS.md` (local).
 
 **Multi-pass frame extraction** (scratch → `/tmp`):
 1. **Coarse** — the 12-frame `_scan.jpg` from Step 1 gives the whole arc.
