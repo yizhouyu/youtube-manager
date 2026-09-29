@@ -17,13 +17,39 @@ SUB_FONTS = ["/System/Library/Fonts/STHeiti Medium.ttc",
 TITLE_FONTS = [os.path.join(_REPO, "assets/fonts/heavy.otf")] + SUB_FONTS
 
 
-def _font(paths, size):
+_NOTDEF = {}
+
+
+def _glyph(font, ch):
+    m = font.getmask(ch)
+    return (m.size, bytes(m))
+
+
+def _covers(font, path, text):
+    """True if `font` has a real glyph for every non-ASCII char in `text` (missing glyphs render
+    as the .notdef box, e.g. Vietnamese Cơm Tấm / Phở in STHeiti)."""
+    chars = {c for c in text if ord(c) > 127 and not c.isspace()}
+    if not chars:
+        return True
+    key = (path, font.size)
+    if key not in _NOTDEF:
+        _NOTDEF[key] = _glyph(font, "\U000F0000")   # private-use char -> .notdef
+    nd = _NOTDEF[key]
+    return all(_glyph(font, c) != nd for c in chars)
+
+
+def _font(paths, size, text=""):
+    """First font in `paths` that loads and (when `text` is given) covers all its characters."""
+    first = None
     for p in paths:
         try:
-            return ImageFont.truetype(p, size)
+            f = ImageFont.truetype(p, size)
         except Exception:
             continue
-    return ImageFont.load_default()
+        first = first or f
+        if not text or _covers(f, p, text):
+            return f
+    return first or ImageFont.load_default()
 
 
 def _wrap(draw, text, font, max_w):
@@ -62,7 +88,7 @@ def subtitle(text, w, h, cache_dir, kind="speech"):
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
         size = int(h * (0.046 if kind == "note" else 0.052))
-        f = _font(SUB_FONTS, size)
+        f = _font(SUB_FONTS, size, text)
         lines = _wrap(d, text, f, w * 0.84)
         lh = int(size * 1.3)
         y = h - int(h * 0.07) - lh * len(lines)
@@ -82,14 +108,14 @@ def title_card(text, sub, w, h, cache_dir):
         x, y = int(w * 0.07), int(h * 0.58)
         # Shrink to fit: long EN+ZH titles ran off the right edge (ep 100 QA). Keep ink inside 93 % of the width.
         probe = ImageDraw.Draw(im)
-        fb = _font(TITLE_FONTS, big)
+        fb = _font(TITLE_FONTS, big, text)
         while big > h * 0.05 and probe.textbbox((x, y), text, font=fb)[2] > w * 0.93:
             big = int(big * 0.94)
-            fb = _font(TITLE_FONTS, big)
-        fs = _font(SUB_FONTS, small)
+            fb = _font(TITLE_FONTS, big, text)
+        fs = _font(SUB_FONTS, small, sub or "")
         while sub and small > h * 0.025 and probe.textbbox((x, y), sub, font=fs)[2] > w * 0.93:
             small = int(small * 0.94)
-            fs = _font(SUB_FONTS, small)
+            fs = _font(SUB_FONTS, small, sub or "")
         # Lay out from the glyphs' real ink box — heavy CJK faces run well below the nominal size.
         bottom = ImageDraw.Draw(im).textbbox((x, y), text, font=fb)[3]
         gap, bar_h = int(h * 0.022), max(3, h // 300)
@@ -118,7 +144,7 @@ def place_tag(text, w, h, cache_dir):
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
         size = int(h * 0.042)
-        f = _font(SUB_FONTS, size)
+        f = _font(SUB_FONTS, size, text)
         pad = size * 0.6
         tw = d.textlength(text, font=f)
         x, y = int(w * 0.04), int(h * 0.05)
@@ -158,13 +184,13 @@ def card(text, sub, w, h, cache_dir, bg="#ffd84d", fg="#1f2937"):
         im = Image.composite(im, Image.alpha_composite(im, dark), vg)
 
         size = int(h * 0.15)
-        f = _font(TITLE_FONTS, size)
+        f = _font(TITLE_FONTS, size, text)
         layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         ld = ImageDraw.Draw(layer)
         ld.text((w / 2, h / 2 - (size * 0.35 if sub else 0)), text, font=f, fill=_hex(fg) + (255,),
                 anchor="mm", stroke_width=max(4, size // 9), stroke_fill=(255, 255, 255, 255))
         if sub:
-            fs = _font(SUB_FONTS, int(h * 0.05))
+            fs = _font(SUB_FONTS, int(h * 0.05), sub)
             ld.text((w / 2, h / 2 + size * 0.75), sub, font=fs, fill=_hex(fg) + (255,), anchor="mm",
                     stroke_width=max(2, h // 250), stroke_fill=(255, 255, 255, 255))
         layer = layer.rotate(-4, resample=Image.BICUBIC, center=(w / 2, h / 2))
@@ -202,7 +228,7 @@ def arrow(label, x, y, w, h, cache_dir):
                 d.line(pts + [pts[0]], fill=col, width=int(extra))
         if label:
             size = int(h * 0.04)
-            f = _font(SUB_FONTS, size)
+            f = _font(SUB_FONTS, size, label)
             tw = d.textlength(label, font=f)
             bx = min(max(sx - tw / 2 - size * 0.4, 8), w - tw - size - 8)
             by = sy - size * 1.6 if up else sy + size * 0.2
