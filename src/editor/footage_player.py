@@ -588,10 +588,10 @@ setInterval(updEst,2000);
   clips=await (await fetch('/api/clips')).json();
   if(!clips.length){$('msg').textContent='没找到素材（01 - Unedited 里没有 MP4）';return}
   build();setSpeed(speed);
-  let su=false;try{su=localStorage.getItem('fp_showuse')==='1'}catch(e){}
+  let su=true;try{su=localStorage.getItem('fp_showuse2')!=='0'}catch(e){}
   $('showuse').checked=su;document.body.classList.toggle('showuse',su);
   $('showuse').onchange=e=>{document.body.classList.toggle('showuse',e.target.checked);
-    try{localStorage.setItem('fp_showuse',e.target.checked?'1':'0')}catch(_){}};await loadUsage();
+    try{localStorage.setItem('fp_showuse2',e.target.checked?'1':'0')}catch(_){}};await loadUsage();
   $('msg').textContent='';show(0,0,false);requestAnimationFrame(tick);
   setInterval(loadUsage,10000);
   initQA();
