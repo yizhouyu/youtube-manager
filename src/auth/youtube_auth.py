@@ -12,7 +12,8 @@ from googleapiclient.discovery import build
 
 
 # YouTube API scopes - we need force-ssl to update video metadata
-SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl']
+SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl',
+          'https://www.googleapis.com/auth/yt-analytics.readonly']  # retention/CTR for the growth loop
 
 # Token storage path
 TOKEN_FILE = Path('config/token.pickle')
@@ -56,6 +57,10 @@ class YouTubeAuthenticator:
         if TOKEN_FILE.exists():
             with open(TOKEN_FILE, 'rb') as token:
                 self.credentials = pickle.load(token)
+            # A token from before a scope was added can't call the new API: ask for consent again.
+            if self.credentials and not set(SCOPES).issubset(set(self.credentials.scopes or [])):
+                print("Saved token lacks a required scope; re-authorizing...")
+                self.credentials = None
 
         # If credentials don't exist or are invalid, authenticate
         if not self.credentials or not self.credentials.valid:
