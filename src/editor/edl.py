@@ -33,6 +33,10 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
   "master": "linear",                          # final mastering: measured linear gain to -14 LUFS + 4x-oversampled
                                                # limiter, true peak re-measured on the AAC (<= -1.5 dBTP) in a
                                                # loop; "loudnorm" = the legacy dynamic-loudnorm chain (fallback)
+  "dialogue_level": true,                      # render-time levelling of on-camera speech: each voice shot's
+                                               # caption-window loudness is measured and a shot more than 3 LU
+                                               # from the episode median is pulled to that band (-6..+8 dB);
+                                               # false = off for the episode; per shot "level": false
   "denoise_voice": false,                      # highpass + FFT denoise on voice shots (boats, wind); "wind" = stronger, also tames ambient beds;
                                                # per-shot "denoise": true/false overrides
   "shots": [
@@ -48,7 +52,8 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
       "grade": "default",                      # key into grades
       "audio": "voice",                        # voice (1.0) | ambient (0.35) | mute
       "gain_db": 0,                            # optional per-shot level (dB, -24..+12): lift a quiet/distant
-                                               # speaker (e.g. a guide) before the final master
+                                               # speaker (e.g. a guide) before the final master; applied before
+                                               # dialogue levelling, which then only corrects what's left
       "fade_in": 0, "fade_out": 0,             # seconds (video+audio)
       "title": {"text": "Day 1", "sub": "圣约翰岛 St. John", "dur": 3.0},   # optional card at shot start
       "tag": "Mongoose Junction",              # optional small place label, top-left, first 3 s

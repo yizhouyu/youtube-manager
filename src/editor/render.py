@@ -172,6 +172,129 @@ def _measure_span(inputs, chain, pre_chains=()):
     return {"I": float(v[-1]) if v else None}
 
 
+# ---- R4: dialogue levelling at render time ----------------------------------------------------------
+# On-camera speech varies 5-9 LU between shots (a distant guide vs the creator at arm's length). The
+# old dynamic-loudnorm master hid some of that as an AGC; the linear master doesn't. So each voice
+# shot's caption-window speech loudness is measured (after its denoise and manual gain_db), and a
+# shot further than LEVEL_DEADBAND LU from the episode median is pulled to the edge of that band,
+# within LEVEL_MIN..LEVEL_MAX dB. Nothing is written to the EDL; the plan is in render_status.json.
+# Opt out: shot "level": false, or EDL "dialogue_level": false.
+LEVEL_VERSION = 1
+LEVEL_DEADBAND = 3.0      # LU around the median that is left alone (natural variation)
+LEVEL_MIN, LEVEL_MAX = -6.0, 8.0
+LEVEL_MIN_SPEECH = 1.0    # s of captioned speech needed to measure a shot
+
+
+def level_corrections(meas, deadband=LEVEL_DEADBAND, lo=LEVEL_MIN, hi=LEVEL_MAX):
+    """meas: {shot_id: (lufs, speech_seconds)} -> (median, {shot_id: correction_db}). The median is
+    weighted by speech seconds; a shot outside median +- deadband is moved to the band's edge,
+    clamped to [lo, hi]. Shots inside the band get 0."""
+    pts = sorted((l, w) for l, w in meas.values() if l is not None and w > 0)
+    if not pts:
+        return None, {}
+    half, acc, med = sum(w for _l, w in pts) / 2, 0.0, pts[-1][0]
+    for l, w in pts:
+        acc += w
+        if acc >= half:
+            med = l
+            break
+    out = {}
+    for sid, (l, w) in meas.items():
+        if l is None or w <= 0:
+            continue
+        d = l - med
+        c = -(d - deadband) if d > deadband else (-(d + deadband) if d < -deadband else 0.0)
+        out[sid] = round(max(lo, min(hi, c)), 1)
+    return med, out
+
+
+def _speech_windows_src(shot, exclude_local=()):
+    """Caption windows of a shot as SOURCE-time spans clipped to [in, out], skipping notes and
+    captions that overlap `exclude_local` (shot-local spans: narration placed over the shot)."""
+    wins = []
+    for x in shot.get("subs", []):
+        if x.get("kind", "speech") != "speech" or x.get("text", "").strip().startswith("※"):
+            continue
+        a, b = max(x["t0"], shot["in"]), min(x["t1"], shot["out"])
+        if b - a < 0.3:
+            continue
+        la, lb = E.src_to_local(shot, a), E.src_to_local(shot, b)
+        if any(la < eb and ea < lb for ea, eb in exclude_local):
+            continue
+        wins.append((a, b))
+    return sorted(wins)
+
+
+def measure_shot_speech(edl, shot, cache, exclude_local=()):
+    """(lufs, speech_seconds) of a voice shot's captioned speech after its clean-up filters and
+    manual gain_db (EBU-gated integrated loudness over the concatenated caption windows), or
+    (None, seconds) when there is too little. Cached by content."""
+    wins = _speech_windows_src(shot, exclude_local)
+    secs = sum(b - a for a, b in wins)
+    if secs < LEVEL_MIN_SPEECH:
+        return None, secs
+    manual = max(-24.0, min(12.0, float(shot.get("gain_db", 0) or 0)))
+    filt = _shot_filters(edl, shot) + [f"volume={manual}dB"]
+    key = json.dumps([shot["clip"], shot["in"], shot["out"], wins, filt, LEVEL_VERSION])
+    path = os.path.join(cache, "_level", f"{shot['id']}_{hashlib.sha1(key.encode()).hexdigest()[:12]}.json")
+    if os.path.exists(path):
+        with open(path) as f:
+            r = json.load(f)
+        return r["I"], r["secs"]
+    t0 = wins[0][0]
+    inputs = ["-ss", f"{t0:.3f}", "-t", f"{wins[-1][1] - t0 + 0.2:.3f}", "-i", E.clip_path(edl, shot["clip"])]
+    n = len(wins)
+    graph = [f"[0:a]{','.join(filt)},asplit={n}" + "".join(f"[w{i}]" for i in range(n))]
+    graph += [f"[w{i}]atrim={a - t0:.3f}:{b - t0:.3f},asetpts=PTS-STARTPTS[c{i}]" for i, (a, b) in enumerate(wins)]
+    graph.append("".join(f"[c{i}]" for i in range(n)) + f"concat=n={n}:v=0:a=1,ebur128=framelog=quiet")
+    err = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", *inputs, "-filter_complex", ";".join(graph),
+                          "-f", "null", "-"], capture_output=True, text=True).stderr
+    v = re.findall(r"^\s+I:\s+(-?[\d.]+|-inf) LUFS", err, re.M)
+    lufs = float(v[-1]) if v else None
+    if lufs is not None and lufs <= -69:
+        lufs = None
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        json.dump({"I": lufs, "secs": secs}, f)
+    return lufs, secs
+
+
+def plan_dialogue_levels(edl, shots, fps, cache):
+    """Set shot["_level_db"] on the voice shots that need levelling (in place). -> summary dict for
+    render_status.json, or None when levelling is off."""
+    if edl.get("dialogue_level", True) is False:
+        return None
+    # narration over a shot: its captions are TTS, not this shot's speech
+    rows, t = [], 0.0
+    for s in shots:
+        rows.append((s, t))
+        t += frames_of(s, fps) / fps
+    starts = {s["id"]: st for s, st in rows}
+    tl = dict(edl, shots=shots, _order=[s["id"] for s in edl["shots"]])
+    tts = [(t0, t0 + d) for _p, t0, d, _e in voiceover_spans(tl) + tts_sfx_spans(tl)]
+    cands = [s for s in shots if s.get("audio", "voice") == "voice" and not s.get("card") and E.speed(s) == 1
+             and s.get("level", True) is not False]
+
+    def one(s):
+        st = starts[s["id"]]
+        excl = [(a - st, b - st) for a, b in tts if a < st + frames_of(s, fps) / fps and b > st]
+        return s["id"], measure_shot_speech(edl, s, cache, excl)
+
+    with ThreadPoolExecutor(max_workers=E.jobs(3)) as ex:
+        meas = dict(ex.map(one, cands))
+    med, corr = level_corrections(meas)
+    for s in shots:
+        s.pop("_level_db", None)
+        if corr.get(s["id"]):
+            s["_level_db"] = corr[s["id"]]
+    moved = {k: v for k, v in corr.items() if v}
+    if med is not None:
+        print(f"[level] speech median {med:.1f} LUFS over {len(corr)} shots; levelled {len(moved)}: "
+              + ", ".join(f"{k} {v:+.1f}" for k, v in sorted(moved.items())), flush=True)
+    return {"median": med, "measured": len(corr), "deadband": LEVEL_DEADBAND,
+            "shots": {k: {"I": meas[k][0], "db": v} for k, v in corr.items()}}
+
+
 # Segment cache versions. Video and audio are cached separately, so an audio-only change re-renders
 # a few seconds of PCM per shot instead of every shot's picture. Bump the matching one whenever the
 # segment output changes without the shot dict changing.
@@ -201,7 +324,8 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
     if (shot.get("card") or {}).get("image"):  # re-render when the card's image/animation file changes
         ip = _card_image_path(edl, shot["card"])
         extra.append(os.path.getmtime(ip) if os.path.exists(ip) else "missing")
-    key = json.dumps([shot, grade, brg, fps_str, preset, clean, VIDEO_CACHE_VERSION, overlays.VERSION] + extra,
+    vshot = {k: v for k, v in shot.items() if k != "_level_db"}   # audio-only field: keep the video cache
+    key = json.dumps([vshot, grade, brg, fps_str, preset, clean, VIDEO_CACHE_VERSION, overlays.VERSION] + extra,
                      sort_keys=True, ensure_ascii=False)
     hid = hashlib.sha1(key.encode()).hexdigest()[:12]
     vpath = os.path.join(cache, f"{shot['id']}_{hid}.mp4")
@@ -385,7 +509,7 @@ def render_segment_audio(edl, shot, fps_str, cache):
     L = int(round(dur * SR))
     fi, fo = float(shot.get("fade_in", 0) or 0), float(shot.get("fade_out", 0) or 0)
     gain = E.AUDIO_GAIN.get(shot.get("audio", "voice"), 1.0) if E.speed(shot) <= 1 else 0.0
-    gain *= 10 ** (max(-24.0, min(12.0, float(shot.get("gain_db", 0) or 0))) / 20)  # lift a quiet speaker
+    gain *= 10 ** (shot_gain_db(shot) / 20)  # manual lift of a quiet speaker + dialogue levelling (R4)
     if shot.get("card") or gain <= 0:
         out = np.zeros((_HS + L + _HS, 2), np.float32)    # silence, with silent (= usable) handles
         pre = post = _HS
@@ -419,6 +543,29 @@ def render_segment_audio(edl, shot, fps_str, cache):
     return apath
 
 
+def _shot_filters(edl, shot):
+    """Resample + the shot's clean-up filters (denoise / wind), everything before its gain."""
+    af = [f"aresample={SR}", "aformat=sample_fmts=flt:channel_layouts=stereo"]
+    mode = shot.get("denoise", edl.get("denoise_voice", False))
+    if mode == "wind":
+        # heavy wind on an action cam: a higher cut + stronger FFT denoise; ambient beds also get
+        # tamed (and a touch quieter) so the music carries them instead of the roar
+        if shot.get("audio", "voice") == "voice":
+            af += ["highpass=f=200", "afftdn=nr=24:nf=-28:tn=1", "equalizer=f=3000:t=q:w=1:g=2"]
+        elif shot.get("audio") == "ambient":
+            af += ["highpass=f=250", "afftdn=nr=20:nf=-30:tn=1", "volume=0.6"]
+    elif mode and shot.get("audio", "voice") == "voice":
+        # boat engines / wind: cut the low rumble, then FFT denoise under the voice
+        af += ["highpass=f=140", "afftdn=nr=18:nf=-30:tn=1"]
+    return af
+
+
+def shot_gain_db(shot):
+    """A shot's total level change: manual `gain_db` (-24..+12) + the render-time dialogue levelling
+    (`_level_db`, set by plan_dialogue_levels)."""
+    return max(-24.0, min(12.0, float(shot.get("gain_db", 0) or 0))) + float(shot.get("_level_db", 0) or 0)
+
+
 def _shot_sound(edl, shot, gain, L):
     """The shot's own sound: one decode of the source span plus handles, through the shot's filters
     (denoise, gain, R3 peak guard), then the kept ranges joined with equal-power crossfades."""
@@ -426,19 +573,8 @@ def _shot_sound(edl, shot, gain, L):
     src_pre = int(round((shot["in"] - t0) * SR))           # handle samples that exist before `in`
     span = shot["out"] - shot["in"]
     inputs = ["-ss", f"{t0:.4f}", "-t", f"{span + 2 * HANDLE + 0.3:.4f}", "-i", E.clip_path(edl, shot["clip"])]
-    af = [f"aresample={SR}", "aformat=sample_fmts=flt:channel_layouts=stereo", f"volume={gain}"]
-    mode = shot.get("denoise", edl.get("denoise_voice", False))
-    if mode == "wind":
-        # heavy wind on an action cam: a higher cut + stronger FFT denoise; ambient beds also get
-        # tamed (and a touch quieter) so the music carries them instead of the roar
-        if shot.get("audio", "voice") == "voice":
-            af[2:2] = ["highpass=f=200", "afftdn=nr=24:nf=-28:tn=1", "equalizer=f=3000:t=q:w=1:g=2"]
-        elif shot.get("audio") == "ambient":
-            af[2:2] = ["highpass=f=250", "afftdn=nr=20:nf=-30:tn=1", "volume=0.6"]
-    elif mode and shot.get("audio", "voice") == "voice":
-        # boat engines / wind: cut the low rumble, then FFT denoise under the voice
-        af[2:2] = ["highpass=f=140", "afftdn=nr=18:nf=-30:tn=1"]
-    if float(shot.get("gain_db", 0) or 0) > 0:
+    af = _shot_filters(edl, shot) + [f"volume={gain}"]
+    if shot_gain_db(shot) > 0:
         af += peak_guard(_measure_span(inputs, f"[0:a]asetpts=PTS-STARTPTS,{','.join(af)}")["I"])
     raw = subprocess.run(["ffmpeg", "-v", "error", *inputs, "-af", ",".join(af), "-f", "f32le", "-ac", "2", "-"],
                          capture_output=True)
@@ -929,6 +1065,10 @@ def render(project, mode):
     os.makedirs(cache, exist_ok=True)
     shots = E.active_shots(edl)
     try:
+        level_info = None
+        if mode != "package":
+            status.set(state="running", step="对白响度", progress=0.0, mode=mode)
+            level_info = plan_dialogue_levels(edl, shots, fps, cache)
         status.set(state="running", step=f"渲染镜头 0/{len(shots)}", progress=0.0, mode=mode)
         done = [0]
 
@@ -1000,7 +1140,7 @@ def render(project, mode):
             f.write(E.to_srt(E.timeline_subs(dict(edl, shots=shots))))
         status.set(state="done", step=f"完成 {int(total // 60)}:{int(total % 60):02d}", progress=1.0,
                    output=out, mode=mode, duration=total,
-                   audio=dict(master, voiceover=vo_info or None, cuts=len(xfades),
+                   audio=dict(master, voiceover=vo_info or None, dialogue_level=level_info, cuts=len(xfades),
                               cuts_crossfaded=sum(1 for _t, n in xfades if n >= 0.02 * SR)))
         return out
     except Exception as e:

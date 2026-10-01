@@ -303,5 +303,60 @@ class Crossfade(unittest.TestCase):
                 self.assertEqual(json.load(f)["pre"], R._HS)
 
 
+class DialogueLevel(unittest.TestCase):
+    def test_corrections(self):
+        meas = {"a": (-30.0, 10), "b": (-20.0, 10), "c": (-21.0, 10), "d": (-12.0, 10), "e": (-60.0, 1),
+                "n": (None, 0.5)}
+        med, c = R.level_corrections(meas, deadband=3.0, lo=-6.0, hi=8.0)
+        self.assertEqual(med, -21.0)
+        self.assertEqual(c["b"], 0.0)                 # inside the band: untouched
+        self.assertEqual(c["c"], 0.0)
+        self.assertEqual(c["a"], 6.0)                 # -9 LU -> pulled to the band's edge (-3)
+        self.assertEqual(c["d"], -6.0)                # +9 LU -> -6 (also the floor)
+        self.assertEqual(c["e"], 8.0)                 # clamped at +8
+        self.assertNotIn("n", c)                      # not measurable: left alone
+        self.assertEqual(R.level_corrections({}), (None, {}))
+
+    def test_median_is_weighted_by_speech_time(self):
+        med, _ = R.level_corrections({"long": (-25.0, 40), "x": (-15.0, 5), "y": (-16.0, 5)})
+        self.assertEqual(med, -25.0)
+
+    def test_render_time_plan(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj, clip = _fake_project(td, clip_dur=12.0)
+            sub = lambda a, b: {"t0": a, "t1": b, "text": "说话"}  # noqa: E731
+            shots = [{"id": "s1", "clip": clip, "in": 0.2, "out": 3.8, "subs": [sub(0.3, 3.5)]},
+                     {"id": "s2", "clip": clip, "in": 4.2, "out": 7.8, "subs": [sub(4.3, 7.5)], "gain_db": -12},
+                     {"id": "s3", "clip": clip, "in": 8.2, "out": 11.8, "subs": [sub(8.3, 11.5)]},
+                     {"id": "s4", "clip": clip, "in": 0.2, "out": 3.8, "subs": [sub(0.3, 3.5)], "gain_db": -12,
+                      "level": False}]
+            edl = {"project": proj, "shots": shots}
+            cache = os.path.join(td, "cache")
+            os.makedirs(cache)
+            info = R.plan_dialogue_levels(edl, shots, 30.0, cache)
+            # s2 is 12 dB under the others (manual gain_db counts): lifted to the band edge, +9 -> +8 max
+            self.assertEqual(shots[1]["_level_db"], 8.0, info)
+            self.assertNotIn("_level_db", shots[0])
+            self.assertNotIn("_level_db", shots[3])                     # per-shot opt-out
+            self.assertNotIn("s4", info["shots"])
+            self.assertAlmostEqual(R.shot_gain_db(shots[1]), -4.0)      # manual -12 kept as an offset
+            # the lift is real in the rendered segment, and the video cache key ignores it
+            lifted = R._measure(R.render_segment_audio(edl, shots[1], "30", cache))["I"]
+            plain = R._measure(R.render_segment_audio(edl, {k: v for k, v in shots[1].items() if k != "_level_db"},
+                                                      "30", cache))["I"]
+            self.assertAlmostEqual(lifted - plain, 8.0, delta=1.0)
+            # narration over a shot: its captions are not that shot's speech
+            nar = [{"id": "c0", "clip": "", "card": {"text": "x"}, "in": 0, "out": 1}] + [dict(x) for x in shots[:3]]
+            os.makedirs(os.path.join(proj, "02 - Export", "edit", "tts"))
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=d=3",
+                            os.path.join(proj, "02 - Export", "edit", "tts", "v.wav")], check=True)
+            e2 = {"project": proj, "shots": nar, "voiceover": [{"file": "tts/v.wav", "start": "s2", "at": 0.1}]}
+            info2 = R.plan_dialogue_levels(e2, nar, 30.0, cache)
+            self.assertNotIn("s2", info2["shots"])
+            # EDL-wide opt-out
+            self.assertIsNone(R.plan_dialogue_levels(dict(edl, dialogue_level=False), shots, 30.0, cache))
+            self.assertFalse(any("_level_db" in x for x in shots[:1]))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
