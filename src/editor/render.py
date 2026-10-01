@@ -343,9 +343,64 @@ def _pip_chain(edl, pp, j, dur, fps_str, preset, inputs, idx, last, chains):
     return f"vp{j}"
 
 
+_DUR_CACHE = {}
+
+
+def _media_dur(path):
+    key = (path, os.path.getmtime(path))
+    if key not in _DUR_CACHE:
+        p = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
+                           capture_output=True, text=True)
+        _DUR_CACHE[key] = float(p.stdout.strip() or 0)
+    return _DUR_CACHE[key]
+
+
+def voiceover_spans(edl):
+    """[(path, t0, dur, gain_db)] for the EDL's `voiceover` entries: a narration/TTS file placed at
+    its `start` shot's timeline start + `at` (or the first enabled shot after it, like music). Unlike a
+    shot's `sfx`, it may run across shot boundaries. Entries whose start shot and everything after
+    it are cut are dropped."""
+    rows, _ = E.timeline(edl)
+    starts = {s["id"]: st for s, st in rows}
+    order = edl.get("_order") or [s["id"] for s in edl["shots"]]
+    out = []
+    for v in edl.get("voiceover", []):
+        path = os.path.join(E.edit_dir(edl["project"]), v["file"])
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"voiceover file missing: {v['file']}")
+        t = None
+        if v.get("start") in order:
+            t = next((starts[sid] for sid in order[order.index(v["start"]):] if sid in starts), None)
+        if t is None:
+            continue
+        out.append((path, t + float(v.get("at", 0.0)), _media_dur(path), float(v.get("gain", 0.0))))
+    return out
+
+
+def mix_voiceover(edl, voice_wav, total):
+    """Mix the `voiceover` layer into the concatenated dialogue track in place."""
+    spans = voiceover_spans(edl)
+    if not spans:
+        return False
+    args, chain, labels = ["-i", voice_wav], [], ["[0:a]"]
+    for k, (path, t0, _d, gain) in enumerate(spans, 1):
+        args += ["-i", path]
+        chain.append(f"[{k}:a]aresample={SR},aformat=sample_fmts=fltp:channel_layouts=stereo,volume={gain:.2f}dB,"
+                     f"afade=t=in:d=0.02,adelay={int(round(t0 * 1000))}:all=1[vo{k}]")
+        labels.append(f"[vo{k}]")
+    chain.append(f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=first,atrim=0:{total:.3f}[out]")
+    tmp = voice_wav + ".vo.wav"
+    _run(["ffmpeg", "-v", "error", "-y", *args, "-filter_complex", ";".join(chain), "-map", "[out]",
+          "-c:a", "pcm_s16le", tmp])
+    os.replace(tmp, voice_wav)
+    return True
+
+
 def _speech_windows(edl, pad=0.35):
     iv = sorted((max(0, s["t0"] - pad), s["t1"] + pad) for s in E.timeline_subs(edl)
                 if s["kind"] == "speech")  # editor notes don't duck the music
+    # narration ducks the music too, whether or not its caption is on a shot (cards draw no subtitles)
+    iv = sorted(iv + [(max(0, t0 - pad), t0 + d + pad) for _p, t0, d, _g in voiceover_spans(edl)])
     merged = []
     for a, b in iv:
         if merged and a <= merged[-1][1] + 0.8:
@@ -539,6 +594,7 @@ def render(project, mode):
         _run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", f"{work}/a.txt",
               "-c", "pcm_s16le", f"{work}/voice.wav"])
         status.set(state="running", step="配乐 + 混音", progress=0.88, mode=mode)
+        mix_voiceover(dict(edl, shots=shots, _order=[s["id"] for s in edl["shots"]]), f"{work}/voice.wav", total)
         music_bed(dict(edl, shots=shots, _order=[s["id"] for s in edl["shots"]]), total, work, f"{work}/music.wav")
         if mode == "final":
             out = os.path.join(E.project_dir(project), "02 - Export", os.path.basename(E.project_dir(project)) + ".mov")

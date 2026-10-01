@@ -47,6 +47,10 @@ def check(edl):
                 warns.append(f"{sid}: B-roll {b.get('clip')} runs past the end of the shot")
             a0 = float(b.get("in", 0))
             used.append((b.get("clip"), a0, a0 + float(b.get("dur", 0)), f"{sid} B-roll"))
+    ids = [s.get("id") for s in edl.get("shots", [])]
+    for v in edl.get("voiceover", []):
+        if v.get("start") not in ids:
+            errors.append(f"voiceover {v.get('file')}: start shot {v.get('start')!r} not in the EDL")
     used.sort()
     for i in range(1, len(used)):
         c0, a0, b0, w0 = used[i - 1]
