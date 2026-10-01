@@ -51,6 +51,10 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
       "speed": 4,                              # timelapse factor (audio muted when > 1)
       "marks": [{"t0": 3.0, "t1": 5.0, "x": 0.8, "y": 0.5, "label": "虎鲸"}],  # labelled arrows
                                                # pointing at (x, y) during [t0, t1] (source s)
+      "spots": [{"t0": 2.0, "t1": 5.0, "x": 0.6, "y": 0.55, "r": 0.16, "label": "白狮子"}],
+                                               # spotlight: dim the frame except a soft circle (radius r
+                                               # = fraction of frame height) on a subject hiding behind a
+                                               # fence / in shade, ring + label; fades 0.3 s (source s)
       "gauge": {"from": 0, "to": -80, "max": -230, "label": "地下深度", "unit": "米", "step": 50,
                 "fade_in": false, "fade_out": false},   # animated meter panel (right edge): value
                                                # eases from→to over the shot (optional t0/t1, shot-local

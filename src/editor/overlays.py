@@ -245,6 +245,35 @@ def arrow(label, x, y, w, h, cache_dir):
     return _cached(cache_dir, f"arrow|{label}|{x:.3f}|{y:.3f}|{w}x{h}", render)
 
 
+def spotlight(label, x, y, r, w, h, cache_dir, dim=0.55):
+    """Dim the whole frame except a soft-edged circle of radius r (fraction of the frame height)
+    centred on (x, y) (0-1 of the frame), with a thin ring and an optional label beside it —
+    for an animal hiding behind a fence or in shade that an arrow alone doesn't reveal."""
+    def render():
+        cx, cy, rr = x * w, y * h, r * h
+        mask = Image.new("L", (w, h), int(255 * dim))
+        ImageDraw.Draw(mask).ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=0)
+        mask = mask.filter(ImageFilter.GaussianBlur(rr * 0.12))
+        im = Image.new("RGBA", (w, h), (0, 0, 0, 255))
+        im.putalpha(mask)
+        d = ImageDraw.Draw(im)
+        lw = max(3, h // 270)
+        d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], outline=(255, 214, 90, 230), width=lw)
+        if label:
+            size = int(h * 0.045)
+            f = _font(SUB_FONTS, size, label)
+            tw = d.textlength(label, font=f)
+            right = cx + rr + size * 0.6 + tw + size < w
+            bx = cx + rr + size * 0.5 if right else cx - rr - size * 0.5 - tw - size * 0.8
+            bx = min(max(bx, 8), w - tw - size - 8)
+            by = min(max(cy - size * 0.7, 8), h - size * 2)
+            d.rounded_rectangle([bx, by, bx + tw + size * 0.8, by + size * 1.4], radius=int(size * 0.4),
+                                fill=(0, 0, 0, 170))
+            d.text((bx + size * 0.4, by + size * 0.15), label, font=f, fill=(255, 214, 90, 255))
+        return im
+    return _cached(cache_dir, f"spot|{label}|{x:.3f}|{y:.3f}|{r:.3f}|{dim}|{w}x{h}", render)
+
+
 GAUGE_FPS = 10
 
 

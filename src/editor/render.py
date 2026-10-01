@@ -231,6 +231,12 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
             ovs.append((overlays.title_card(t["text"], t.get("sub", ""), w, h, ov_dir), 0, td, 0.4))
         if shot.get("tag"):
             ovs.append((overlays.place_tag(shot["tag"], w, h, ov_dir), 0, min(3.0, dur), 0.3))
+        for sp in shot.get("spots", []):  # spotlight: dim all but a circle on a hidden subject
+            a0, a1 = E.src_to_local(shot, sp["t0"]), min(E.src_to_local(shot, sp["t1"]), dur)
+            if a1 - a0 > 0.6:
+                png = overlays.spotlight(sp.get("label", ""), sp["x"], sp["y"], sp.get("r", 0.16), w, h, ov_dir,
+                                         sp.get("dim", 0.55))
+                ovs.append((png, a0, a1, 0.3))
         for m in shot.get("marks", []):
             a0, a1 = E.src_to_local(shot, m["t0"]), min(E.src_to_local(shot, m["t1"]), dur)
             if a1 - a0 > 0.1:
@@ -238,9 +244,9 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
         for s in E.shot_subs(shot):
             ovs.append((overlays.subtitle(s["text"], w, h, ov_dir, s.get("kind", "speech")), s["t0"], min(s["t1"], dur), 0))
     for i, (png, t0, t1, fade) in enumerate(ovs, base_inputs):
-        if fade:
+        if fade:  # fades in at t0 (frames before it are fully transparent), out at t1
             inputs += ["-loop", "1", "-framerate", fps_str, "-t", f"{t1:.3f}", "-i", png]
-            chains.append(f"[{i}:v]format=rgba,fade=t=in:st=0:d={fade}:alpha=1,"
+            chains.append(f"[{i}:v]format=rgba,fade=t=in:st={t0:.3f}:d={fade}:alpha=1,"
                           f"fade=t=out:st={max(0, t1 - fade):.3f}:d={fade}:alpha=1[o{i}]")
             chains.append(f"[{last}][o{i}]overlay=0:0:eof_action=pass[v{i}]")
         else:

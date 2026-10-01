@@ -35,8 +35,11 @@ def _sheet(args):
     dur, ctime = _probe(path)
     iv = max(2.0, round(dur / 12, 2))
     if not os.path.exists(out):
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-vf",
-                        f"fps=1/{iv},scale=320:-2,tile=6x2:padding=2", "-frames:v", "1", out], check=True)
+        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-vf",
+                            f"fps=1/{iv},scale=320:-2,tile=6x2:padding=2", "-frames:v", "1", out])
+        if r.returncode or not os.path.exists(out):  # sub-second clip (accidental tap): fps= yields no frame
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-vf",
+                            "select=eq(n\\,0),scale=320:-2,tile=6x2:padding=2", "-frames:v", "1", out], check=True)
     return {"dur": dur, "interval": iv, "ctime": ctime}
 
 
