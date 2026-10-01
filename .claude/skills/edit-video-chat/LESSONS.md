@@ -78,6 +78,17 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   avoid mood-only AI prose that could fit any city. Fact-check each line, align it to the relevant
   footage, and retain the script, sources and exact audio settings as project assets for later edits.
 
+- **A camera with an unset clock (DJI Osmo Pocket 3 on the July 2026 California trip, eps 102–104):** every
+  filename and `creation_time` says 2001-01-09…11. Clip numbers and clock deltas were still monotonic, so camera
+  days mapped 1:1 onto trip days (checked against signs, speech like "今天是七月四号", and the Notion plan); the
+  time of day was ~1¾ h off (sunset). Keep the filenames, record the mapping in each HANDOFF, use no clock tags.
+  The Pocket 3 has no GPS unless paired with the phone app: random doubles in the `dbgi` debug stream look like
+  coordinates but aren't.
+- **Split one trip across parallel episode directors with `fork` agents** (102–104): the director sorts the clips,
+  stages scan + ASR once for all, writes the mapping, then forks one director per later episode with exact clip
+  ranges, music pools (no overlap) and "no commits, report code changes". Forks can't spawn sub-agents, so run the
+  independent art-director check from the parent afterwards (it overturned 103's pick).
+
 ## Speech → subtitles
 
 - **Model choice matters more than prompt tricks.** Qwen3-ASR-1.7B (MLX) with a `--context` list of
@@ -199,6 +210,18 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 
 - **A place name in the ASR context list can overwrite a sign in the frame (ep 100):** "这里还有 Lalibela" was really "Lululemon": the dinner restaurant was in `--context`, so Qwen snapped to it; whisper and the 4K frame (a lululemon sign) disagreed. When a context word appears where the scene doesn't fit, check the frame and the second model before captioning it.
 
+- **Overpass can be down for hours (2026-10-01: 406/timeouts on every mirror at first).** Fallbacks that worked for
+  route maps: NPS park boundaries from the NPS Land Resources Division ArcGIS FeatureServer (layer 2,
+  `where=UNIT_CODE='SEQU'`, GeoJSON), US county outlines, USGS 3DEP hillshade + EPQS elevations, OSRM road geometry;
+  the kumi.systems Overpass mirror answered later in the day. Label straight legs 示意.
+- **DJI Pocket 3 clips can carry a −180° display matrix the renderer ignores** (104: 0462 upside down): check
+  `ffprobe -show_entries stream_side_data=rotation` and fix with an `hflip,vflip` grade.
+- **A shot whose subject sits in the bottom 15 % of the frame fights the subtitle** (102 hook: the jaguar walked along
+  the fence bottom). A zoom can't lift it (the crop clamps at the frame edge): pick the moment the subject is
+  higher, or split the caption so its words land on the next shot.
+- **Note captions over a shot where someone is audibly saying something else confuse viewers** (102: the docent's
+  next sentence under an Amur-leopard number note): mute those shots (`audio: mute`) and let the music carry.
+
 ## Audio & music
 
 - YouTube Audio Library "no attribution required" tracks are the only claim-safe music. Record
@@ -279,6 +302,10 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   (`/tmp/yt-editor/<project>/seg_*/sNNN_*.wav`); afftdn was NOT the cause (tested on a tone + a real clip).
 
 - **Reusing a short track within one episode needs the arithmetic, not a guess (ep 100):** list every section's span and each reuse's `in`; the second use must start after the first use's `in` + span + 5 s AND end before the track does (or it loops back into audio already heard). With 12 sections and 7 fetched tracks three reuses failed both tests; fetching two more tracks was cheaper than fiddling `in`s.
+
+- **A 2:17 track under a 3:27 section loops back to its start** (102 round 1: a 2-s near-silent hole at the loop
+  point, caught by the per-second loudness scan). Check every section's span against the track length (+ `in` +
+  2.5 s lead) before the first render.
 
 ## Review surfaces (pages)
 
@@ -386,3 +413,8 @@ analytics (retention graphs) once available.
 | 100 v2 | Aerial claim-check card as a full-frame `pip` (w 1.0, border 0) over the guide's own talk instead of a separate mute card, held on its last labelled frame (`tpad` clone) for the whole "横竖…左右…" explanation, back to him for the punchline | Shorter, the picture matches the words; pip can't loop, so pad the mp4 to the span | Yes when a card illustrates what someone is saying |
 | 97 v2 | Trip-opener postcard "Greetings from the ADIRONDACKS" (91's per-letter `alphamerge`, 11 letters = 11 shots of both days, per-letter crop centre so a narrow I/S still shows its subject) placed right after a live-voice cold open and before the route map, 3.0 s; the earlier mirror-lake title moved after his first beach line. Director's analytics asked for live voice by 3–5 s and a title by ~10 s: the hook now opens on his own overlook line (lake behind him) instead of three mute notes | Title at 0:11 (was 0:55 to the day card), first voice at 0.3 s (was 30 s). Stills checked before the encode; the 0.3 s frame shows the empty letter shadows (as on 91) | Yes for new trips: live line → 2 notes → postcard (≤ 3 s) → map |
 | 98 v2 | Cutting a same-angle POV run (life-jacket rapids 3:42 → 1:41, 8 distinctive takes) instead of decorating it, plus two sourced TTS lines on the `voiceover` layer (why summer rafting exists; the gorge's class-IV stretches). Over loud whitewater the TTS needed +6 dB and the shot's ambience −6 dB before whisper could transcribe it from the mix | 12:58 → 8:52 with every card, inset and payoff kept; no 30 s stretch without a beat. Check a TTS line over noise by ASR-ing the rendered mix, not the clean mp3 | Yes: cut POV runs to the takes that differ; TTS over loud action needs a level check |
+| 102 | **Spotlight** (`spots`, new renderer feature d66b964): the frame dims to 55 % except a soft circle with a yellow ring + label on an animal in shade or behind wire (lioness, caracals, tiger, white tiger) | Finds the animal at a glance without a punch-in that would blur a 1080p DJI frame; fades 0.3 s. Place the circle on frames from the actual moment (one ring sat on a cage post until re-aimed) | Pending review — yes for zoo/sanctuary fences and wildlife in shade |
+| 102 | Docent-claim check: a guide's wrong number is captioned as "导游说：…" and followed by a note with the sourced figure (cheetah: "72 mph in 10 s" → 0–60 mph in < 3 s) | Keeps the guide's voice and the fun, without repeating an error as fact | Yes whenever a guide/sign states something research contradicts |
+| 102 | Trip postcard spanning three episodes: the letters of "SEQUOIA" show shots from all three days (peaches, pupusas, Sherman, Tunnel Log, Roaring River Falls), in the first episode only | Previews the whole trip in 3 s; 103/104 skip the postcard and use only the route map | Yes: one postcard per trip, in its first episode |
+| 103 | Tree-ring timeline card: a sequoia cross-section grows ring by ring, dated rings light up (2,300–2,700 years ago, 221 BC, 618, 1879, 1890, 2026), labelled 示意 / 年龄为估算 with the NPS source | Turns "the biggest tree" into "how old is it" with Chinese-history anchors | Pending review — yes for old trees / long-lived things with a sourced age |
+| 104 | Terrain cross-section card from public-domain USGS EPQS elevations (60 points across the canyon, river 669 m → peak 3,042 m), hillshade inset shows the line, vertical stretch labelled 示意 | Makes "deeper than the Grand Canyon" visible with real data | Pending review — yes for canyons, passes, climbs |
