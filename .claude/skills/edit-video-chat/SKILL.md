@@ -311,7 +311,12 @@ only re-encodes changed shots, and an audio-only change re-renders PCM only.
   set `gain` on new lines.** For a manual level use `gain_db` on the entry (absolute dB). To move
   all lines use `vo_offset_lu` on the EDL. Per-line levels are in `render_status.json` →
   `audio.voiceover.lines`. Old EDLs' fixed `gain` values only keep their differences between lines.
-- **Boosted shots** (`gain_db` > 0) get an automatic peak limiter 12 dB above their own loudness.
+- **Dialogue levelling (automatic, render time):** each talking shot's captioned speech is measured. A shot more than 3 LU
+  from the episode median is pulled to that band (−6…+8 dB). Nothing is written to the EDL; the plan is in
+  `render_status.json` → `audio.dialogue_level`. Your `gain_db` still applies first, as an offset. Opt out with
+  `"level": false` on a shot (e.g. a deliberate shout or whisper) or `"dialogue_level": false` on the EDL. Captions must be
+  right for this to work: a shot without speech captions isn't measured.
+- **Boosted shots** (manual + levelling gain > 0) get an automatic peak limiter 12 dB above their own loudness.
 - **Cuts crossfade:** every cut and `skip` join on the dialogue/natural-sound track is a 40–60 ms
   equal-power crossfade, using 30 ms of real source sound past each edit point. There is no more
   dead gap at a cut. Video cuts are unchanged. The handle only exists if the source runs on: GoPro

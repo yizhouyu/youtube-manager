@@ -333,15 +333,23 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **Lint now warns** about narration over 4 字/s or < 0.3 s after a cut, 60 s of talk with no ≥ 4 s break, and > 3 sfx per minute.
   On 95–104: 100 has a 163 s talk run (3:54–6:37), 95 one of 127 s, and 102's Cat Haven line runs 5.0 字/s.
 
+- **R4 dialogue levelling (render time, not in the EDL):** each voice shot's caption-window speech is measured after
+  denoise + manual `gain_db`. Shots more than 3 LU from the speech-time-weighted median move to the band edge
+  (−6…+8 dB). Captions under narration are skipped. On 102 it took the linear master's LRA from 12.6 to 8.4,
+  and the quietest 10% of lines from −23.5 to −20.5 (original AGC'd preview: −20.7). **A ±2 LU band flattened 100 to
+  LRA 6.0**, which is too flat for a vlog. The band is ±3 (100: 8.4 → 7.0).
+- **The linear master changes the music/speech balance on talk-quiet episodes.** On 102, music-only stretches went from +1.7
+  to about +3 LU above the median spoken line, because the old AGC used to pull montages down. Levelling doesn't fix that;
+  R6 (music level relative to speech) would. Until then, lower `music_volume` if the montage music feels loud.
+
 ### Audio follow-ups (research 2026-10-01, not done yet, in priority order)
-1. **R4 auto dialogue levelling.** Add `src/editor/level.py`: measure speech loudness per voice shot (VAD/caption-gated),
-   write `gain_db` toward the episode median (clamp −6…+8, `gain_auto: true`, never overwrite manual values).
-   It matters more now that the master no longer AGCs. 102's p10 line is −23.5 vs a −16.8 median.
+1. *(R4 dialogue levelling: done at render time, see below.)*
 2. **R5 duck shape.** Today's duck ramps are symmetric, linear in amplitude, 0.5 s. Replace them with dB-domain ramps that
    reach the duck 0.1 s before the first word (0.25 s attack), hold 0.4 s, and release over 1.1 s. In gaps < 3 s, rise only
    halfway. Render the envelope as audio and `amultiply`, which also removes the per-frame-expression bug class.
-3. **R6 adaptive duck depth.** Put the music about 15 LU under each speech window's own loudness (clamped to 8–22 dB),
-   and keep `music_duck` as a floor. Do it together with R5.
+3. **R6 adaptive duck depth + music level.** Put the music about 15 LU under each speech window's own loudness (clamped to
+   8–22 dB), and keep `music_duck` as a floor. Do it together with R5. Also tie the un-ducked `music_volume` to the
+   episode's median speech level: the linear master left 102's music-only stretches about 3 LU over its median line.
 4. **R7 music endings + R10a no raw loop.** Back-time the last track (`"end": "natural"`) so it ends on its own final hit.
    Stop fading 5 s from mid-song, and button sections on a bar line. Extend a short track with a bar-aligned internal edit,
    never `-stream_loop`.
