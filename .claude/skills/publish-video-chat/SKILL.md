@@ -355,6 +355,20 @@ PY
 3. Upload: `./venv/bin/python scripts/upload_captions.py <video_id> "<abs captions.srt>"`.
    Gotchas: needs **`youtube.force-ssl`** scope; a **409** means a same-name track exists →
    `captions.update` (or delete + re-insert); don't crash a re-run.
+4. **English subtitle track (creator, 2026-10-01; every video from 95 on).** Most viewers are
+   Chinese, so English is never burned in. It's an extra YouTube track that foreign viewers can turn on.
+   - **When:** only **after the creator approves the cut** (审片 can still change the Chinese captions)
+     and before upload. Translate the *final* `edit/captions.srt` produced by the `--final` render.
+   - **What to translate:** every cue, including editor notes and TTS lines.
+   - **How to translate:** keep cue timings byte-identical. Use natural, concise English, not literal.
+     - Proper nouns use their real English names (Point Loma, Nassau Hall, Huntington).
+     - Dish names use their English or menu names.
+     - Drop Chinese-only glosses such as "（加料薯条）".
+   - **Save and upload:**
+     - Save it as `02 - Export/captions.en.srt`.
+     - Have a critic subagent check it against the Chinese SRT for meaning and names.
+     - Upload it with `scripts/upload_captions.py <id> <captions.en.srt> en English`.
+   - **Quota:** about 400 API units per track. Budget it with the upload.
 
 **Chapters (do this).** Add description chapters with accurate timestamps read from
 `captions.srt` (match each route landmark to where it's first mentioned + that cue's start
