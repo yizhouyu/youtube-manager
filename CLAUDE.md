@@ -40,7 +40,7 @@ Raw footage → finished vlog is the **edit-video-chat** skill
 - **`edl.py`** — the EDL schema (`<project>/02 - Export/edit/edl.json`) + timeline/subtitle helpers.
 - **`render.py`** — `-m src.editor.render "<project>" --preview|--final|--package`: per-shot
   cached segments (grade, B-roll, burned-in subs/titles/tags), frame-exact concat, section
-  music ducked under speech, loudnorm −14 LUFS, timeline `captions.srt`.
+  music ducked under speech, mastering loop to −14 LUFS / ≤ −1.5 dBTP (see render skill), timeline `captions.srt`.
 - **`overlays.py`** — Pillow-rendered subtitle / title card / place-tag PNGs (no `drawtext` here).
 - **`review_server.py`** — `-m src.editor.review_server "<project>"`: local page to toggle, trim,
   split, reorder shots and edit subtitles, then re-render.
