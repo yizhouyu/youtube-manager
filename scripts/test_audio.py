@@ -102,6 +102,15 @@ class TTSChain(unittest.TestCase):
         self.assertEqual(R.vo_gain_db({"gain_db": -3}, -18.0, -22.0), (-3.0, False))
         self.assertEqual(R.vo_gain_db({"gain": 4.5}, -18.0, -22.0, offset=0.5), (-3.5, True))  # legacy gain ignored
         self.assertEqual(R.vo_gain_db({}, -60.0, -20.0)[0], 24.0)  # clamped
+        g, auto = R.vo_gain_db({}, -18.0, -22.0, offset=0.5, trim=2.2)
+        self.assertAlmostEqual(g, -1.3)
+        self.assertTrue(auto)
+
+    def test_legacy_gains_become_relative_trims(self):
+        self.assertEqual(R.legacy_trims([4.5, 4.5, 4.5]), [0.0, 0.0, 0.0])     # uniform compensation: dropped
+        self.assertEqual([round(t, 2) for t in R.legacy_trims([1.6, 6.0])], [-2.2, 2.2])  # intent kept
+        self.assertEqual(R.legacy_trims([None, 3.0]), [0.0, 0.0])
+        self.assertEqual(R.legacy_trims([]), [])
 
     def test_power_mean(self):
         self.assertAlmostEqual(R.power_mean_lufs([-20, -20, -120]), -20.0)
@@ -142,7 +151,7 @@ def _fake_project(td, clip_dur=6.0, noise=False):
     raw = os.path.join(td, "speech.wav")
     if noise:
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",
-                        f"anoisesrc=d={clip_dur}:c=pink:r={SR}:a=0.1", "-ac", "2", raw], check=True)
+                        f"anoisesrc=d={clip_dur}:c=pink:r={SR}:a=0.1:s=7", "-ac", "2", raw], check=True)
     else:
         _speechlike(raw, clip_dur)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"color=c=black:s=320x180:r=30:d={clip_dur}",
@@ -263,7 +272,8 @@ class Crossfade(unittest.TestCase):
             ref = _rms_db(x[R._HS + int(0.2 * SR):R._HS + int(1.2 * SR)])
             join = R._HS + int(round(1.5 * SR))                               # 2.0 s source = 1.5 s into the body
             ctrl = R._HS + int(round(0.8 * SR))                               # same statistic, no join
-            self.assertGreater(_min_window_db(x, join), _min_window_db(x, ctrl) - 2.0, "no hole at the skip join")
+            # an old-style 12 ms fade-out/fade-in hole dips > 15 dB on this statistic
+            self.assertGreater(_min_window_db(x, join), _min_window_db(x, ctrl) - 3.0, "no hole at the skip join")
             self.assertGreater(_rms_db(x[:R._HS]), ref - 3.0, "pre-handle is real source sound")
             # a shot starting at 0 s has no pre-handle; a card has silent (usable) handles
             b = R.render_segment_audio(edl, dict(shot, id="s2", **{"in": 0.0}), fps, cache)

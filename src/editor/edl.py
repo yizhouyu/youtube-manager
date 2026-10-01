@@ -23,8 +23,10 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
                                                # limiter; float WAV, cached) and is auto-levelled to the
                                                # on-camera speech loudness + `vo_offset_lu` (EDL, default
                                                # 0.5). `gain_db` on an entry = manual level instead (dB).
-                                               # The old fixed `gain` is ignored unless "tts_chain": false
-                                               # (EDL) restores the legacy raw-file + fixed-gain path.
+                                               # The old fixed `gain`: only its difference from the
+                                               # episode's median line gain is kept (a relative trim);
+                                               # "tts_chain": false (EDL) restores the legacy raw-file +
+                                               # fixed-gain path.
                                                # Caption it with subs on the shots (cards: bake the text in)
   "music_volume": 0.30,                        # music gain when nobody is talking
   "music_duck": 0.08,                          # music gain under speech (subtitle intervals)

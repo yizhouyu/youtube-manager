@@ -703,12 +703,24 @@ def speech_reference(edl, voice_wav, exclude=()):
     return (ref if ref is not None else SPEECH_REF_FALLBACK), len(wins)
 
 
-def vo_gain_db(entry, line_lufs, speech_ref, offset=VO_OFFSET_LU):
+def vo_gain_db(entry, line_lufs, speech_ref, offset=VO_OFFSET_LU, trim=0.0):
     """Gain for one processed TTS line: the entry's manual `gain_db` if set, else level-matched to
-    the on-camera speech reference + offset (clamped to +-24 dB)."""
+    the on-camera speech reference + offset + trim (clamped to +-24 dB)."""
     if entry.get("gain_db") is not None:
         return float(entry["gain_db"]), False
-    return max(-24.0, min(24.0, speech_ref + offset - line_lufs)), True
+    return max(-24.0, min(24.0, speech_ref + offset + trim - line_lufs)), True
+
+
+def legacy_trims(gains_db):
+    """Per-line trims from the pre-auto fixed gains: each line's difference from the episode's
+    median gain. The common part (e.g. +4.5 dB on every line, which only compensated the files'
+    -18 LUFS level) is replaced by auto levelling; a deliberate difference between lines (98's
+    gorge line +6 vs +1.6 over loud rapids) is kept."""
+    vals = sorted(g for g in gains_db if g is not None)
+    if not vals:
+        return [0.0 for _ in gains_db]
+    med = (vals[len(vals) // 2] + vals[(len(vals) - 1) // 2]) / 2
+    return [0.0 if g is None else g - med for g in gains_db]
 
 
 def mix_voiceover(edl, voice_wav, total):
@@ -726,12 +738,16 @@ def mix_voiceover(edl, voice_wav, total):
         info.update(speech_ref=round(ref, 1), speech_captions=n, vo_offset_lu=offset)
     args, chain, labels = ["-i", voice_wav], [], ["[0:a]"]
     tts_cache = os.path.join(os.path.dirname(os.path.abspath(voice_wav)), "tts")
+    # legacy fixed gains -> relative trims (voiceover: dB; TTS sfx: linear)
+    trims = legacy_trims([float(e["gain"]) if isinstance(e.get("gain"), (int, float)) else None for *_x, e in vo]) + \
+        legacy_trims([20 * math.log10(max(1e-3, float(e["gain"]))) if isinstance(e.get("gain"), (int, float)) else None
+                      for *_x, e in fx])
     for k, (path, t0, d, entry) in enumerate(spans, 1):
         if chain_on:
             src, line_i = tts_processed(path, tts_cache)
-            gain, auto = vo_gain_db(entry, line_i, ref, offset)
+            gain, auto = vo_gain_db(entry, line_i, ref, offset, trims[k - 1])
             info["lines"].append({"file": entry.get("file"), "t0": round(t0, 2), "line_I": line_i,
-                                  "gain_db": round(gain, 2), "auto": auto})
+                                  "gain_db": round(gain, 2), "auto": auto, "trim_db": round(trims[k - 1], 2)})
             print(f"[voiceover] {entry.get('file')}: line {line_i:.1f} LUFS -> {gain:+.1f} dB "
                   f"({'auto, speech ref %.1f' % ref if auto else 'manual gain_db'})", flush=True)
         else:  # legacy: raw file, fixed `gain` dB (voiceover) / linear `gain` (sfx is mixed in the segment)
