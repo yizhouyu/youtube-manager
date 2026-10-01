@@ -54,6 +54,29 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   - 86–89: 11–15% each, where the prompt said "reuse the previous episode's build script and
     features, targeted reviewer frames, ≤3 QA rounds, aim ≤15–20%".
   - Always chain each episode from the previous one's `edit/` folder.
+- **A comparison cut is a creative experiment, not a revision of the first cut.** Render it from a
+  separate alternate EDL in an isolated staging project, leave the original EDL/master/assets alone,
+  and hand the creator its own 4K master + SRT + EDL. `scripts/render_variant.py` is the standard
+  path; a 1080p file is only an internal QA proxy when the requested deliverable is 4K. Preflight
+  the master, EDL, SRT, manifest and version-scoped asset directory before rendering; the manifest
+  must point only to files actually delivered. Verify by re-opening the delivered EDL and checking
+  its references, and test overwrite refusal without touching a real project.
+- **Choose long episode vs Short before cutting.** Use the raw material's available story, speech,
+  and visual variety — not a default vlog duration. A short, narration-free visual day may be a
+  deliberate 90–180 s 16:9 micro-documentary plus a Short, rather than padded into a long episode.
+- **Generated music/TTS/illustrative transitions can add authorship without falsifying a trip.** Keep
+  the real footage as evidence; use generated media only as a labeled editorial layer, test TTS
+  personality on one line first, and do not bypass a media tool's interactive-consent gate.
+- **No source narration does not automatically mean “no voiceover.”** Follow the creator's latest
+  explicit direction and let later corrections supersede earlier notes. Princeton (101) was first
+  described as intentionally without narration, then the creator clarified “101 needs narration”
+  and asked for location-specific, informative coverage. For observational work, let image and
+  natural sound lead; when informative narration is requested, use verified facts matched to the
+  visible place—not generic poetic prose—and preserve the selected script, voice, audio and sources.
+- **Informative narration must be geographically and visually anchored.** When requested, explain
+  the actual place on screen with verified history/context, then return to the filmed experience;
+  avoid mood-only AI prose that could fit any city. Fact-check each line, align it to the relevant
+  footage, and retain the script, sources and exact audio settings as project assets for later edits.
 
 ## Speech → subtitles
 

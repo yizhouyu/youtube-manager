@@ -12,6 +12,8 @@ and it:
 
 > This started as a Flask web app + CLI (see the original write-up: [vibe-coding with Claude Code](https://yizhouyu.dev/blog/posts/vibe-coding-with-claude-code/)). It has since been rebuilt around conversational **skills**, and the UI was deleted on purpose ([here is why](https://yizhouyu.dev/blog/posts/deleted-the-ui/)). A UI can only expose the buttons you thought to build. An agent you talk to isn't capped that way.
 
+**For any editing agent:** start with [`AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md), then read the relevant edit/publish skill and its `LESSONS.md`. These repository rules apply regardless of which agent performs the work.
+
 ## The two skills
 
 | Skill | What it does |
@@ -50,6 +52,10 @@ into video.
    - music sections crossfaded, loudness-matched, and ducked under speech;
    - two-pass loudnorm to −14 LUFS, plus a limiter;
    - output as a 1080p preview or a 4K 10-bit master.
+   - **Alternate comparison cuts** use `scripts/render_variant.py`: it stages a separate project
+     with a symlink to protected raw media, copies and delivers version-scoped edit assets, and
+     exports a 4K master, SRT, editable source-time EDL, and render manifest. It refuses to
+     overwrite existing companion deliverables or write into raw-media/source-edit folders.
 6. **QA (mandatory)**: every round, a reviewer sub-agent:
    - watches dense frames of the render *and* the raw footage;
    - re-transcribes the rendered audio and diffs it against the captions;
@@ -107,6 +113,7 @@ src/
 scripts/
   new_project.sh        # new vlog project from templates/vlog-project
   claude_usage.py       # plan usage (5-hour / weekly) for batch pacing
+  render_variant.py     # non-destructive 4K comparison-master renderer
   bili_season.py        # Bilibili 合集 (create + add episodes)
   preprocess_video.sh  transcribe_accurate.sh  upload_captions.py  render_thumbnails.py
 templates/vlog-project/ # 01 - Unedited/, 02 - Export/{thumbnail, edit/{glossary, music, sfx, HANDOFF}}
@@ -137,6 +144,14 @@ A project is a folder `NN - Place/`:
   `LESSONS.md` and in the creator-preference memory the agent keeps.
 - Music comes from the YouTube Audio Library (no attribution required). Each project keeps its
   tracks and a `LICENSES.md`.
+- A comparison delivery keeps its `.edl.json` as the source of truth, plus an `.srt`,
+  `.manifest.json`, and a version-scoped `.assets/` directory when the alternate EDL uses extra
+  media. Change subtitle text or timing in the EDL, then render to a new versioned output; never
+  treat the rendered SRT as the source file or reuse a version number. The renderer preflights all
+  destination paths before starting.
+- When approved by the creator, original generated music, brief TTS, and clearly illustrative
+  transitions can be used as editorial layers. They must not fabricate the real trip, and an
+  alternate version records its generated assets in its manifest.
 - `src/analytics/` feeds the packaging loop, which biases future titles and thumbnails toward what
   beat the channel's baseline.
 - License: MIT.

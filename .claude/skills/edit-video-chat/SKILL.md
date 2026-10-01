@@ -91,9 +91,33 @@ the 0–8 s hook and promise line, one mini-arc per place, the open question and
 this episode's new technique, and the end screen. The reviewer checks the cut against it
 (Deedy Das, "Opus video workflow", LinkedIn 2026-09: https://lnkd.in/p/g34Cz6pf).
 
+**Choose the deliverable format before writing the EDL.** It is a creative decision, not an export
+checkbox: state whether the footage earns a conventional 16:9 episode, a 9:16 Short, or both. A
+small, mostly visual day with no natural narration usually wants a 90–180 s 16:9 micro-documentary
+with an optional Short cut-down; do not pad it into a long vlog. A rich day with speech, a process,
+or multiple places can earn a longer episode. Record the decision and its reason in the beat sheet.
+
+**Choose narration to match the creator's intent.** No original narration does not by itself mean
+the creator wants a silent/observational cut; follow the latest explicit direction, especially when
+it corrects an earlier note. If the creator wants an observational film, let picture, location sound
+and rhythm carry it. If they ask for informative narration, write location-specific, fact-checked
+lines tied to the images rather than generic mood prose. Test the requested voice on a representative
+line before generating the full track. Voiceover may frame the real sequence, but must never assert
+a fact or event not visible, audible, or sourced.
+
+**When the creator asks for an informative film, don't default to generic vlog narration.** Build a
+place-by-place spine: identify where we are, explain one useful verified detail or piece of history,
+then return to what the creator actually saw, did, or said there. Keep each fact attached to its
+matching shot; cite research in `edit/research.md`; distinguish on-camera claims from independently
+verified facts. If generated narration is requested, write and fact-check the complete script first,
+test the approved voice on one representative line, then retain the script, voice/model settings,
+audio files, captions and sources beside the EDL so the edit can be reproduced later.
+
 Write the EDL (a small build script is fine). Craft rules that make it comfortable to watch:
-- **Story:** 15–20 s cold open of the best moments over music → a title card → chronological
-  sections per island/place (title card + place tags) → a slow ending shot with a fade.
+- **Story:** open on the strongest moment and land the title's promise/question by 8 s; then
+  establish the trip and move through clear chronological or thematic place arcs → a slow ending
+  shot with a fade. Do not hold a 15–20 s montage by default: the first-8-second promise rule below
+  takes precedence; extend the opening only when that specific story earns it.
 - **Use a fraction of the footage.** Drop clips that are silent + repetitive (sand-only
   underwater, lens covered, near-duplicate selfies); trim talking clips to the speech plus
   ~0.3 s; split long clips to cut dead air.
@@ -232,6 +256,18 @@ back into the file (poll it; add questions any time, the pages pick them up with
 Segments are cached by content hash, so a re-render after edits only re-encodes changed
 shots.
 
+**Comparison masters must be isolated.** When the creator asks for a distinct creative version,
+never overwrite the original `edl.json`, preview, cards, or master. Write the alternate EDL, then
+run `scripts/render_variant.py <project> <variant-edl> --output <destination>.mov`; it symlinks the
+protected raw media into a staging project, copies edit assets, renders a 4K master, and copies the
+master + captions + exact EDL + manifest + version-scoped dependency assets to the destination.
+The tool must preflight every destination before rendering and fail closed if any output exists; use
+a new versioned filename for revisions. Never write into `01 - Unedited/` or the source `edit/`
+folder. Re-open the delivered EDL against its saved assets as a reproducibility check. A 1080p
+preview is only an internal QA proxy.
+When the creator asks for a comparison deliverable in 4K, the linked result must be the 4K `.mov`,
+not the proxy.
+
 **Keep "showing" shots:** a silent 2–3 s shot where the camera clearly shows something (a sign,
 a menu, an animal) earns its place — give it an editor's caption (`subs` entry with
 `"kind": "note"`: soft yellow, doesn't duck music, never mixed up with dialogue).
@@ -266,6 +302,13 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
 - **Try at least one new technique per video — mandatory.** The creator explicitly wants every
   episode to bring something new. If the renderer can't do it yet, add it as a small
   generic, tested feature (commit + push per the repo rules).
+- **Generated media is an editorial component, not invented evidence.** Original music, brief TTS,
+  and clearly illustrative/motion-graphic transitions are allowed when the creator asks for them;
+  real locations, dishes, people, actions, animal behaviour and history still come from the actual
+  footage or sourced material. Do not use generative video to fake a travel moment. Keep generated
+  audio/visual assets in the project, document their role in HANDOFF.md, and treat them as preview-only
+  until the creator accepts them. If a media tool requires an interactive consent flow, do not retry
+  or work around it; continue the real-footage cut and report the optional asset as blocked.
 - **Animatic before the full render for new motion cards:** render 3–5 keyframe stills first
   (start, mid-build, text fully in, end) and look at them at full size. Encode the `card.image` mp4
   only after those stills pass. Overlaps, black corners and cut-off text are cheap to fix at this
