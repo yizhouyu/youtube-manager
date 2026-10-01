@@ -480,6 +480,12 @@ def _version_preview(edit, out, keep=3):
 
 def render(project, mode):
     edl = E.load(project)
+    from .lint import check as _lint
+    errors, warns = _lint(edl)
+    for m in warns:
+        print("[lint] " + m, flush=True)
+    if errors:
+        raise SystemExit("EDL errors (fix before rendering):\n" + "\n".join(errors))
     edit = E.edit_dir(project)
     status = Status(os.path.join(edit, "render_status.json"))
     fps_str = edl.get("output", {}).get("fps", "30000/1001")
