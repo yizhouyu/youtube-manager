@@ -129,5 +129,42 @@ class TTSChain(unittest.TestCase):
             self.assertEqual(os.path.getmtime(wav), mt, "second call is a cache hit")
 
 
+def _fake_project(td, clip_dur=6.0):
+    """A project with one source clip (speech-like audio + a black picture) -> (project dir, clip id)."""
+    proj = os.path.join(td, "AudioTest")
+    os.makedirs(os.path.join(proj, "01 - Unedited"))
+    os.makedirs(os.path.join(proj, "02 - Export", "edit"))
+    raw = os.path.join(td, "speech.wav")
+    _speechlike(raw, clip_dur)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"color=c=black:s=320x180:r=30:d={clip_dur}",
+                    "-i", raw, "-c:v", "libx264", "-c:a", "aac", "-b:a", "256k", "-shortest",
+                    os.path.join(proj, "01 - Unedited", "CLIP.MP4")], check=True)
+    return proj, "CLIP"
+
+
+class PeakGuard(unittest.TestCase):
+    def test_ceiling(self):
+        self.assertEqual(R.peak_guard_ceiling(-30.0), -18.0)
+        self.assertEqual(R.peak_guard_ceiling(-12.0), -3.0)        # never above -3 dBFS
+        self.assertIsNone(R.peak_guard_ceiling(None))
+        self.assertIsNone(R.peak_guard_ceiling(-80.0))
+        self.assertEqual(R.peak_guard(None), [])
+        deep = R.peak_guard(-40.0)                                   # -28 dBFS: below alimiter's -24 floor
+        self.assertTrue(deep[0].startswith("volume=8.00dB") and deep[-1] == "volume=-8.00dB", deep)
+
+    def test_boosted_shot_is_limited_unboosted_is_not(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj, clip = _fake_project(td)
+            edl = {"project": proj, "shots": []}
+            base = {"id": "s1", "clip": clip, "in": 0.5, "out": 5.5, "audio": "voice"}
+            cache = os.path.join(td, "cache")
+            os.makedirs(cache)
+            plain = R._measure(R.render_segment_audio(edl, dict(base), "30", cache))
+            boosted = R._measure(R.render_segment_audio(edl, dict(base, gain_db=6), "30", cache))
+            self.assertAlmostEqual(boosted["I"] - plain["I"], 6.0, delta=1.5)        # still lifted
+            self.assertLess(boosted["TP"] - boosted["I"], plain["TP"] - plain["I"] - 2.0)  # transients not lifted
+            self.assertLessEqual(boosted["TP"], boosted["I"] + R.PEAK_GUARD_PLR + 1.0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

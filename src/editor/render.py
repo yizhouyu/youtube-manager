@@ -156,11 +156,45 @@ def _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath):
     return vpath
 
 
+# R3: lifting a quiet speaker must not lift their transients. A shot with gain_db > 0 gets a
+# 4x-oversampled limiter whose ceiling sits PEAK_GUARD_PLR dB above the shot's own (post-gain)
+# loudness, so boosted lines stop being the peaks that the master limiter has to squash.
+PEAK_GUARD_PLR = 12.0
+
+
+def peak_guard_ceiling(shot_lufs, plr=PEAK_GUARD_PLR):
+    """Limiter ceiling (dBFS) for a boosted shot: its loudness + plr, at most -3 dBFS; None when the
+    shot is silent (nothing to guard)."""
+    if shot_lufs is None or shot_lufs <= -70:
+        return None
+    return min(-3.0, shot_lufs + plr)
+
+
+def peak_guard(shot_lufs):
+    """Filters for the boosted-shot limiter (alimiter can't go below -24 dBFS: shift around it)."""
+    c = peak_guard_ceiling(shot_lufs)
+    if c is None:
+        return []
+    shift = max(0.0, -20.0 - c)
+    lim = f"alimiter=limit={10 ** ((c + shift) / 20):.5f}:attack=2:release=60:level=false:latency=1"
+    return ([f"volume={shift:.2f}dB"] if shift else []) + ["aresample=192000", lim, f"aresample={SR}"] + \
+        ([f"volume={-shift:.2f}dB"] if shift else [])
+
+
+def _measure_span(inputs, chain, pre_chains=()):
+    """Loudness of one shot's audio through `chain` (filtergraph text ending without a label)."""
+    graph = ";".join(list(pre_chains) + [f"{chain},ebur128=peak=true:framelog=quiet"])
+    err = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", *inputs, "-filter_complex", graph, "-f", "null", "-"],
+                         capture_output=True, text=True).stderr
+    v = re.findall(r"^\s+I:\s+(-?[\d.]+|-inf) LUFS", err, re.M)
+    return {"I": float(v[-1]) if v else None}
+
+
 # Segment cache versions. Video and audio are cached separately, so an audio-only change re-renders
 # a few seconds of PCM per shot instead of every shot's picture. Bump the matching one whenever the
 # segment output changes without the shot dict changing.
 VIDEO_CACHE_VERSION = 9
-AUDIO_CACHE_VERSION = 1
+AUDIO_CACHE_VERSION = 2
 
 
 def render_segment(edl, shot, fps_str, preset, cache, clean=False):
@@ -337,6 +371,8 @@ def render_segment_audio(edl, shot, fps_str, cache):
         elif mode and shot.get("audio", "voice") == "voice":
             # boat engines / wind: cut the low rumble, then FFT denoise under the voice
             af[2:2] = ["highpass=f=140", "afftdn=nr=18:nf=-30:tn=1"]
+        if float(shot.get("gain_db", 0) or 0) > 0 and gain > 0:
+            af += peak_guard(_measure_span(inputs, f"{asrc}asetpts=PTS-STARTPTS,{','.join(af)}", chains)["I"])
         # 12 ms edge fades on every shot: a hard cut on a non-zero sample (wind) clicks after limiting
         af.append(f"afade=t=in:st=0:d={max(fi or 0, EDGE_FADE)}")
         af.append(f"afade=t=out:st={max(0, dur - max(fo or 0, EDGE_FADE)):.3f}:d={max(fo or 0, EDGE_FADE)}")
