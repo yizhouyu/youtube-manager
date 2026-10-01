@@ -7,7 +7,11 @@ import os
 import subprocess
 import sys
 import tempfile
+import json
 import unittest
+from fractions import Fraction
+
+import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from src.editor import render as R  # noqa: E402
@@ -129,13 +133,18 @@ class TTSChain(unittest.TestCase):
             self.assertEqual(os.path.getmtime(wav), mt, "second call is a cache hit")
 
 
-def _fake_project(td, clip_dur=6.0):
-    """A project with one source clip (speech-like audio + a black picture) -> (project dir, clip id)."""
+def _fake_project(td, clip_dur=6.0, noise=False):
+    """A project with one source clip (speech-like audio, or steady pink noise like wind/ambience,
+    + a black picture) -> (project dir, clip id)."""
     proj = os.path.join(td, "AudioTest")
     os.makedirs(os.path.join(proj, "01 - Unedited"))
     os.makedirs(os.path.join(proj, "02 - Export", "edit"))
     raw = os.path.join(td, "speech.wav")
-    _speechlike(raw, clip_dur)
+    if noise:
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",
+                        f"anoisesrc=d={clip_dur}:c=pink:r={SR}:a=0.1", "-ac", "2", raw], check=True)
+    else:
+        _speechlike(raw, clip_dur)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"color=c=black:s=320x180:r=30:d={clip_dur}",
                     "-i", raw, "-c:v", "libx264", "-c:a", "aac", "-b:a", "256k", "-shortest",
                     os.path.join(proj, "01 - Unedited", "CLIP.MP4")], check=True)
@@ -164,6 +173,106 @@ class PeakGuard(unittest.TestCase):
             self.assertAlmostEqual(boosted["I"] - plain["I"], 6.0, delta=1.5)        # still lifted
             self.assertLess(boosted["TP"] - boosted["I"], plain["TP"] - plain["I"] - 2.0)  # transients not lifted
             self.assertLessEqual(boosted["TP"], boosted["I"] + R.PEAK_GUARD_PLR + 1.0)
+
+
+def _rms_db(x):
+    return 20 * np.log10(max(float(np.sqrt(np.mean(np.square(x, dtype=np.float64)))), 1e-12))
+
+
+def _min_window_db(x, centre, half=0.05, win=0.005):
+    """Lowest 5 ms RMS (dBFS) within +-half s of sample index `centre`."""
+    w, lo, hi = int(win * SR), max(0, centre - int(half * SR)), min(len(x), centre + int(half * SR))
+    return min(_rms_db(x[i:i + w]) for i in range(lo, hi - w, w // 2))
+
+
+def _seg(path, body, pre, post, level=0.1, seed=0, click_at=None):
+    """A segment wav like render_segment_audio writes: white noise everywhere it 'has' sound."""
+    h = R._HS
+    x = (np.random.default_rng(seed).standard_normal((h + body + h, 2)) * level).astype(np.float32)
+    x[:h - pre] = 0
+    x[h + body + post:] = 0
+    if click_at is not None:
+        x[h + click_at] = 0.99
+    R._write_f32(path, x)
+    with open(path + ".json", "w") as f:
+        json.dump({"pre": pre, "post": post, "body": body, "handle": h}, f)
+    return path
+
+
+class Crossfade(unittest.TestCase):
+    def test_equal_power_curves(self):
+        fo, fi = R.eq_power(2880)
+        np.testing.assert_allclose(fo ** 2 + fi ** 2, 1.0, atol=1e-6)
+        self.assertTrue(np.all(np.diff(fi) > 0) and np.all(np.diff(fo) < 0))
+        self.assertAlmostEqual(float(fo[1440]), float(fi[1439]), places=3)   # symmetric: -3 dB in the middle
+        self.assertEqual(len(R.eq_power(0)[0]), 0)
+
+    def test_window_lengths(self):
+        self.assertTrue(0.04 <= R.XF_CUT <= 0.08)
+        self.assertEqual(R.join_xfade(0.5, 2.0, 2.0), R.XF_SKIP)
+        self.assertEqual(R.join_xfade(0.025, 2.0, 2.0), 0.025)     # never reaches past the skipped span
+        self.assertEqual(R.join_xfade(0.5, 0.03, 2.0), 0.03)       # nor past a short kept piece
+        self.assertEqual(R.cut_window(1440, 1440, 48000, 48000), (1440, 1440))
+        self.assertEqual(R.cut_window(1440, 0, 48000, 48000), (0, 1440))      # one-sided: still no hole
+        self.assertEqual(R.cut_window(1440, 1440, 1000, 2000), (500, 1000))   # short shots: half a body max
+
+    def test_assembler_no_hole_exact_length_and_sync(self):
+        fps = 30000 / 1001
+        bodies_f = [37, 52, 41, 30]                       # frames
+        starts, t = [], 0.0
+        for nf in bodies_f:
+            starts.append(t)
+            t += nf / fps
+        total = t
+        h = R._HS
+        with tempfile.TemporaryDirectory() as td:
+            segs = [_seg(os.path.join(td, f"s{i}.wav"), int(round(nf / fps * SR)), pre, post, seed=i,
+                         click_at=0 if i == 2 else None)
+                    for i, (nf, pre, post) in enumerate(zip(bodies_f, [h, h, h, 0], [h, h, 0, h]))]
+            out = os.path.join(td, "voice.wav")
+            rep = R.assemble_dialogue(segs, starts, total, out)
+            x = R._read_f32(out)
+            self.assertEqual(len(x), int(round(total * SR)))
+            ref = _min_window_db(x, int(0.5 * SR))          # same statistic away from any cut
+            cuts = [int(round(s * SR)) for s in starts[1:]]
+            self.assertEqual([n for _t, n in rep], [2 * h, 2 * h, 0])
+            for c in cuts[:2]:                             # handles on both sides: no dip at all
+                self.assertGreater(_min_window_db(x, c), ref - 2.0)
+            self.assertLess(_min_window_db(x, cuts[2], win=0.001), ref - 15)   # no handles: the old dip
+            # the click at shot 2's first body sample lands on its frame-exact start (the crossfade
+            # gain there is sin(pi/4) at the window centre)
+            k = int(np.argmax(np.abs(x[:, 0])))
+            self.assertEqual(k, cuts[1])
+
+    def test_skip_join_and_cut_handles_from_source(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj, clip = _fake_project(td, noise=True)
+            edl = {"project": proj, "shots": []}
+            cache = os.path.join(td, "cache")
+            os.makedirs(cache)
+            shot = {"id": "s1", "clip": clip, "in": 0.5, "out": 4.5, "audio": "voice", "skip": [[2.0, 2.6]]}
+            fps = "30000/1001"
+            a = R.render_segment_audio(edl, shot, fps, cache)
+            with open(a + ".json") as f:
+                m = json.load(f)
+            n = R.frames_of(dict(shot), float(Fraction(fps)))
+            self.assertEqual(m["body"], int(round(n / float(Fraction(fps)) * SR)))
+            self.assertEqual((m["pre"], m["post"]), (R._HS, R._HS))          # source has sound both sides
+            x = R._read_f32(a)
+            self.assertEqual(len(x), m["body"] + 2 * R._HS)
+            ref = _rms_db(x[R._HS + int(0.2 * SR):R._HS + int(1.2 * SR)])
+            join = R._HS + int(round(1.5 * SR))                               # 2.0 s source = 1.5 s into the body
+            ctrl = R._HS + int(round(0.8 * SR))                               # same statistic, no join
+            self.assertGreater(_min_window_db(x, join), _min_window_db(x, ctrl) - 2.0, "no hole at the skip join")
+            self.assertGreater(_rms_db(x[:R._HS]), ref - 3.0, "pre-handle is real source sound")
+            # a shot starting at 0 s has no pre-handle; a card has silent (usable) handles
+            b = R.render_segment_audio(edl, dict(shot, id="s2", **{"in": 0.0}), fps, cache)
+            with open(b + ".json") as f:
+                self.assertEqual(json.load(f)["pre"], 0)
+            c = R.render_segment_audio(edl, {"id": "c1", "clip": "", "card": {"text": "x"}, "in": 0, "out": 2},
+                                       fps, cache)
+            with open(c + ".json") as f:
+                self.assertEqual(json.load(f)["pre"], R._HS)
 
 
 if __name__ == "__main__":

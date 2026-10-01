@@ -11,6 +11,7 @@ rembg[cpu]>=2.0
 # Video editor: review page + Traditional->Simplified subtitle cleanup
 flask>=3.0
 opencc-python-reimplemented>=0.1.7
+numpy>=1.24   # renderer: dialogue-track assembly (crossfades) and audio tests
 
 # Env + HTTP utilities
 python-dotenv>=0.21.0

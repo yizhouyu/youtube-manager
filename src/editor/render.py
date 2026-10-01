@@ -5,9 +5,11 @@
     ./venv/bin/python -m src.editor.render "<project>" --package   # clean numbered clips for CapCut/剪映
 
 Pipeline: each enabled shot -> its own video-only segment (graded, scaled, overlays burned in)
-plus an exact-length PCM wav; segments are cached by content hash so re-rendering after a
-small edit only re-encodes the shots that changed. Segment lengths are quantized to whole
-frames and audio is kept as PCM until the final mux, so 100+ cuts never drift out of sync.
+plus a float wav (exact frame-quantized body + 30 ms source handles each side); video and audio
+are cached by separate content hashes so re-rendering after a small edit only re-encodes what
+changed. Video segments are concatenated; the wavs are overlap-added on the same frame-exact
+timeline with equal-power crossfades across each cut, so 100+ cuts never drift out of sync and the
+natural sound never drops out at a cut.
 Then: concat -> music bed (tracks crossfaded, ducked under speech) -> master (linear gain to -14 LUFS,
 4x-oversampled limiter, AAC, true peak re-measured on the AAC and corrected in a loop) -> mux.
 Also writes captions.srt (timeline-mapped) for YouTube CC.
@@ -21,12 +23,15 @@ import math
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from fractions import Fraction
+
+import numpy as np
 
 from . import edl as E
 from . import overlays
@@ -101,29 +106,6 @@ def _tts_chain_on(edl):
     return edl.get("tts_chain", True) is not False
 
 
-def _sfx_chain(edl, shot, inputs, k, dur, src_label, out_label):
-    """Mix a shot's `sfx` ([{file, at, gain}], file relative to edit/) over its audio. TTS lines
-    used as sfx are left out here: mix_voiceover places them, processed and level-matched."""
-    labels = [f"[{src_label}]"]
-    chains = []
-    for i, fx in enumerate(shot.get("sfx", [])):
-        if _tts_chain_on(edl) and is_tts_sfx(fx):
-            continue
-        path = os.path.join(E.edit_dir(edl["project"]), fx["file"])
-        if not os.path.exists(path):
-            continue
-        inputs += ["-i", path]
-        chains.append(f"[{k}:a]aresample={SR},aformat=channel_layouts=stereo,volume={fx.get('gain', 0.8)},"
-                      f"adelay={int(fx.get('at', 0) * 1000)}:all=1[fx{i}]")
-        labels.append(f"[fx{i}]")
-        k += 1
-    if len(labels) == 1:
-        return f"[{src_label}]anull[{out_label}]"
-    chains.append(f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=first,"
-                  f"atrim=0:{dur:.6f}[{out_label}]")
-    return ";".join(chains)
-
-
 def _card_image_path(edl, card):
     return os.path.join(E.edit_dir(edl["project"]), card["image"])
 
@@ -194,7 +176,7 @@ def _measure_span(inputs, chain, pre_chains=()):
 # a few seconds of PCM per shot instead of every shot's picture. Bump the matching one whenever the
 # segment output changes without the shot dict changing.
 VIDEO_CACHE_VERSION = 9
-AUDIO_CACHE_VERSION = 2
+AUDIO_CACHE_VERSION = 3
 
 
 def render_segment(edl, shot, fps_str, preset, cache, clean=False):
@@ -326,67 +308,231 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
     return vpath
 
 
+# ---- dialogue / natural-sound track: handles + equal-power crossfades (research R11-lite) ----------
+# Every shot's wav carries HANDLE s of real source sound before and after its body (when the source
+# has it; cards and muted shots have silent handles). The assembler overlap-adds the shots on the
+# timeline with an equal-power (sin/cos) crossfade across each cut, so the ambience bed never drops
+# out. The old 12 ms fade-out + 12 ms fade-in left a ~24 ms hole at every cut and skip join.
+# Bodies still start exactly on their frame-quantized timeline position: video cuts and sync are
+# unchanged, the crossfade just straddles the cut (half before, half after).
+XF_CUT = 0.06             # s, crossfade window at a shot cut (HANDLE on each side)
+HANDLE = XF_CUT / 2
+XF_SKIP = 0.04            # s, crossfade at a `skip` join inside a shot
+EDGE_FADE = 0.012         # s, fallback fades where no handle exists on either side
+_HS = int(round(HANDLE * SR))
+
+
+def eq_power(n):
+    """(fade_out, fade_in) gain curves of n samples: cos/sin quarter waves, out**2 + in**2 == 1."""
+    u = (np.arange(n, dtype=np.float64) + 0.5) / max(n, 1)
+    return np.cos(u * np.pi / 2).astype(np.float32), np.sin(u * np.pi / 2).astype(np.float32)
+
+
+def join_xfade(skip_len, left_len, right_len, d=XF_SKIP):
+    """Crossfade length (s) at a skip join: at most `d`, the skipped span (each side reaches d/2 into
+    it, so the two extensions never overlap) and either kept piece (fades stay inside it)."""
+    return max(0.0, min(d, skip_len, left_len, right_len))
+
+
+def cut_window(post_a, pre_b, body_a, body_b):
+    """Samples (before, after) the cut that the crossfade spans: the incoming shot's pre-handle
+    reaches `before` samples back under the outgoing shot, whose post-handle reaches `after`
+    samples past the cut. Clamped to half of each body so neighbouring windows never overlap."""
+    return min(pre_b, body_a // 2), min(post_a, body_b // 2)
+
+
+def _read_f32(path):
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-f", "f32le", "-ac", "2", "-ar", str(SR), "-"],
+                         capture_output=True, check=True).stdout
+    return np.frombuffer(raw, np.float32).reshape(-1, 2).copy()
+
+
+def _write_f32(path, x):
+    """Write a float32 stereo WAV (WAVE_FORMAT_IEEE_FLOAT)."""
+    x = np.ascontiguousarray(x, dtype="<f4")
+    data = x.tobytes()
+    hdr = (b"RIFF" + struct.pack("<I", 36 + len(data)) + b"WAVEfmt " +
+           struct.pack("<IHHIIHH", 16, 3, 2, SR, SR * 8, 8, 32) + b"data" + struct.pack("<I", len(data)))
+    with open(path, "wb") as f:
+        f.write(hdr)
+        f.write(data)
+
+
+_SFX_CACHE = {}
+
+
+def _sfx_audio(path):
+    key = (path, os.path.getmtime(path))
+    if key not in _SFX_CACHE:
+        _SFX_CACHE[key] = _read_f32(path)
+    return _SFX_CACHE[key]
+
+
 def render_segment_audio(edl, shot, fps_str, cache):
-    """Exact-length PCM wav for one shot (its own sound + sfx), cached by content hash."""
+    """Float wav for one shot = [HANDLE s pre-handle | body | HANDLE s post-handle] (its own sound +
+    sfx), plus `<wav>.json` = {"pre", "post": usable handle samples, "body": body samples}. Cached by
+    content hash. The body is exactly the shot's frame-quantized length."""
     fps = float(Fraction(fps_str))
     dur = frames_of(shot, fps) / fps
     fx_files = [os.path.join(E.edit_dir(edl["project"]), fx["file"]) for fx in shot.get("sfx", [])]
     extra = [os.path.getmtime(f) if os.path.exists(f) else "missing" for f in fx_files]
-    key = json.dumps([shot, fps_str, AUDIO_CACHE_VERSION, edl.get("denoise_voice", False), _tts_chain_on(edl)] + extra,
-                     sort_keys=True, ensure_ascii=False)
+    key = json.dumps([shot, fps_str, AUDIO_CACHE_VERSION, edl.get("denoise_voice", False), _tts_chain_on(edl),
+                      XF_CUT, XF_SKIP] + extra, sort_keys=True, ensure_ascii=False)
     hid = hashlib.sha1(key.encode()).hexdigest()[:12]
     apath = os.path.join(cache, f"{shot['id']}_a{hid}.wav")
-    if os.path.exists(apath):
+    if os.path.exists(apath) and os.path.exists(apath + ".json"):
         return apath
-    fi, fo = shot.get("fade_in", 0), shot.get("fade_out", 0)
-    if shot.get("card"):
-        inputs = ["-f", "lavfi", "-t", f"{dur + 0.2:.3f}", "-i", f"anullsrc=r={SR}:cl=stereo"]
-        chains = [f"[0:a]atrim=0:{dur:.6f}[a0]"]
+    L = int(round(dur * SR))
+    fi, fo = float(shot.get("fade_in", 0) or 0), float(shot.get("fade_out", 0) or 0)
+    gain = E.AUDIO_GAIN.get(shot.get("audio", "voice"), 1.0) if E.speed(shot) <= 1 else 0.0
+    gain *= 10 ** (max(-24.0, min(12.0, float(shot.get("gain_db", 0) or 0))) / 20)  # lift a quiet speaker
+    if shot.get("card") or gain <= 0:
+        out = np.zeros((_HS + L + _HS, 2), np.float32)    # silence, with silent (= usable) handles
+        pre = post = _HS
     else:
-        span = shot["out"] - shot["in"]
-        inputs = ["-ss", f"{shot['in']:.3f}", "-t", f"{span + 0.2:.3f}", "-i", E.clip_path(edl, shot["clip"])]
-        chains = []
-        ranges = [(a - shot["in"], b - shot["in"]) for a, b in E.kept_ranges(shot)]
-        if len(ranges) > 1:  # jump-cut out skipped spans (pauses / fillers)
-            m = len(ranges)
-            chains.append(f"[0:a]asplit={m}" + "".join(f"[as{i}]" for i in range(m)))
-            for i, (a, b) in enumerate(ranges):
-                chains.append(f"[as{i}]atrim={a:.3f}:{b:.3f},asetpts=PTS-STARTPTS,"
-                              f"afade=t=in:d=0.012,afade=t=out:st={max(0, b - a - 0.012):.3f}:d=0.012[ak{i}]")
-            chains.append("".join(f"[ak{i}]" for i in range(m)) + f"concat=n={m}:v=0:a=1[asrc]")
-            asrc = "[asrc]"
-        else:
-            asrc = "[0:a]"
-        gain = E.AUDIO_GAIN.get(shot.get("audio", "voice"), 1.0) if E.speed(shot) <= 1 else 0.0
-        gain *= 10 ** (max(-24.0, min(12.0, float(shot.get("gain_db", 0) or 0))) / 20)  # lift a quiet speaker
-        af = [f"aresample={SR}", "aformat=channel_layouts=stereo", f"volume={gain}"]
-        mode = shot.get("denoise", edl.get("denoise_voice", False))
-        if mode == "wind":
-            # heavy wind on an action cam: a higher cut + stronger FFT denoise; ambient beds also get
-            # tamed (and a touch quieter) so the music carries them instead of the roar
-            if shot.get("audio", "voice") == "voice":
-                af[2:2] = ["highpass=f=200", "afftdn=nr=24:nf=-28:tn=1", "equalizer=f=3000:t=q:w=1:g=2"]
-            elif shot.get("audio") == "ambient":
-                af[2:2] = ["highpass=f=250", "afftdn=nr=20:nf=-30:tn=1", "volume=0.6"]
-        elif mode and shot.get("audio", "voice") == "voice":
-            # boat engines / wind: cut the low rumble, then FFT denoise under the voice
-            af[2:2] = ["highpass=f=140", "afftdn=nr=18:nf=-30:tn=1"]
-        if float(shot.get("gain_db", 0) or 0) > 0 and gain > 0:
-            af += peak_guard(_measure_span(inputs, f"{asrc}asetpts=PTS-STARTPTS,{','.join(af)}", chains)["I"])
-        # 12 ms edge fades on every shot: a hard cut on a non-zero sample (wind) clicks after limiting
-        af.append(f"afade=t=in:st=0:d={max(fi or 0, EDGE_FADE)}")
-        af.append(f"afade=t=out:st={max(0, dur - max(fo or 0, EDGE_FADE)):.3f}:d={max(fo or 0, EDGE_FADE)}")
-        af += ["apad", f"atrim=0:{dur:.6f}"]
-        chains.append(f"{asrc}asetpts=PTS-STARTPTS,{','.join(af)}[a0]")
-    chains.append(_sfx_chain(edl, shot, inputs, 1, dur, "a0", "a"))
+        out, pre, post = _shot_sound(edl, shot, gain, L)
+    if fi:   # explicit fades (from/to black) fade the sound too; no handle across them
+        n = min(L, int(round(fi * SR)))
+        out[_HS:_HS + n] *= np.linspace(0, 1, n, dtype=np.float32)[:, None]
+        out[:_HS] = 0
+        pre = 0
+    if fo:
+        n = min(L, int(round(fo * SR)))
+        out[_HS + L - n:_HS + L] *= np.linspace(1, 0, n, dtype=np.float32)[:, None]
+        out[_HS + L:] = 0
+        post = 0
+    for fx in shot.get("sfx", []):   # sound effects (shot-local `at`), cut at the end of the post-handle
+        if _tts_chain_on(edl) and is_tts_sfx(fx):
+            continue                  # narration lines: mix_voiceover places them
+        path = os.path.join(E.edit_dir(edl["project"]), fx["file"])
+        if not os.path.exists(path):
+            continue
+        y = _sfx_audio(path) * float(fx.get("gain", 0.8))
+        at = _HS + int(round(float(fx.get("at", 0)) * SR))
+        n = max(0, min(len(y), len(out) - at))
+        out[at:at + n] += y[:n]
     tmpa = apath + ".part.wav"
-    _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
-          "-map", "[a]", "-vn", "-c:a", "pcm_s16le", tmpa])
+    _write_f32(tmpa, out)
+    with open(apath + ".json", "w") as f:
+        json.dump({"pre": int(pre), "post": int(post), "body": L, "handle": _HS}, f)
     os.replace(tmpa, apath)
     return apath
 
 
-EDGE_FADE = 0.012
+def _shot_sound(edl, shot, gain, L):
+    """The shot's own sound: one decode of the source span plus handles, through the shot's filters
+    (denoise, gain, R3 peak guard), then the kept ranges joined with equal-power crossfades."""
+    t0 = max(0.0, shot["in"] - HANDLE)
+    src_pre = int(round((shot["in"] - t0) * SR))           # handle samples that exist before `in`
+    span = shot["out"] - shot["in"]
+    inputs = ["-ss", f"{t0:.4f}", "-t", f"{span + 2 * HANDLE + 0.3:.4f}", "-i", E.clip_path(edl, shot["clip"])]
+    af = [f"aresample={SR}", "aformat=sample_fmts=flt:channel_layouts=stereo", f"volume={gain}"]
+    mode = shot.get("denoise", edl.get("denoise_voice", False))
+    if mode == "wind":
+        # heavy wind on an action cam: a higher cut + stronger FFT denoise; ambient beds also get
+        # tamed (and a touch quieter) so the music carries them instead of the roar
+        if shot.get("audio", "voice") == "voice":
+            af[2:2] = ["highpass=f=200", "afftdn=nr=24:nf=-28:tn=1", "equalizer=f=3000:t=q:w=1:g=2"]
+        elif shot.get("audio") == "ambient":
+            af[2:2] = ["highpass=f=250", "afftdn=nr=20:nf=-30:tn=1", "volume=0.6"]
+    elif mode and shot.get("audio", "voice") == "voice":
+        # boat engines / wind: cut the low rumble, then FFT denoise under the voice
+        af[2:2] = ["highpass=f=140", "afftdn=nr=18:nf=-30:tn=1"]
+    if float(shot.get("gain_db", 0) or 0) > 0:
+        af += peak_guard(_measure_span(inputs, f"[0:a]asetpts=PTS-STARTPTS,{','.join(af)}")["I"])
+    raw = subprocess.run(["ffmpeg", "-v", "error", *inputs, "-af", ",".join(af), "-f", "f32le", "-ac", "2", "-"],
+                         capture_output=True)
+    if raw.returncode != 0:
+        raise RuntimeError(f"ffmpeg failed on {shot['id']} audio:\n{raw.stderr.decode()[-1500:]}")
+    reg = np.frombuffer(raw.stdout, np.float32).reshape(-1, 2)
+    idx = lambda t: src_pre + int(round((t - shot["in"]) * SR))   # noqa: E731  source s -> region sample
+
+    def take(a, b):   # region samples [a, b), zero-padded past either end
+        y = np.zeros((b - a, 2), np.float32)
+        lo, hi = max(a, 0), min(b, len(reg))
+        if hi > lo:
+            y[lo - a:hi - a] = reg[lo:hi]
+        return y
+
+    ranges = E.kept_ranges(shot)
+    if E.speed(shot) != 1:   # slow motion keeps 1x sound (as before): play the kept ranges, pad/trim
+        body = np.concatenate([take(idx(a), idx(b)) for a, b in ranges])[:L]
+        body = np.concatenate([body, np.zeros((L - len(body), 2), np.float32)])
+        return np.concatenate([np.zeros((_HS, 2), np.float32), body, np.zeros((_HS, 2), np.float32)]), 0, 0
+    # crossfade length at each join (s) -> extension of each piece into the skipped span on each side
+    xf = [join_xfade(ranges[i + 1][0] - ranges[i][1], ranges[i][1] - ranges[i][0],
+                     ranges[i + 1][1] - ranges[i + 1][0]) for i in range(len(ranges) - 1)]
+    ext = [int(round(d * SR / 2)) for d in xf]
+    cores = [idx(b) - idx(a) for a, b in ranges]
+    cores[-1] += L - sum(cores)   # body = exactly L samples: the last piece runs on (or stops) in the source
+    out = np.zeros((_HS + L + _HS, 2), np.float32)
+    pos = _HS
+    for i, (a, _b) in enumerate(ranges):
+        s0 = idx(a)
+        left = ext[i - 1] if i else _HS           # first piece: its left extension is the pre-handle
+        right = ext[i] if i < len(ranges) - 1 else _HS
+        y = take(s0 - left, s0 + cores[i] + right)
+        if i:
+            y[:2 * left] *= eq_power(2 * left)[1][:, None]
+        if i < len(ranges) - 1:
+            y[len(y) - 2 * right:] *= eq_power(2 * right)[0][:, None]
+        out[pos - left:pos - left + len(y)] += y
+        pos += cores[i]
+    pre = min(_HS, src_pre)
+    post = int(max(0, min(_HS, len(reg) - (idx(ranges[-1][0]) + cores[-1]))))
+    out[:_HS - pre] = 0
+    out[_HS + L + post:] = 0
+    return out, pre, post
+
+
+def assemble_dialogue(seg_wavs, starts, total, out_wav):
+    """Overlap-add the shots' wavs onto the timeline: body i starts at round(starts[i] * SR), and each
+    cut gets an equal-power crossfade across the handles the two sides have (cut_window). Where
+    neither side has one (e.g. both at a clip boundary), fall back to EDGE_FADE out/in fades.
+    -> [(cut_time_s, crossfade_samples)] for QA."""
+    N = int(round(total * SR))
+    out = np.zeros((N, 2), np.float32)
+    meta = []
+    for p in seg_wavs:
+        with open(p + ".json") as f:
+            meta.append(json.load(f))
+    b0 = [int(round(t * SR)) for t in starts] + [N]
+    body = [b0[i + 1] - b0[i] for i in range(len(seg_wavs))]
+    # (before, after) window of each cut i (between shot i-1 and i)
+    win = [(0, 0)] + [cut_window(meta[i - 1]["post"], meta[i]["pre"], body[i - 1], body[i])
+                      for i in range(1, len(seg_wavs))]
+    win.append((0, 0))
+    report = []
+    edge = int(round(EDGE_FADE * SR))
+    for i, p in enumerate(seg_wavs):
+        x = _read_f32(p)
+        h = meta[i]["handle"]
+        bef_l, aft_l = win[i]            # window at this shot's start
+        bef_r, aft_r = win[i + 1]        # window at this shot's end
+        a = h - bef_l                    # first sample used (in this wav)
+        e = h + body[i] + aft_r          # one past the last sample used
+        y = x[a:e].copy()
+        if len(y) < e - a:
+            y = np.concatenate([y, np.zeros((e - a - len(y), 2), np.float32)])
+        n_in, n_out = bef_l + aft_l, bef_r + aft_r
+        if i and n_in:
+            y[:n_in] *= eq_power(n_in)[1][:, None]
+        elif n_in == 0:                   # no handles at this cut (or the very start): short fade-in
+            y[:edge] *= np.linspace(0, 1, min(edge, len(y)), dtype=np.float32)[:, None]
+        if i + 1 < len(seg_wavs) and n_out:
+            y[len(y) - n_out:] *= eq_power(n_out)[0][:, None]
+        elif n_out == 0:
+            k = min(edge, len(y))
+            y[len(y) - k:] *= np.linspace(1, 0, k, dtype=np.float32)[:, None]
+        t = b0[i] - bef_l
+        lo, hi = max(t, 0), min(t + len(y), N)
+        out[lo:hi] += y[lo - t:hi - t]
+        if i:
+            report.append((b0[i] / SR, n_in))
+    _write_f32(out_wav, out)
+    return report
+
+
 
 
 def _pip_chain(edl, pp, j, dur, fps_str, preset, inputs, idx, last, chains):
@@ -599,7 +745,7 @@ def mix_voiceover(edl, voice_wav, total):
     chain.append(f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=first,atrim=0:{total:.3f}[out]")
     tmp = voice_wav + ".vo.wav"
     _run(["ffmpeg", "-v", "error", "-y", *args, "-filter_complex", ";".join(chain), "-map", "[out]",
-          "-c:a", "pcm_s16le", tmp])
+          "-c:a", "pcm_f32le", tmp])
     os.replace(tmp, voice_wav)
     return info
 
@@ -779,8 +925,12 @@ def render(project, mode):
             shutil.rmtree(pkg, ignore_errors=True)
             os.makedirs(pkg)
             for i, ((v, a), s) in enumerate(zip(segs, shots), 1):
-                _run(["ffmpeg", "-v", "error", "-y", "-i", v, "-i", a, "-c:v", "copy", "-c:a", "aac",
-                      "-b:a", "256k", os.path.join(pkg, f"{i:03d}_{s['clip']}.mp4")])
+                with open(a + ".json") as f:
+                    m = json.load(f)
+                h0 = m["handle"]  # the clip gets the body only (the handles are for the crossfades)
+                _run(["ffmpeg", "-v", "error", "-y", "-i", v, "-i", a, "-map", "0:v", "-map", "[a]",
+                      "-filter_complex", f"[1:a]atrim=start_sample={h0}:end_sample={h0 + m['body']}[a]",
+                      "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", os.path.join(pkg, f"{i:03d}_{s['clip']}.mp4")])
             with open(os.path.join(pkg, "captions.srt"), "w", encoding="utf-8") as f:
                 f.write(E.to_srt(E.timeline_subs(edl)))
             status.set(state="done", step="素材包已导出", progress=1.0, output=pkg, mode=mode)
@@ -794,13 +944,14 @@ def render(project, mode):
         os.makedirs(work, exist_ok=True)
         with open(os.path.join(work, "v.txt"), "w") as f:
             f.writelines(f"file '{v}'\n" for v, _ in segs)
-        with open(os.path.join(work, "a.txt"), "w") as f:
-            f.writelines(f"file '{a}'\n" for _, a in segs)
         status.set(state="running", step="拼接", progress=0.82, mode=mode)
         _run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", f"{work}/v.txt",
               "-c", "copy", f"{work}/video.mp4"])
-        _run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", f"{work}/a.txt",
-              "-c", "pcm_s16le", f"{work}/voice.wav"])
+        starts, t = [], 0.0
+        for s in shots:
+            starts.append(t)
+            t += s["_qdur"]
+        xfades = assemble_dialogue([a for _, a in segs], starts, total, f"{work}/voice.wav")
         status.set(state="running", step="配乐 + 混音", progress=0.88, mode=mode)
         vo_info = mix_voiceover(dict(edl, shots=shots, _order=[s["id"] for s in edl["shots"]]), f"{work}/voice.wav", total)
         music_bed(dict(edl, shots=shots, _order=[s["id"] for s in edl["shots"]]), total, work, f"{work}/music.wav")
@@ -826,7 +977,9 @@ def render(project, mode):
         with open(os.path.join(edit, "captions.srt"), "w", encoding="utf-8") as f:
             f.write(E.to_srt(E.timeline_subs(dict(edl, shots=shots))))
         status.set(state="done", step=f"完成 {int(total // 60)}:{int(total % 60):02d}", progress=1.0,
-                   output=out, mode=mode, duration=total, audio=dict(master, voiceover=vo_info or None))
+                   output=out, mode=mode, duration=total,
+                   audio=dict(master, voiceover=vo_info or None, cuts=len(xfades),
+                              cuts_crossfaded=sum(1 for _t, n in xfades if n >= 0.02 * SR)))
         return out
     except Exception as e:
         status.set(state="error", step="渲染失败", error=str(e)[-2000:], progress=0.0, mode=mode)

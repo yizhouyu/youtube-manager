@@ -7,7 +7,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import wave
 
 import numpy as np
 
@@ -24,8 +23,8 @@ def tone(path, dur, f=440.0):
 
 
 def rms(path, t0, t1):
-    with wave.open(path) as w:
-        a = np.frombuffer(w.readframes(w.getnframes()), np.int16).reshape(-1, w.getnchannels()).astype(float)
+    """RMS in 16-bit sample units (the dialogue track is float since the R11 assembler)."""
+    a = R._read_f32(path).astype(float) * 32768
     seg = a[int(t0 * SR):int(t1 * SR)]
     return float(np.sqrt((seg ** 2).mean())) if len(seg) else 0.0
 
