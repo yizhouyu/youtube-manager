@@ -251,7 +251,7 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   `music_volume` 0.33 / `music_duck` 0.06; montage-only stretches can feel too quiet, but the
   creator found 0.42 too loud overall.
 - Don't let a track restart from the top at a section boundary unless intended (reviewer caught one).
-- Final loudness −14 LUFS integrated, true peak ≤ −1.5 dBTP.
+- Final loudness −14 LUFS integrated, true peak ≤ −1.5 dBTP. Since 2026-10-01 the renderer guarantees this by measuring the encoded AAC and correcting in a loop. Read the numbers from `render_status.json` → `audio`; there's no need to re-measure (see "Audio pipeline 2026-10-01" below).
 - **Check every Audio Library track for vocals before placing it** (whisper-cli on the track; the
   library's "mood" tags don't say). Ep 85's "When It Ends" (Cosplay) is a breakup song sung end to end
   and "Sky Is The Limit" (Anno Domini Beats) starts singing at ~27.7 s — QA caught lyrics over the
@@ -266,7 +266,7 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **A track can appear twice in `music` with different `in`s since e897dab (2026-09-28).** Before that, the second use silently replayed the first entry's `in`/`gain` (ep 96 QA: Cafecito at 110 s replayed its 20 s passage). EDLs of 86, 88, 89 and 91–95 reuse tracks, so their next render sounds different from what their QA heard. Also keep the two uses' passages apart: a section plays `in` → `in` + its length + 5 s, so the next use's `in` should start after that (ep 96's second Cafecito overlapped the first by 8 s).
 - **Crossfades are equal-power over a 2.5 s window before the start shot (fixed 682f6ae, 2026-09-28).** Before the fix, both songs played at full level for up to 5 s (ep 96 QA). A section's track time at its start shot is unchanged.
 - **Some Audio Library tracks open near-silent for ~20 s** (ep 97: Rolling Hills sits ~−30 LUFS until 20 s), so a payoff section sounded empty. Measure the first 30 s of every track and set `in` past a quiet intro.
-- **Level fixes can push true peak over −1.5 dBTP** (ep 97: +4 dB on quiet shots moved the loudnorm gain and the opening music peaked at −1.3). Re-measure after any gain change; `"gain": -1.5` on the offending music entry fixed it.
+- **Level fixes can push true peak over −1.5 dBTP** (ep 97: +4 dB on quiet shots moved the loudnorm gain and the opening music peaked at −1.3). Re-measure after any gain change; `"gain": -1.5` on the offending music entry fixed it. *(Since 2026-10-01 the master loop lowers its ceiling by itself. Boosted shots also get a peak guard.)*
 - **Two ASR passes of the same model can disagree on short exclamations** (ep 97: 好嘞 vs 好累 between Qwen runs). Prefer the reading two different models share; for one-word interjections, drop them rather than guess.
 - **Qwen "oh oh" is NOT a reliable vocal detector for music.** It outputs "oh oh" on most instrumentals (even a waltz) and missed real chants. Listen to suspicious tracks, or ask for a listen at review.
 - The agent's shell is zsh: `for s in "A 1" "B 2"; do set -- $s` doesn't word-split — wrap such
@@ -289,13 +289,13 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **Music timing math:** a section's track fades in 2.5 s BEFORE its start shot, so the track time at
   the start shot = `in` + 2.5 s. Needed for beat-synced cuts; also compute where vocals would land.
 - Final master: 4K HEVC Main10 ~100 Mb/s `.mov`, graded in 10-bit, at `02 - Export/<folder name>.mov`.
-- **Every shot's audio gets 12 ms edge fades** (renderer default since ep 86): a hard cut on wind noise clicked
+- *(Superseded 2026-10-01 by 60 ms equal-power crossfades with source handles. The 12 ms out/in fades left a 24 ms dropout at every cut; they are now only a fallback where neither side has a handle.)* **Every shot's audio gets 12 ms edge fades** (renderer default since ep 86): a hard cut on wind noise clicked
   (~2000-unit sample step) even with no stop-button click nearby. Cache key bumped with it.
 - **Title-card sub-lines need an outline** on bright rock/sand (ep 86 QA: unreadable at 1:00) — done in `overlays.title_card`.
 - **A quiet guide / relayed explanation sinks under the mix:** measure the voice stem per shot and lift with `gain_db`
   (ep 86: guide Q&A +10 dB, the Alien Throne talk +4, the Chaco line +5) — check this in round 1, not round 2.
 - **`tighten` rewrites every talking shot's `skip` list** (it drops hand-made skips): keep manual skips in a small merge script and run it after tighten (ep 90's `edit/scripts/merge_manual_skips.py`).
-- **Why previews land at −14.9/−15.0 LUFS, not −14 (measured ep 90):** the pre-loudnorm mix is ~−18 LUFS with true peaks ~−2.5 dBTP; raising it 4 dB would break the −1.5 dBTP ceiling, so single-pass dynamic loudnorm stops ~0.9 LU short. The post-limiter is NOT the cause (same −14.9 without it), and a pre-limiter only gained 0.1–0.2 LU. Within ±1 LU; fixing it properly needs speech-peak compression before loudnorm.
+- *(Superseded 2026-10-01: the linear master loop lands at −14.0 ±0.2.)* **Why previews land at −14.9/−15.0 LUFS, not −14 (measured ep 90):** the pre-loudnorm mix is ~−18 LUFS with true peaks ~−2.5 dBTP; raising it 4 dB would break the −1.5 dBTP ceiling, so single-pass dynamic loudnorm stops ~0.9 LU short. The post-limiter is NOT the cause (same −14.9 without it), and a pre-limiter only gained 0.1–0.2 LU. Within ±1 LU; fixing it properly needs speech-peak compression before loudnorm.
 - **Reviewers must not write QA remarks into shot `note`s** (ep 90 round 2 appended "| QA2: …" to card titles) — changelogs go in the report / HANDOFF.
 - **GoPro clips start with ~40–66 ms of digital silence** (ep 87 QA heard gaps at 1:44/1:48 in the music-free
   section): a shot with audio should never start at `in: 0.0` — use ≥ 0.1. Measured on the cached segment WAVs
@@ -306,6 +306,58 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **A 2:17 track under a 3:27 section loops back to its start** (102 round 1: a 2-s near-silent hole at the loop
   point, caught by the per-second loudness scan). Check every section's span against the track length (+ `in` +
   2.5 s lead) before the first render.
+
+### Audio pipeline 2026-10-01 (research R1, R2, R3, R11-lite; measured on 100 / 102 / 104)
+- **The "two-pass linear" loudnorm never ran linear.** ffmpeg only goes linear when the measured TP fits, and on
+  our mixes (peak-to-loudness ratio 15–20 dB) it never did. Every master was really an AGC.
+  102 and 104 ended at −1.2 / −1.4 dBTP. The new master: linear gain → 4×-oversampled limiter
+  (ceiling −2.5 dBFS) → AAC → decode and measure → correct the ceiling or gain (≤ 4 tries).
+  Results: 100 −14.2 LUFS / −2.1 dBTP, 102 −14.0 / −1.9, 104 −14.0 / −2.1.
+- **ffmpeg's native `aac` overshoots badly on limited music.** On 102 it went +1.7 to +4.4 dB over the ceiling,
+  and lowering the ceiling made it *worse*. AudioToolbox `aac_at` stays within about +0.4 dB and is sample-aligned.
+  The renderer uses `aac_at` when it's available. If you ever see TP chaos, check the encoder first.
+- **The linear master keeps the edit's own balance, and that cuts both ways.** LRA rose (102: 8.7 → 12.6) because the AGC
+  no longer lifts quiet passages. 102's quietest captioned lines (a distant guide) are about 3 LU quieter than under the old AGC.
+  Level uneven speech per shot with `gain_db` (R4 below). Don't count on the master to do it.
+- **TTS:** the edge-tts output keeps a peak-to-loudness ratio of about 19 dB. The VO chain (high-pass, EQ, de-ess,
+  4:1 compressor, limiter) brings it to about 11. The level is the **median caption loudness** of the
+  episode's on-camera speech (+0.5 LU). The power mean is dominated by loud lines: after the master limiter
+  it left narration 2.5–5.7 LU above the median line. The old fixed `+4.5 dB` made 102's lines the loudest voice
+  in the video (+4.4 LU over the median line). They are now −0.1. Re-transcribed: identical to before.
+- **Cuts:** the dialogue track is overlap-added with 60 ms equal-power crossfades using 30 ms of real source sound past
+  each edit point. In 100, digital silence at 59 of 65 cuts with sound on both sides went to 0. In 104, < −60 dBFS
+  dips at skip joins went from 18 to 2. The remaining dips match the same statistic 0.15 s away from any cut.
+- **Peak guard (R3)** has an adaptive ceiling (shot loudness + 12 dB), not a fixed −9 dBFS. Boosted shots range from −41
+  LUFS (102) to −14 LUFS (95 s063), and one fixed ceiling is wrong for one end or the other.
+- Video and audio segments have separate caches. An audio change re-renders only PCM: about 30 s for a 12-minute episode.
+- **Lint now warns** about narration over 4 字/s or < 0.3 s after a cut, 60 s of talk with no ≥ 4 s break, and > 3 sfx per minute.
+  On 95–104: 100 has a 163 s talk run (3:54–6:37), 95 one of 127 s, and 102's Cat Haven line runs 5.0 字/s.
+
+### Audio follow-ups (research 2026-10-01, not done yet, in priority order)
+1. **R4 auto dialogue levelling.** Add `src/editor/level.py`: measure speech loudness per voice shot (VAD/caption-gated),
+   write `gain_db` toward the episode median (clamp −6…+8, `gain_auto: true`, never overwrite manual values).
+   It matters more now that the master no longer AGCs. 102's p10 line is −23.5 vs a −16.8 median.
+2. **R5 duck shape.** Today's duck ramps are symmetric, linear in amplitude, 0.5 s. Replace them with dB-domain ramps that
+   reach the duck 0.1 s before the first word (0.25 s attack), hold 0.4 s, and release over 1.1 s. In gaps < 3 s, rise only
+   halfway. Render the envelope as audio and `amultiply`, which also removes the per-frame-expression bug class.
+3. **R6 adaptive duck depth.** Put the music about 15 LU under each speech window's own loudness (clamped to 8–22 dB),
+   and keep `music_duck` as a floor. Do it together with R5.
+4. **R7 music endings + R10a no raw loop.** Back-time the last track (`"end": "natural"`) so it ends on its own final hit.
+   Stop fading 5 s from mid-song, and button sections on a bar line. Extend a short track with a bar-aligned internal edit,
+   never `-stream_loop`.
+5. **R8 beat grid.** Write `edit/music/.analysis/<file>.json` (librosa, or the `exp/beats.py` fallback). Snap a section's
+   `in` so a downbeat lands on its start shot when confidence is ≥ 0.5.
+6. **R9 montage cuts on beats.** Proposals, or `--apply`, for ±0.25 s out-point moves on speechless shots inside music
+   sections. Report the "% of montage cuts on beat" in QA. Do it after R8.
+7. **R10b/c silence as a tool.** Lint ≥ 1 music-free stretch of ≥ 4 s per 3–4 min. Music stops (not ducks) for
+   reveals, and doesn't come back under a punchline.
+8. **R11 full: J/L-cuts.** Add `audio_lead` / `audio_tail` per shot. The handle and overlap-add machinery exists now, so only
+   the per-shot handle length and a lint against speech in the handle are missing.
+9. **R12 ambience beds + nat pops.** One continuous location bed under a montage, J-cut 0.5–1.5 s ahead.
+10. **R13 SFX:** add `align: peak`, `level_lu`, `duck_music`. Lint: the same file > 2× per episode, an sfx over speech,
+    a whoosh on a static cut.
+11. **R14 remaining VO lints:** audio longer than its window − 0.5 s, narration over on-camera speech, < 1.5 s between lines.
+12. **R15 PCM audio in the final `.mov`.** Verify with one private YouTube upload first.
 
 ## Review surfaces (pages)
 

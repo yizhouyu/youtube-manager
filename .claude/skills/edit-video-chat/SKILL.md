@@ -199,7 +199,7 @@ values to test, not laws.
 
 **Narration (TTS)**
 - **Amount:** at most about 15–20% of runtime, and ≤4 汉字 per second of its picture window (Yunxi at −5% speaks about 4.7–5/s, so leave slack).
-- **Placement:** enter ≥0.3 s after a cut, finish ≥0.5 s before the next speech, and leave ≥1.5 s between lines.
+- **Placement:** enter ≥0.3 s after a cut, finish ≥0.5 s before the next speech, and leave ≥1.5 s between lines. Lint checks the 字/s and the 0.3 s; the renderer sets the level (see §3 Audio pipeline).
 - **Content:** say what the picture can't show, and keep it plain. No 煽情 mood prose.
 
 **Transitions and grade**
@@ -295,8 +295,30 @@ back into the file (poll it; add questions any time, the pages pick them up with
 ./venv/bin/python -m src.editor.render "<project>" --package   # clean numbered clips + SRT for CapCut
 ```
 
-Segments are cached by content hash, so a re-render after edits only re-encodes changed
-shots.
+Segments are cached by content hash (video and audio separately), so a re-render after edits
+only re-encodes changed shots, and an audio-only change re-renders PCM only.
+
+**Audio pipeline (since 2026-10-01; details and measurements in LESSONS.md → Audio & music):**
+- **Master:** measured linear gain to −14 LUFS → 4×-oversampled limiter → AAC (AudioToolbox) →
+  the AAC is decoded and measured; too hot a true peak lowers the ceiling, loudness off by > 0.3 LU
+  corrects the gain (≤ 4 tries). `edit/render_status.json` → `audio` holds `I`, `TP`, `LRA`,
+  `gain_db`, `ceiling_db`, `iterations`, `ok`. **QA reads these instead of re-measuring:** fail if
+  `TP` > −1.5 dBTP or |`I` + 14| > 0.5. `"master": "loudnorm"` in the EDL brings back the old chain.
+- **TTS / narration:** put the edge-tts output in `edit/tts/` as it comes (MP3), or trimmed as WAV.
+  Never re-encode it to MP3, and don't loudnorm it. The renderer runs every `voiceover` line,
+  and any `tts/` file used as a shot `sfx`, through a VO chain: high-pass, EQ, de-ess, compressor,
+  limiter. It then levels the line to the episode's on-camera speech loudness + 0.5 LU. **Don't
+  set `gain` on new lines.** For a manual level use `gain_db` on the entry (absolute dB). To move
+  all lines use `vo_offset_lu` on the EDL. Per-line levels are in `render_status.json` →
+  `audio.voiceover.lines`. Old EDLs' fixed `gain` values only keep their differences between lines.
+- **Boosted shots** (`gain_db` > 0) get an automatic peak limiter 12 dB above their own loudness.
+- **Cuts crossfade:** every cut and `skip` join on the dialogue/natural-sound track is a 40–60 ms
+  equal-power crossfade, using 30 ms of real source sound past each edit point. There is no more
+  dead gap at a cut. Video cuts are unchanged. The handle only exists if the source runs on: GoPro
+  clips still need out-points 0.1–0.3 s before the clip end (stop click).
+- **Lint** warns about a narration line over 4 字/s of its window or starting < 0.3 s after a cut
+  (`"jcut": true` if deliberate), more than 60 s of talk without a ≥ 4 s music/natural-sound break,
+  and more than 3 sfx in a minute. Treat these as review prompts, not errors.
 
 **Comparison masters must be isolated.** When the creator asks for a distinct creative version,
 never overwrite the original `edl.json`, preview, cards, or master. Write the alternate EDL, then
@@ -344,7 +366,7 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
 - **Try at least one new technique per video — mandatory.** The creator explicitly wants every
   episode to bring something new. If the renderer can't do it yet, add it as a small
   generic, tested feature (commit + push per the repo rules).
-- **TTS voice (creator-approved 2026-10-01):** edge-tts is the approved tool. The default is `zh-CN-YunxiNeural`, `--rate=-5%`. The editor may pick another edge-tts voice when a scene suits it (e.g. a warmer female voice, or a multilingual voice for English-heavy lines; audition with `scripts/tts_voices.py`) and should say why in HANDOFF. Use it as a voiceover layer with the music ducked. Write names locals say in English as the TTS should say them (it reads "Nassau" as "NASA"). Keep lines short, factual and place-anchored, and re-transcribe the mix to check them.
+- **TTS voice (creator-approved 2026-10-01):** edge-tts is the approved tool. The default is `zh-CN-YunxiNeural`, `--rate=-5%`. The editor may pick another edge-tts voice when a scene suits it (e.g. a warmer female voice, or a multilingual voice for English-heavy lines; audition with `scripts/tts_voices.py`) and should say why in HANDOFF. Use it as a voiceover layer with the music ducked; leave its level to the renderer (auto-matched to on-camera speech). Write names locals say in English as the TTS should say them (it reads "Nassau" as "NASA"). Keep lines short, factual and place-anchored, and re-transcribe the mix to check them.
 - **Generated media is an editorial component, not invented evidence.** Original music, brief TTS,
   and clearly illustrative/motion-graphic transitions are allowed when the creator asks for them;
   real locations, dishes, people, actions, animal behaviour and history still come from the actual
