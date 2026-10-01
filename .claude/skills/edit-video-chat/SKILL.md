@@ -172,6 +172,48 @@ see LESSONS.md for sources). Treat them as the bar every cut must clear:
 10. **Chapters = location names** (first at 0:00, ≥ 3, each ≥ 10 s) — written into publish metadata.
 11. **Shorts:** note 1–3 self-contained peak moments (≤ 60 s each) in HANDOFF.md for later cut-downs.
 
+### 2b+. Craft rules from the 2026-10-01 research (Chinese and English creators, retention, audio)
+Sources and evidence: `docs/`-style reports kept locally (zh-creators, en-creators, retention-packaging,
+audio). Our own Bilibili data shows 35–48% of viewers leave almost at once. These rules are starting
+values to test, not laws.
+
+**Opening and shape**
+- **Fast open, slow middle.** The first minute is cut tighter: about 2–3.5 s shots. The middle breathes: a median of 4–5 s, and long holds on vistas are fine. That's how the calm creators (Links, BBG, 星球研究所) do it.
+- **Live voice or the thumbnail's moment within 3–5 s.** Then a calm one-line promise, stated as a contrast and not a dramatic question.
+- **Optional title beat.** A postcard or title montage is allowed only if it lasts ≤10–12 s. No mute "here's everything we'll do" trailer: that's non-progressive.
+- **Show the thing first, explain second.** When a TTS line or caption explains a place, the picture shows that place.
+
+**Inside each place**
+- **Mini-arc:** arrive → look → one small turn (a surprise, a verdict, a problem) → an exit line.
+- **Cut to one of us** looking or reacting at least every 3–4 scenic shots.
+- **One comparison per place** to something Chinese viewers already know (a distance, a height, a famous Chinese landmark or dish). Only when it's accurate.
+- **Maps that make a point:** two pins and the straight-line distance or time, not just a route.
+- **Breathing room:** after 45–60 s of talk, an 8–15 s music-only or natural-sound break, plus one planned 2–4 s silence or ambience moment per place.
+- **Travel between places:** a quiet montage of about 1–1.5 s shots, or stepped speed-ups. Never a flat long fast-forward.
+
+**Ending**
+- **End where the hook began:** answer its question or return to its place, then one calm reflective line.
+- Time the music to end on its own final hit at the last frame.
+- At most one engagement ask, with a reason. Keep the end screen ≤15 s.
+- Calm creators often end on a short slideshow of our own photos. Try it once.
+
+**Narration (TTS)**
+- **Amount:** at most about 15–20% of runtime, and ≤4 汉字 per second of its picture window (Yunxi at −5% speaks about 4.7–5/s, so leave slack).
+- **Placement:** enter ≥0.3 s after a cut, finish ≥0.5 s before the next speech, and leave ≥1.5 s between lines.
+- **Content:** say what the picture can't show, and keep it plain. No 煽情 mood prose.
+
+**Transitions and grade**
+- Transitions come from the camera: match cuts on darkness or direction, whip-pans. No plug-in spins, warps or whooshes on static cuts.
+- Keep the grade light and consistent.
+
+**Series**
+- Name each trip as a series and number its episodes everywhere: titles, covers, end screens, 合集.
+- Give each episode a one-line catch-up and foreshadow the next stop.
+
+**Trials (ask the creator first)**
+- **A letter frame:** a greeting on the postcard card and a P.S. inviting replies.
+- **Short first-person diary lines.**
+
 ## 2c. The creator's review checklist (what he asks for when he reviews)
 
 Distilled from his live reviews of 83 and 84. Check the cut against this list *before* QA, and

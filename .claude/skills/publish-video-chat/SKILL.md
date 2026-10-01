@@ -210,6 +210,28 @@ show a **4:3 centre crop** and every card overlays duration (bottom-right) and p
 
 ## Step 4 — Metadata in the channel's OWN style
 
+**Packaging rules from research (2026-10-01, our data + platform guidance):**
+- **Package the topic before editing.** One famous, nameable thing per episode. Topic choice explains far more than styling does.
+- **Bilibili title**
+  - Bilibili's official guidance: ≤18 characters, ideally 10–15.
+  - Lead with a question, a number or a named highlight.
+  - No English suffix and no long list titles. Our 84–88 list titles had about 0.2% cover/title CTR against a peer median of about 1.8%.
+- **YouTube title:** the famous searchable name first, then one hook. The two platforms get *different* titles.
+- **Bilibili cover**
+  - ≤6 core characters, one font, ≤2 colours.
+  - Nothing in the bottom strip (the play-count and duration overlays sit there), no border, don't cover the subject.
+- **YouTube thumbnail:** one subject plus two short lines.
+- **The cover moment appears in the first seconds of the video,** so the click is reaffirmed (see the edit skill, 2b+).
+- **Test & Compare**
+  - Picks its winner by watch-time share.
+  - At our view counts most tests end inconclusive. Prefer concept-level variants, and test evergreen videos.
+  - Never act on early "winners".
+- **Shorts**
+  - Set the Related video, and add a spoken CTA while pointing at the link.
+  - Judge Shorts by engaged views and Related-link clicks, not raw views. Since 2025/2026, views count on start.
+- **Series and 合集:** keep every trip in a playlist and 合集, numbered, so viewers can subscribe to it.
+
+
 **Learn the channel first — don't invent a voice.** Pull recent uploads and read the patterns
 (title formats, tag mix, description skeleton, hashtag count). This is what makes the skill
 generic: it adapts to whatever channel it's pointed at. Also pull the channel's
