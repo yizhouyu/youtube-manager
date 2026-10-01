@@ -114,6 +114,7 @@ scripts/
   new_project.sh        # new vlog project from templates/vlog-project
   claude_usage.py       # plan usage (5-hour / weekly) for batch pacing
   render_variant.py     # non-destructive 4K comparison-master renderer
+  tts_voices.py         # voice audition page: one line in many edge-tts voices (zh/en/fr)
   bili_season.py        # Bilibili 合集 (create + add episodes)
   preprocess_video.sh  transcribe_accurate.sh  upload_captions.py  render_thumbnails.py
 templates/vlog-project/ # 01 - Unedited/, 02 - Export/{thumbnail, edit/{glossary, music, sfx, HANDOFF}}
