@@ -689,18 +689,24 @@ def power_mean_lufs(values, floor=-70.0):
 
 
 def speech_reference(edl, voice_wav, exclude=()):
-    """On-camera speech loudness of the dialogue track: power mean of momentary loudness inside the
-    speech-caption windows (= the dialogue-gated loudness of what people say on camera), skipping
-    captions that overlap `exclude` spans (the narration's own captions). Falls back to
-    SPEECH_REF_FALLBACK with fewer than 3 usable captions. -> (lufs, n_captions)."""
+    """Median on-camera speech loudness of the dialogue track: each speech caption's loudness (power
+    mean of the momentary loudness inside it), then the median over captions. Captions that overlap
+    `exclude` spans (the narration's own captions) are skipped. Falls back to SPEECH_REF_FALLBACK
+    with fewer than 3 usable captions. -> (lufs, n_captions)."""
     wins = [(s["t0"], s["t1"]) for s in E.timeline_subs(edl) if s["kind"] == "speech" and s["t1"] - s["t0"] > 0.8
             and not any(s["t0"] < b and a < s["t1"] for a, b in exclude)]
     if len(wins) < 3:
         return SPEECH_REF_FALLBACK, len(wins)
     t, m = _momentary(voice_wav)
-    vals = [mm for tt, mm in zip(t, m) if any(a + 0.4 <= tt <= b for a, b in wins)]
-    ref = power_mean_lufs(vals)
-    return (ref if ref is not None else SPEECH_REF_FALLBACK), len(wins)
+    per = []
+    for a, b in wins:
+        v = power_mean_lufs([mm for tt, mm in zip(t, m) if a + 0.4 <= tt <= b])
+        if v is not None:
+            per.append(v)
+    if len(per) < 3:
+        return SPEECH_REF_FALLBACK, len(per)
+    per.sort()
+    return (per[len(per) // 2] + per[(len(per) - 1) // 2]) / 2, len(per)
 
 
 def vo_gain_db(entry, line_lufs, speech_ref, offset=VO_OFFSET_LU, trim=0.0):

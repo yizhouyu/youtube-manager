@@ -117,6 +117,24 @@ class TTSChain(unittest.TestCase):
         self.assertAlmostEqual(R.power_mean_lufs([-20, -30]), 10 * __import__("math").log10((0.01 + 0.001) / 2))
         self.assertIsNone(R.power_mean_lufs([-90]))
 
+    def test_speech_reference_is_the_median_caption(self):
+        with tempfile.TemporaryDirectory() as td:
+            voice = os.path.join(td, "voice.wav")
+            # four 2 s "lines" at different levels, 1 s apart; the last one is the narration's caption
+            expr = "+".join(f"{a}*sin(2*PI*1000*t)*between(t,{t0},{t0 + 2})"
+                            for a, t0 in ((0.3, 1), (0.03, 4), (0.1, 7), (0.9, 10)))
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"aevalsrc='{expr}':d=13:s={SR}",
+                            "-ac", "2", "-c:a", "pcm_f32le", voice], check=True)
+            subs = [{"t0": t0, "t1": t0 + 2, "text": "话"} for t0 in (1, 4, 7, 10)]
+            edl = {"project": td, "shots": [{"id": "c1", "clip": "", "card": {"text": "x"}, "in": 0, "out": 13,
+                                             "subs": subs}]}
+            ref, n = R.speech_reference(edl, voice, exclude=[(10.2, 11.5)])
+            self.assertEqual(n, 3)
+            mid = R._measure_span(["-ss", "7.4", "-t", "1.6", "-i", voice], "[0:a]anull")["I"]
+            self.assertAlmostEqual(ref, mid, delta=1.0)        # the 0.1 line, not the loud or the quiet one
+            self.assertEqual(R.speech_reference(dict(edl, shots=[dict(edl["shots"][0], subs=subs[:2])]), voice),
+                             (R.SPEECH_REF_FALLBACK, 2))
+
     def test_tts_sfx_detection(self):
         self.assertTrue(R.is_tts_sfx({"file": "tts/v01.mp3"}))
         self.assertFalse(R.is_tts_sfx({"file": "sfx/whoosh.wav"}))
