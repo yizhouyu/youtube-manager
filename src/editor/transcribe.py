@@ -92,7 +92,7 @@ def main():
         src = os.path.join(E.project_dir(a.project), "01 - Unedited")
         out = os.path.join(E.edit_dir(a.project), "scan", "srt")
         os.makedirs(out, exist_ok=True)
-        clips = sorted(glob.glob(os.path.join(src, "*.MP4")))
+        clips = sorted(os.path.join(src, f) for f in os.listdir(src) if f.upper().endswith(".MP4"))  # phone clips are .mp4
         if a.only:
             clips = [c for c in clips if os.path.basename(c)[:-4] in a.only.split(",")]
         for c in clips:
