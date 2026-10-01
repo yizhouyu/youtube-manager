@@ -8,7 +8,8 @@ Pipeline: each enabled shot -> its own video-only segment (graded, scaled, overl
 plus an exact-length PCM wav; segments are cached by content hash so re-rendering after a
 small edit only re-encodes the shots that changed. Segment lengths are quantized to whole
 frames and audio is kept as PCM until the final mux, so 100+ cuts never drift out of sync.
-Then: concat -> music bed (tracks crossfaded, ducked under speech) -> loudnorm -14 LUFS -> mux.
+Then: concat -> music bed (tracks crossfaded, ducked under speech) -> master (linear gain to -14 LUFS,
+4x-oversampled limiter, AAC, true peak re-measured on the AAC and corrected in a loop) -> mux.
 Also writes captions.srt (timeline-mapped) for YouTube CC.
 
 Progress goes to edit/render_status.json for the review page.
@@ -608,33 +609,151 @@ def render(project, mode):
             out = os.path.join(edit, "preview.mp4")
         tmp = out + ".part.mp4"
         _run(["ffmpeg", "-v", "error", "-y", "-i", f"{work}/voice.wav", "-i", f"{work}/music.wav",
-              "-filter_complex", "[0:a][1:a]amix=inputs=2:normalize=0:duration=first", "-c:a", "pcm_s24le",
+              "-filter_complex", "[0:a][1:a]amix=inputs=2:normalize=0:duration=first", "-c:a", "pcm_f32le",
               f"{work}/mix.wav"])
-        _run(["ffmpeg", "-v", "error", "-y", "-i", f"{work}/video.mp4", "-i", f"{work}/mix.wav",
-              "-filter_complex", f"[1:a]{_loudnorm(f'{work}/mix.wav')},"
-              # loudnorm can overshoot its TP target (-1.2 dBTP measured on ep 84): a sample
-              # limiter at -2.2 dBFS leaves room for inter-sample + AAC peaks (-> about -2.0 dBTP).
-              # Limit at 4x oversampling (true-peak-ish) and feed AAC s16: at 48 kHz float the AAC output
-              # overshot to +1.4 dBTP on ep 83; this chain measured -1.2 dBTP.
-              f"aresample=192000,alimiter=limit=0.79:attack=5:release=50:level=false,aresample={SR},aformat=sample_fmts=s16[a]", "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac",
-              "-b:a", "320k", "-movflags", "+faststart", "-f", "mov" if out.endswith(".mov") else "mp4", tmp])
+        status.set(state="running", step="母带（响度 + 真峰值）", progress=0.94, mode=mode)
+        if edl.get("master") == "loudnorm":  # legacy chain (dynamic loudnorm + blind limiter), kept as a fallback
+            master = _master_loudnorm(f"{work}/mix.wav", f"{work}/master.m4a")
+        else:
+            master = _master(f"{work}/mix.wav", f"{work}/master.m4a")
+        _run(["ffmpeg", "-v", "error", "-y", "-i", f"{work}/video.mp4", "-i", f"{work}/master.m4a",
+              "-map", "0:v", "-map", "1:a", "-c", "copy", "-movflags", "+faststart",
+              "-f", "mov" if out.endswith(".mov") else "mp4", tmp])
         os.replace(tmp, out)
         if mode != "final":
             _version_preview(edit, out)
         with open(os.path.join(edit, "captions.srt"), "w", encoding="utf-8") as f:
             f.write(E.to_srt(E.timeline_subs(dict(edl, shots=shots))))
         status.set(state="done", step=f"完成 {int(total // 60)}:{int(total % 60):02d}", progress=1.0,
-                   output=out, mode=mode, duration=total)
+                   output=out, mode=mode, duration=total, audio=master)
         return out
     except Exception as e:
         status.set(state="error", step="渲染失败", error=str(e)[-2000:], progress=0.0, mode=mode)
         raise
 
 
+# ---- mastering ----------------------------------------------------------------------------------
+# Measured linear gain to -14 LUFS, a 4x-oversampled lookahead limiter, AAC encode, then the true
+# peak of the *decoded AAC* is measured and the loop corrects the ceiling / gain (research R1,
+# 2026-10-01). The old two-pass loudnorm never ran linear on our material (TP never fitted), so it
+# fell back to dynamic mode: an AGC that reshaped every mix, and AAC overshoot left 102/104 at
+# -1.2 / -1.4 dBTP.
+MASTER_I = -14.0          # LUFS, integrated
+MASTER_TP = -1.5          # dBTP, measured on the decoded AAC
+MASTER_I_TOL = 0.3        # LU
+MASTER_CEIL0 = -2.5       # dBFS limiter ceiling (at 4x oversampling): first guess
+MASTER_CEIL_MIN = -6.0    # never squash harder than this
+MASTER_MARGIN = 0.2       # extra dB taken off the ceiling on top of the measured TP excess
+MASTER_ITERS = 4
+
+
+def _aac():
+    """AudioToolbox AAC when this ffmpeg has it (macOS), else ffmpeg's native encoder. On 102's
+    limited montage music the native encoder overshot the limiter ceiling by +1.7 to +4.4 dB (true
+    peak up to +2.3 dBTP from a -2.5 dBFS ceiling) and lowering the ceiling made it worse; aac_at
+    stayed within +0.4 dB on the same audio, sample-aligned (no extra delay)."""
+    if not hasattr(_aac, "codec"):
+        enc = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"], capture_output=True, text=True).stdout
+        _aac.codec = ["-c:a", "aac_at" if re.search(r"^\s*A\S*\s+aac_at\s", enc, re.M) else "aac", "-b:a", "320k"]
+    return _aac.codec
+
+
+def _measure(path):
+    """{'I', 'TP', 'LRA'} of an audio/video file (EBU R128, true peak at 4x oversampling)."""
+    err = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", path, "-vn", "-af",
+                          "ebur128=peak=true:framelog=quiet", "-f", "null", "-"],
+                         capture_output=True, text=True).stderr
+
+    def last(pat):
+        v = re.findall(pat, err, re.M)
+        if not v:
+            raise RuntimeError(f"ebur128 measurement failed for {path}:\n{err[-800:]}")
+        return float(v[-1])
+    return {"I": last(r"^\s+I:\s+(-?[\d.]+|-inf) LUFS"), "TP": last(r"^\s+Peak:\s+(-?[\d.]+|-inf) dBFS"),
+            "LRA": last(r"^\s+LRA:\s+(-?[\d.]+) LU")}
+
+
+def master_step(gain, ceil, I, TP, slope=1.0, target=MASTER_I, tp_max=MASTER_TP, tol=MASTER_I_TOL):
+    """One correction of the mastering loop -> (gain_db, ceil_db, done).
+    TP over the limit: lower the ceiling by the excess + MASTER_MARGIN (AAC overshoot was bigger than
+    the margin we left). Loudness off by more than `tol`: move the gain by the error (the limiter ate
+    some loudness, or the lower ceiling did), divided by `slope` = measured LU per dB of gain (1 for a
+    linear chain, less once the limiter is working hard). Both can happen in one step."""
+    done = True
+    if TP > tp_max:
+        ceil = max(MASTER_CEIL_MIN, ceil - (TP - tp_max) - MASTER_MARGIN)
+        done = False
+    if abs(I - target) > tol:
+        gain += (target - I) / min(1.0, max(0.25, slope))
+        done = False
+    return round(gain, 2), round(ceil, 2), done
+
+
+def master_slope(attempts):
+    """LU of output loudness per dB of gain, from the last two attempts (1.0 until there are two)."""
+    if len(attempts) < 2 or attempts[-1]["gain"] == attempts[-2]["gain"]:
+        return 1.0
+    a, b = attempts[-2], attempts[-1]
+    return (b["I"] - a["I"]) / (b["gain"] - a["gain"])
+
+
+def master_pick(attempts, target=MASTER_I, tp_max=MASTER_TP):
+    """Best attempt when the loop ran out of iterations: one that meets the TP limit and is closest to
+    the target loudness; if none does, the one with the lowest TP."""
+    ok = [a for a in attempts if a["TP"] <= tp_max]
+    if ok:
+        return min(ok, key=lambda a: abs(a["I"] - target))
+    return min(attempts, key=lambda a: a["TP"])
+
+
+def _master_af(gain, ceil):
+    lim = 10 ** (ceil / 20)
+    # stays float into the encoder (Apple Digital Masters); latency=1 keeps A/V sync sample-exact
+    return (f"volume={gain:.2f}dB,aresample=192000,"
+            f"alimiter=limit={lim:.5f}:attack=1:release=80:level=false:latency=1,aresample={SR}")
+
+
+def _master(mix_wav, out_m4a, codec=None):
+    """Master `mix_wav` into `out_m4a` (AAC). Returns the stats written to render_status.json."""
+    codec = codec or _aac()
+    m0 = _measure(mix_wav)
+    gain, ceil = round(MASTER_I - m0["I"], 2), MASTER_CEIL0
+    attempts = []
+    for it in range(1, MASTER_ITERS + 1):
+        path = f"{out_m4a}.try{it}.m4a"
+        _run(["ffmpeg", "-v", "error", "-y", "-i", mix_wav, "-af", _master_af(gain, ceil), "-vn", *codec, path])
+        m = _measure(path)
+        attempts.append(dict(m, gain=gain, ceil=ceil, path=path, iter=it))
+        print(f"[master] try {it}: gain {gain:+.2f} dB, ceiling {ceil:.2f} dBFS -> "
+              f"I {m['I']:.1f} LUFS, TP {m['TP']:.1f} dBTP, LRA {m['LRA']:.1f}", flush=True)
+        gain, ceil, done = master_step(gain, ceil, m["I"], m["TP"], master_slope(attempts))
+        if done:
+            break
+    best = attempts[-1] if done else master_pick(attempts)
+    os.replace(best["path"], out_m4a)
+    for a in attempts:
+        if os.path.exists(a["path"]):
+            os.remove(a["path"])
+    ok = best["TP"] <= MASTER_TP and abs(best["I"] - MASTER_I) <= 0.5
+    return {"I": best["I"], "TP": best["TP"], "LRA": best["LRA"], "gain_db": best["gain"],
+            "ceiling_db": best["ceil"], "iterations": len(attempts), "mix_I": m0["I"], "mix_TP": m0["TP"],
+            "mix_LRA": m0["LRA"], "method": "linear+tp-loop", "codec": codec[1], "ok": ok}
+
+
+def _master_loudnorm(mix_wav, out_m4a, codec=("-c:a", "aac", "-b:a", "320k")):
+    """Legacy master (`"master": "loudnorm"` in the EDL): two-pass loudnorm (dynamic in practice)
+    + a sample limiter at -2 dBFS, 4x oversampled."""
+    _run(["ffmpeg", "-v", "error", "-y", "-i", mix_wav, "-af",
+          f"{_loudnorm(mix_wav)},aresample=192000,alimiter=limit=0.79:attack=5:release=50:level=false,"
+          f"aresample={SR},aformat=sample_fmts=s16", "-vn", *codec, out_m4a])
+    m = _measure(out_m4a)
+    return {"I": m["I"], "TP": m["TP"], "LRA": m["LRA"], "iterations": 1, "method": "loudnorm",
+            "ok": m["TP"] <= MASTER_TP and abs(m["I"] - MASTER_I) <= 0.5}
+
+
 def _loudnorm(wav, target="I=-14:TP=-1.5:LRA=11"):
-    """Two-pass loudnorm: measure first, then normalize linearly with the measured values.
-    Single-pass (dynamic) mode undershot -14 LUFS by ~1 LU on eps 89/90 when the mix had little
-    peak headroom. Falls back to single-pass if the measurement can't be parsed."""
+    """Two-pass loudnorm filter string (legacy master only). Note: ffmpeg only runs the 2nd pass
+    linearly when the measured TP fits, which it never did on our mixes, so this is dynamic (AGC)."""
     r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", wav, "-af",
                         f"loudnorm={target}:print_format=json", "-f", "null", "-"],
                        capture_output=True, text=True)

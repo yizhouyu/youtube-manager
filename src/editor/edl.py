@@ -21,6 +21,9 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
                                                # Caption it with subs on the shots (cards: bake the text in)
   "music_volume": 0.30,                        # music gain when nobody is talking
   "music_duck": 0.08,                          # music gain under speech (subtitle intervals)
+  "master": "linear",                          # final mastering: measured linear gain to -14 LUFS + 4x-oversampled
+                                               # limiter, true peak re-measured on the AAC (<= -1.5 dBTP) in a
+                                               # loop; "loudnorm" = the legacy dynamic-loudnorm chain (fallback)
   "denoise_voice": false,                      # highpass + FFT denoise on voice shots (boats, wind); "wind" = stronger, also tames ambient beds;
                                                # per-shot "denoise": true/false overrides
   "shots": [
@@ -36,7 +39,7 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
       "grade": "default",                      # key into grades
       "audio": "voice",                        # voice (1.0) | ambient (0.35) | mute
       "gain_db": 0,                            # optional per-shot level (dB, -24..+12): lift a quiet/distant
-                                               # speaker (e.g. a guide) before the final loudnorm
+                                               # speaker (e.g. a guide) before the final master
       "fade_in": 0, "fade_out": 0,             # seconds (video+audio)
       "title": {"text": "Day 1", "sub": "圣约翰岛 St. John", "dur": 3.0},   # optional card at shot start
       "tag": "Mongoose Junction",              # optional small place label, top-left, first 3 s
