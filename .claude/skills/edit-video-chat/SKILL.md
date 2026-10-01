@@ -302,7 +302,7 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
 - **Try at least one new technique per video — mandatory.** The creator explicitly wants every
   episode to bring something new. If the renderer can't do it yet, add it as a small
   generic, tested feature (commit + push per the repo rules).
-- **TTS voice (creator-approved 2026-10-01):** edge-tts `zh-CN-YunxiNeural`, `--rate=-5%`, as a voiceover layer with the music ducked. Write names locals say in English as the TTS should say them (it reads "Nassau" as "NASA"). Keep lines short, factual and place-anchored, and re-transcribe the mix to check them.
+- **TTS voice (creator-approved 2026-10-01):** edge-tts is the approved tool. The default is `zh-CN-YunxiNeural`, `--rate=-5%`. The editor may pick another edge-tts voice when a scene suits it (e.g. a warmer female voice, or a multilingual voice for English-heavy lines; audition with `scripts/tts_voices.py`) and should say why in HANDOFF. Use it as a voiceover layer with the music ducked. Write names locals say in English as the TTS should say them (it reads "Nassau" as "NASA"). Keep lines short, factual and place-anchored, and re-transcribe the mix to check them.
 - **Generated media is an editorial component, not invented evidence.** Original music, brief TTS,
   and clearly illustrative/motion-graphic transitions are allowed when the creator asks for them;
   real locations, dishes, people, actions, animal behaviour and history still come from the actual
