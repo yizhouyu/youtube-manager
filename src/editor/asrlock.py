@@ -56,6 +56,9 @@ def _clear():
 
 @contextlib.contextmanager
 def asr_lock(poll=10, quiet=False):
+    if os.environ.get("YT_ASR_LOCK_HELD") == "1":  # a parent `asrlock --` already holds it
+        yield
+        return
     waited = False
     while True:
         try:
@@ -84,7 +87,8 @@ def main():
     if not args:
         sys.exit("usage: python -m src.editor.asrlock -- <command> [args...]")
     with asr_lock():
-        sys.exit(subprocess.call(args))
+        env = dict(os.environ, YT_ASR_LOCK_HELD="1")  # so a wrapped transcribe.py doesn't deadlock
+        sys.exit(subprocess.call(args, env=env))
 
 
 if __name__ == "__main__":
