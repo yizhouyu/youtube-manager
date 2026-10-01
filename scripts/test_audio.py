@@ -85,5 +85,49 @@ class MasterEncode(unittest.TestCase):
             self.assertFalse([f for f in os.listdir(td) if ".try" in f], "temporary tries cleaned up")
 
 
+def _speechlike(path, dur=4.0):
+    """A voiced, syllable-rate (3 Hz) buzz with a hot plosive click every 1.3 s: PLR ~ 20 dB,
+    24 kHz mono like edge-tts output."""
+    expr = "0.25*(2*mod(t*130,1)-1)*pow(max(0,sin(2*PI*3*t)),2)+0.6*sin(2*PI*900*t)*lt(mod(t,1.3),0.004)"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"aevalsrc='{expr}':d={dur}:s=24000",
+                    "-af", "lowpass=f=4000", path], check=True)
+
+
+class TTSChain(unittest.TestCase):
+    def test_manual_gain_overrides_auto(self):
+        self.assertEqual(R.vo_gain_db({"gain_db": -3}, -18.0, -22.0), (-3.0, False))
+        self.assertEqual(R.vo_gain_db({"gain": 4.5}, -18.0, -22.0, offset=0.5), (-3.5, True))  # legacy gain ignored
+        self.assertEqual(R.vo_gain_db({}, -60.0, -20.0)[0], 24.0)  # clamped
+
+    def test_power_mean(self):
+        self.assertAlmostEqual(R.power_mean_lufs([-20, -20, -120]), -20.0)
+        self.assertAlmostEqual(R.power_mean_lufs([-20, -30]), 10 * __import__("math").log10((0.01 + 0.001) / 2))
+        self.assertIsNone(R.power_mean_lufs([-90]))
+
+    def test_tts_sfx_detection(self):
+        self.assertTrue(R.is_tts_sfx({"file": "tts/v01.mp3"}))
+        self.assertFalse(R.is_tts_sfx({"file": "sfx/whoosh.wav"}))
+        self.assertTrue(R.is_tts_sfx({"file": "vo/line.wav", "tts": True}))
+        self.assertFalse(R.is_tts_sfx({"file": "tts/riser.wav", "tts": False}))
+
+    def test_chain_lowers_plr_keeps_timing_and_caches(self):
+        with tempfile.TemporaryDirectory() as td:
+            raw = os.path.join(td, "line.wav")
+            _speechlike(raw)
+            m0 = R._measure(raw)
+            wav, line_i = R.tts_processed(raw, os.path.join(td, "cache"))
+            m1 = R._measure(wav)
+            self.assertAlmostEqual(line_i, m1["I"])
+            # peaks tamed: PLR down by > 2.5 dB (the output is dual-mono stereo: +3 dB = per-channel TP of mono)
+            self.assertLess(m1["TP"] + 3.0 - m1["I"], m0["TP"] - m0["I"] - 2.5, (m0, m1))
+            self.assertAlmostEqual(R._media_dur(wav), R._media_dur(raw), delta=0.002)  # `at` timing holds
+            out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_name,sample_rate,channels",
+                                  "-of", "csv=p=0", wav], capture_output=True, text=True).stdout.strip()
+            self.assertEqual(out, "pcm_f32le,48000,2")  # float WAV, never re-encoded to MP3
+            mt = os.path.getmtime(wav)
+            self.assertEqual(R.tts_processed(raw, os.path.join(td, "cache"))[0], wav)
+            self.assertEqual(os.path.getmtime(wav), mt, "second call is a cache hit")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

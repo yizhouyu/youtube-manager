@@ -14,10 +14,17 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
                                                # "file": null = silent "breathing room" section (the
                                                # previous track fades out over 2.5 s, the next fades in
                                                # 2.5 s before its start: make it >= ~6 s)
-  "voiceover": [{"file": "tts/line1.mp3", "start": "s010", "at": 0.5, "gain": 0}],
+  "voiceover": [{"file": "tts/line1.mp3", "start": "s010", "at": 0.5}],
                                                # narration / TTS layer: placed at the start shot's timeline
-                                               # start + `at` s, `gain` in dB; may run across shot boundaries
-                                               # (a shot's `sfx` is cut at its end); the music ducks under it.
+                                               # start + `at` s; may run across shot boundaries (a shot's
+                                               # `sfx` is cut at its end); the music ducks under it.
+                                               # Every line (and any tts/ file used as a shot sfx) goes
+                                               # through a VO chain (high-pass, EQ, de-ess, compressor,
+                                               # limiter; float WAV, cached) and is auto-levelled to the
+                                               # on-camera speech loudness + `vo_offset_lu` (EDL, default
+                                               # 0.5). `gain_db` on an entry = manual level instead (dB).
+                                               # The old fixed `gain` is ignored unless "tts_chain": false
+                                               # (EDL) restores the legacy raw-file + fixed-gain path.
                                                # Caption it with subs on the shots (cards: bake the text in)
   "music_volume": 0.30,                        # music gain when nobody is talking
   "music_duck": 0.08,                          # music gain under speech (subtitle intervals)

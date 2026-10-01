@@ -43,12 +43,13 @@ def main():
         assert not check(edl)[0], check(edl)
         spans = R.voiceover_spans(edl)
         # c1 at 0 + 1.0 (runs over the c1|c3 cut at 2.0); c2 is cut -> falls through to c3 at 2.0 + 0.5
-        assert [(round(t, 3), round(d, 2), g) for _p, t, d, g in spans] == [(1.0, 3.0, -6.0), (2.5, 3.0, 0.0)], spans
+        assert [(round(t, 3), round(d, 2), e.get("gain")) for _p, t, d, e in spans] == [(1.0, 3.0, -6), (2.5, 3.0, None)], spans
         assert R._speech_windows(edl)[0][0] < 1.0 and R._speech_windows(edl)[-1][1] > 5.5  # music ducks under it
         voice = os.path.join(td, "voice.wav")
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"anullsrc=r={SR}:cl=stereo", "-t", "6",
                         "-c:a", "pcm_s16le", voice], check=True)
-        assert R.mix_voiceover(edl, voice, 6.0)
+        info = R.mix_voiceover(edl, voice, 6.0)
+        assert info and all(x["auto"] for x in info["lines"]), info  # legacy `gain` no longer sets the level
         assert rms(voice, 0.0, 0.9) < 1, "silence before the line"
         assert rms(voice, 1.2, 2.4) > 1000, "first line audible, across the shot cut"
         assert rms(voice, 2.7, 3.9) > rms(voice, 1.2, 2.4) * 1.5, "two lines overlap there"

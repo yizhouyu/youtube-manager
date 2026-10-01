@@ -17,6 +17,7 @@ Progress goes to edit/render_status.json for the review page.
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -91,11 +92,23 @@ def _zoom_filters(z, dur, w, h):
             f"crop={w}:{h}:'(trunc({w}*{zz}/2)*2-{w})*{x}':'(trunc({h}*{zz}/2)*2-{h})*{y}'"]
 
 
+def is_tts_sfx(fx):
+    """A shot `sfx` entry that is really a narration line (a file under edit/tts/, or "tts": true)."""
+    return bool(fx.get("tts", fx.get("file", "").replace("\\", "/").startswith("tts/")))
+
+
+def _tts_chain_on(edl):
+    return edl.get("tts_chain", True) is not False
+
+
 def _sfx_chain(edl, shot, inputs, k, dur, src_label, out_label):
-    """Mix a shot's `sfx` ([{file, at, gain}], file relative to edit/) over its audio."""
+    """Mix a shot's `sfx` ([{file, at, gain}], file relative to edit/) over its audio. TTS lines
+    used as sfx are left out here: mix_voiceover places them, processed and level-matched."""
     labels = [f"[{src_label}]"]
     chains = []
     for i, fx in enumerate(shot.get("sfx", [])):
+        if _tts_chain_on(edl) and is_tts_sfx(fx):
+            continue
         path = os.path.join(E.edit_dir(edl["project"]), fx["file"])
         if not os.path.exists(path):
             continue
@@ -115,7 +128,7 @@ def _card_image_path(edl, card):
     return os.path.join(E.edit_dir(edl["project"]), card["image"])
 
 
-def _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath, apath):
+def _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath):
     """A generated card: the playful time card ("两小时后……"), or — with `card.image` — a still
     (.png/.jpg, gentle push-in) or a short animation (.mp4/.mov, e.g. a route map; looped/trimmed to
     the shot length) from the project's edit/ folder. Optional sfx either way."""
@@ -128,27 +141,35 @@ def _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath, apath):
     png = img or overlays.card(c["text"], c.get("sub", ""), w, h, ov_dir, c.get("bg", "#ffd84d"), c.get("fg", "#1f2937"))
     src = (["-stream_loop", "-1", "-t", f"{dur + 0.2:.3f}", "-i", png] if anim else
            ["-loop", "1", "-framerate", fps_str, "-t", f"{dur + 0.2:.3f}", "-i", png])
-    inputs = src + ["-f", "lavfi", "-t", f"{dur + 0.2:.3f}", "-i", f"anullsrc=r={SR}:cl=stereo"]
+    inputs = src
     zoom = c.get("zoom", {"from": 1.0, "to": 1.08}) if not anim else c.get("zoom")
     vf = (_zoom_filters(zoom, dur, w, h) if zoom else []) + [f"fps={fps_str}"]
     if shot.get("fade_in"):
         vf.append(f"fade=t=in:st=0:d={shot['fade_in']}")
     if shot.get("fade_out"):
         vf.append(f"fade=t=out:st={max(0, dur - shot['fade_out']):.3f}:d={shot['fade_out']}")
-    chains = [f"[0:v]scale={w}:{h},{','.join(vf)},format={_pixfmt(preset)}[v]",
-              f"[1:a]atrim=0:{dur:.6f}[a0]", _sfx_chain(edl, shot, inputs, 2, dur, "a0", "a")]
-    tmpv, tmpa = vpath + ".part.mp4", apath + ".part.wav"
+    chains = [f"[0:v]scale={w}:{h},{','.join(vf)},format={_pixfmt(preset)}[v]"]
+    tmpv = vpath + ".part.mp4"
     _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
-          "-map", "[v]", "-frames:v", str(n), "-an",
-          *_venc(preset), tmpv,
-          "-map", "[a]", "-vn", "-c:a", "pcm_s16le", tmpa])
+          "-map", "[v]", "-frames:v", str(n), "-an", *_venc(preset), tmpv])
     os.replace(tmpv, vpath)
-    os.replace(tmpa, apath)
-    return vpath, apath
+    return vpath
+
+
+# Segment cache versions. Video and audio are cached separately, so an audio-only change re-renders
+# a few seconds of PCM per shot instead of every shot's picture. Bump the matching one whenever the
+# segment output changes without the shot dict changing.
+VIDEO_CACHE_VERSION = 9
+AUDIO_CACHE_VERSION = 1
 
 
 def render_segment(edl, shot, fps_str, preset, cache, clean=False):
-    """-> (video_path, wav_path) for one shot; cached by content hash."""
+    """-> (video_path, wav_path) for one shot; each cached by its own content hash."""
+    return render_segment_video(edl, shot, fps_str, preset, cache, clean), render_segment_audio(edl, shot, fps_str, cache)
+
+
+def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
+    """Video-only segment (graded, scaled, overlays burned in), cached by content hash."""
     fps = float(Fraction(fps_str))
     w, h = preset["w"], preset["h"]
     n = frames_of(shot, fps)
@@ -164,16 +185,16 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     if (shot.get("card") or {}).get("image"):  # re-render when the card's image/animation file changes
         ip = _card_image_path(edl, shot["card"])
         extra.append(os.path.getmtime(ip) if os.path.exists(ip) else "missing")
-    key = json.dumps([shot, grade, brg, fps_str, preset, clean, 9, overlays.VERSION] + extra, sort_keys=True, ensure_ascii=False)
+    key = json.dumps([shot, grade, brg, fps_str, preset, clean, VIDEO_CACHE_VERSION, overlays.VERSION] + extra,
+                     sort_keys=True, ensure_ascii=False)
     hid = hashlib.sha1(key.encode()).hexdigest()[:12]
     vpath = os.path.join(cache, f"{shot['id']}_{hid}.mp4")
-    apath = os.path.join(cache, f"{shot['id']}_{hid}.wav")
-    if os.path.exists(vpath) and os.path.exists(apath):
-        return vpath, apath
+    if os.path.exists(vpath):
+        return vpath
 
     ov_dir = os.path.join(cache, "overlays")
     if shot.get("card"):
-        return _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath, apath)
+        return _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath)
     src = E.clip_path(edl, shot["clip"])
     span = shot["out"] - shot["in"]
     inputs = ["-ss", f"{shot['in']:.3f}", "-t", f"{span + 0.2:.3f}", "-i", src]
@@ -183,16 +204,12 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
     if len(ranges) > 1:
         m = len(ranges)
         chains.append(f"[0:v]split={m}" + "".join(f"[vs{i}]" for i in range(m)))
-        chains.append(f"[0:a]asplit={m}" + "".join(f"[as{i}]" for i in range(m)))
         for i, (a, b) in enumerate(ranges):
             chains.append(f"[vs{i}]trim={a:.3f}:{b:.3f},setpts=PTS-STARTPTS[vk{i}]")
-            chains.append(f"[as{i}]atrim={a:.3f}:{b:.3f},asetpts=PTS-STARTPTS,"
-                          f"afade=t=in:d=0.012,afade=t=out:st={max(0, b - a - 0.012):.3f}:d=0.012[ak{i}]")
         chains.append("".join(f"[vk{i}]" for i in range(m)) + f"concat=n={m}:v=1:a=0[vsrc]")
-        chains.append("".join(f"[ak{i}]" for i in range(m)) + f"concat=n={m}:v=0:a=1[asrc]")
-        vsrc, asrc = "[vsrc]", "[asrc]"
+        vsrc = "[vsrc]"
     else:
-        vsrc, asrc = "[0:v]", "[0:a]"
+        vsrc = "[0:v]"
     vf = [f"scale={w}:{h}:flags=lanczos", f"fps={fps_str}"]
     if shot.get("zoom"):
         vf[1:1] = _zoom_filters(shot["zoom"], dur, w, h)
@@ -261,43 +278,76 @@ def render_segment(edl, shot, fps_str, preset, cache, clean=False):
         chains.append(f"[{gi}:v]format=rgba,setpts=PTS-STARTPTS[g{gi}]")
         chains.append(f"[{last}][g{gi}]overlay={gx}:{gy}:eof_action=repeat[vg]")
         last = "vg"
-        ovs.append(None)  # keeps the sfx input index below in step
+        ovs.append(None)  # keeps the pip input index below in step
     for j, pp in enumerate(shot.get("pip", []) if not clean else []):
         got = _pip_chain(edl, pp, j, dur, fps_str, preset, inputs, base_inputs + len(ovs), last, chains)
         if got:
             last = got
             ovs.append(None)
 
-    gain = E.AUDIO_GAIN.get(shot.get("audio", "voice"), 1.0) if E.speed(shot) <= 1 else 0.0
-    gain *= 10 ** (max(-24.0, min(12.0, float(shot.get("gain_db", 0) or 0))) / 20)  # lift a quiet speaker
-    af = [f"aresample={SR}", "aformat=channel_layouts=stereo", f"volume={gain}"]
-    mode = shot.get("denoise", edl.get("denoise_voice", False))
-    if mode == "wind":
-        # heavy wind on an action cam: a higher cut + stronger FFT denoise; ambient beds also get
-        # tamed (and a touch quieter) so the music carries them instead of the roar
-        if shot.get("audio", "voice") == "voice":
-            af[2:2] = ["highpass=f=200", "afftdn=nr=24:nf=-28:tn=1", "equalizer=f=3000:t=q:w=1:g=2"]
-        elif shot.get("audio") == "ambient":
-            af[2:2] = ["highpass=f=250", "afftdn=nr=20:nf=-30:tn=1", "volume=0.6"]
-    elif mode and shot.get("audio", "voice") == "voice":
-        # boat engines / wind: cut the low rumble, then FFT denoise under the voice
-        af[2:2] = ["highpass=f=140", "afftdn=nr=18:nf=-30:tn=1"]
-    # 12 ms edge fades on every shot: a hard cut on a non-zero sample (wind) clicks after loudnorm
-    af.append(f"afade=t=in:st=0:d={max(fi or 0, EDGE_FADE)}")
-    af.append(f"afade=t=out:st={max(0, dur - max(fo or 0, EDGE_FADE)):.3f}:d={max(fo or 0, EDGE_FADE)}")
-    af += ["apad", f"atrim=0:{dur:.6f}"]
-    chains.append(f"{asrc}asetpts=PTS-STARTPTS,{','.join(af)}[a0]")
-    k = base_inputs + len(ovs)
-    chains.append(_sfx_chain(edl, shot, inputs, k, dur, "a0", "a"))
-
-    tmpv, tmpa = vpath + ".part.mp4", apath + ".part.wav"
+    tmpv = vpath + ".part.mp4"
     _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
-          "-map", f"[{last}]", "-frames:v", str(n), "-an",
-          *_venc(preset), tmpv,
-          "-map", "[a]", "-vn", "-c:a", "pcm_s16le", tmpa])
+          "-map", f"[{last}]", "-frames:v", str(n), "-an", *_venc(preset), tmpv])
     os.replace(tmpv, vpath)
+    return vpath
+
+
+def render_segment_audio(edl, shot, fps_str, cache):
+    """Exact-length PCM wav for one shot (its own sound + sfx), cached by content hash."""
+    fps = float(Fraction(fps_str))
+    dur = frames_of(shot, fps) / fps
+    fx_files = [os.path.join(E.edit_dir(edl["project"]), fx["file"]) for fx in shot.get("sfx", [])]
+    extra = [os.path.getmtime(f) if os.path.exists(f) else "missing" for f in fx_files]
+    key = json.dumps([shot, fps_str, AUDIO_CACHE_VERSION, edl.get("denoise_voice", False), _tts_chain_on(edl)] + extra,
+                     sort_keys=True, ensure_ascii=False)
+    hid = hashlib.sha1(key.encode()).hexdigest()[:12]
+    apath = os.path.join(cache, f"{shot['id']}_a{hid}.wav")
+    if os.path.exists(apath):
+        return apath
+    fi, fo = shot.get("fade_in", 0), shot.get("fade_out", 0)
+    if shot.get("card"):
+        inputs = ["-f", "lavfi", "-t", f"{dur + 0.2:.3f}", "-i", f"anullsrc=r={SR}:cl=stereo"]
+        chains = [f"[0:a]atrim=0:{dur:.6f}[a0]"]
+    else:
+        span = shot["out"] - shot["in"]
+        inputs = ["-ss", f"{shot['in']:.3f}", "-t", f"{span + 0.2:.3f}", "-i", E.clip_path(edl, shot["clip"])]
+        chains = []
+        ranges = [(a - shot["in"], b - shot["in"]) for a, b in E.kept_ranges(shot)]
+        if len(ranges) > 1:  # jump-cut out skipped spans (pauses / fillers)
+            m = len(ranges)
+            chains.append(f"[0:a]asplit={m}" + "".join(f"[as{i}]" for i in range(m)))
+            for i, (a, b) in enumerate(ranges):
+                chains.append(f"[as{i}]atrim={a:.3f}:{b:.3f},asetpts=PTS-STARTPTS,"
+                              f"afade=t=in:d=0.012,afade=t=out:st={max(0, b - a - 0.012):.3f}:d=0.012[ak{i}]")
+            chains.append("".join(f"[ak{i}]" for i in range(m)) + f"concat=n={m}:v=0:a=1[asrc]")
+            asrc = "[asrc]"
+        else:
+            asrc = "[0:a]"
+        gain = E.AUDIO_GAIN.get(shot.get("audio", "voice"), 1.0) if E.speed(shot) <= 1 else 0.0
+        gain *= 10 ** (max(-24.0, min(12.0, float(shot.get("gain_db", 0) or 0))) / 20)  # lift a quiet speaker
+        af = [f"aresample={SR}", "aformat=channel_layouts=stereo", f"volume={gain}"]
+        mode = shot.get("denoise", edl.get("denoise_voice", False))
+        if mode == "wind":
+            # heavy wind on an action cam: a higher cut + stronger FFT denoise; ambient beds also get
+            # tamed (and a touch quieter) so the music carries them instead of the roar
+            if shot.get("audio", "voice") == "voice":
+                af[2:2] = ["highpass=f=200", "afftdn=nr=24:nf=-28:tn=1", "equalizer=f=3000:t=q:w=1:g=2"]
+            elif shot.get("audio") == "ambient":
+                af[2:2] = ["highpass=f=250", "afftdn=nr=20:nf=-30:tn=1", "volume=0.6"]
+        elif mode and shot.get("audio", "voice") == "voice":
+            # boat engines / wind: cut the low rumble, then FFT denoise under the voice
+            af[2:2] = ["highpass=f=140", "afftdn=nr=18:nf=-30:tn=1"]
+        # 12 ms edge fades on every shot: a hard cut on a non-zero sample (wind) clicks after limiting
+        af.append(f"afade=t=in:st=0:d={max(fi or 0, EDGE_FADE)}")
+        af.append(f"afade=t=out:st={max(0, dur - max(fo or 0, EDGE_FADE)):.3f}:d={max(fo or 0, EDGE_FADE)}")
+        af += ["apad", f"atrim=0:{dur:.6f}"]
+        chains.append(f"{asrc}asetpts=PTS-STARTPTS,{','.join(af)}[a0]")
+    chains.append(_sfx_chain(edl, shot, inputs, 1, dur, "a0", "a"))
+    tmpa = apath + ".part.wav"
+    _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
+          "-map", "[a]", "-vn", "-c:a", "pcm_s16le", tmpa])
     os.replace(tmpa, apath)
-    return vpath, apath
+    return apath
 
 
 EDGE_FADE = 0.012
@@ -363,7 +413,7 @@ def _media_dur(path):
 
 
 def voiceover_spans(edl):
-    """[(path, t0, dur, gain_db)] for the EDL's `voiceover` entries: a narration/TTS file placed at
+    """[(path, t0, dur, entry)] for the EDL's `voiceover` entries: a narration/TTS file placed at
     its `start` shot's timeline start + `at` (or the first enabled shot after it, like music). Unlike a
     shot's `sfx`, it may run across shot boundaries. Entries whose start shot and everything after
     it are cut are dropped."""
@@ -380,19 +430,134 @@ def voiceover_spans(edl):
             t = next((starts[sid] for sid in order[order.index(v["start"]):] if sid in starts), None)
         if t is None:
             continue
-        out.append((path, t + float(v.get("at", 0.0)), _media_dur(path), float(v.get("gain", 0.0))))
+        out.append((path, t + float(v.get("at", 0.0)), _media_dur(path), v))
     return out
 
 
+def tts_sfx_spans(edl):
+    """[(path, t0, dur, entry)] for TTS lines used as shot `sfx` (see is_tts_sfx): placed at the
+    shot's timeline start + `at`, cut at the shot's end like any sfx. Empty when the TTS chain is off
+    (the segment mixes them raw then, as before)."""
+    if not _tts_chain_on(edl):
+        return []
+    rows, _ = E.timeline(edl)
+    out = []
+    for s, st in rows:
+        for fx in s.get("sfx", []):
+            if not is_tts_sfx(fx):
+                continue
+            path = os.path.join(E.edit_dir(edl["project"]), fx["file"])
+            if not os.path.exists(path):
+                continue
+            at = float(fx.get("at", 0.0))
+            d = min(_media_dur(path), E.shot_dur(s) - at)
+            if d > 0.05:
+                out.append((path, st + at, d, fx))
+    return out
+
+
+# ---- TTS processing (research R2) ------------------------------------------------------------------
+# edge-tts output is 24 kHz mono MP3 with a peak-to-loudness ratio of ~19 dB: the two Yale TTS lines
+# were the episode's loudest peaks. Every line goes through a broadcast-VO chain once (decoded to
+# float WAV, cached; never MP3 -> MP3), then sits at the episode's on-camera speech loudness instead
+# of a fixed +dB. No silence trimming/padding here, so the timing of existing `at` values holds.
+TTS_VERSION = 1
+TTS_CHAIN = ("aresample=48000,aformat=sample_fmts=fltp:channel_layouts=mono,"
+             "highpass=f=90:p=2,equalizer=f=250:t=q:w=1.2:g=-2,equalizer=f=3500:t=q:w=1.5:g=1.5,"
+             "deesser=i=0.3,acompressor=threshold=0.0316:ratio=4:attack=3:release=60:knee=2.8:makeup=4,"
+             "aresample=192000,alimiter=limit=0.28:attack=1:release=30:level=false:latency=1,aresample=48000,"
+             "aformat=channel_layouts=stereo")
+SPEECH_REF_FALLBACK = -21.0   # LUFS: on-camera speech in voice.wav when an episode has too few captions
+VO_OFFSET_LU = 0.5            # narration sits this much above the on-camera speech reference
+
+
+def tts_processed(path, cache_dir):
+    """-> (wav_path, integrated_lufs) of `path` through TTS_CHAIN, cached by path + mtime + size."""
+    st = os.stat(path)
+    hid = hashlib.sha1(json.dumps([os.path.abspath(path), st.st_mtime, st.st_size, TTS_VERSION, TTS_CHAIN])
+                       .encode()).hexdigest()[:12]
+    os.makedirs(cache_dir, exist_ok=True)
+    wav = os.path.join(cache_dir, f"{os.path.splitext(os.path.basename(path))[0]}_{hid}.wav")
+    meta = wav + ".json"
+    if os.path.exists(wav) and os.path.exists(meta):
+        with open(meta) as f:
+            return wav, json.load(f)["I"]
+    _run(["ffmpeg", "-v", "error", "-y", "-i", path, "-af", TTS_CHAIN, "-c:a", "pcm_f32le", wav + ".part.wav"])
+    os.replace(wav + ".part.wav", wav)
+    m = _measure(wav)
+    with open(meta, "w") as f:
+        json.dump(m, f)
+    return wav, m["I"]
+
+
+def _momentary(path):
+    """(t, M): EBU momentary loudness every 100 ms (t = end of each 400 ms window)."""
+    err = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-v", "verbose", "-i", path, "-vn", "-af",
+                          "ebur128=framelog=verbose", "-f", "null", "-"], capture_output=True, text=True).stderr
+    t, m = [], []
+    for mt in re.finditer(r"t:\s*([\d.]+)\s+TARGET.*?M:\s*(-?[\d.]+|-inf)", err):
+        t.append(float(mt.group(1)))
+        m.append(float(mt.group(2)))
+    return t, m
+
+
+def power_mean_lufs(values, floor=-70.0):
+    v = [x for x in values if x > floor]
+    return 10 * math.log10(sum(10 ** (x / 10) for x in v) / len(v)) if v else None
+
+
+def speech_reference(edl, voice_wav, exclude=()):
+    """On-camera speech loudness of the dialogue track: power mean of momentary loudness inside the
+    speech-caption windows (= the dialogue-gated loudness of what people say on camera), skipping
+    captions that overlap `exclude` spans (the narration's own captions). Falls back to
+    SPEECH_REF_FALLBACK with fewer than 3 usable captions. -> (lufs, n_captions)."""
+    wins = [(s["t0"], s["t1"]) for s in E.timeline_subs(edl) if s["kind"] == "speech" and s["t1"] - s["t0"] > 0.8
+            and not any(s["t0"] < b and a < s["t1"] for a, b in exclude)]
+    if len(wins) < 3:
+        return SPEECH_REF_FALLBACK, len(wins)
+    t, m = _momentary(voice_wav)
+    vals = [mm for tt, mm in zip(t, m) if any(a + 0.4 <= tt <= b for a, b in wins)]
+    ref = power_mean_lufs(vals)
+    return (ref if ref is not None else SPEECH_REF_FALLBACK), len(wins)
+
+
+def vo_gain_db(entry, line_lufs, speech_ref, offset=VO_OFFSET_LU):
+    """Gain for one processed TTS line: the entry's manual `gain_db` if set, else level-matched to
+    the on-camera speech reference + offset (clamped to +-24 dB)."""
+    if entry.get("gain_db") is not None:
+        return float(entry["gain_db"]), False
+    return max(-24.0, min(24.0, speech_ref + offset - line_lufs)), True
+
+
 def mix_voiceover(edl, voice_wav, total):
-    """Mix the `voiceover` layer into the concatenated dialogue track in place."""
-    spans = voiceover_spans(edl)
+    """Mix the `voiceover` layer (and TTS lines used as sfx) into the concatenated dialogue track in
+    place. -> a summary dict for render_status.json, or False when there is nothing to mix."""
+    vo, fx = voiceover_spans(edl), tts_sfx_spans(edl)
+    spans = vo + fx
     if not spans:
         return False
+    chain_on = _tts_chain_on(edl)
+    info = {"lines": []}
+    if chain_on:
+        ref, n = speech_reference(edl, voice_wav, exclude=[(t0, t0 + d) for _p, t0, d, _e in spans])
+        offset = float(edl.get("vo_offset_lu", VO_OFFSET_LU))
+        info.update(speech_ref=round(ref, 1), speech_captions=n, vo_offset_lu=offset)
     args, chain, labels = ["-i", voice_wav], [], ["[0:a]"]
-    for k, (path, t0, _d, gain) in enumerate(spans, 1):
-        args += ["-i", path]
-        chain.append(f"[{k}:a]aresample={SR},aformat=sample_fmts=fltp:channel_layouts=stereo,volume={gain:.2f}dB,"
+    tts_cache = os.path.join(os.path.dirname(os.path.abspath(voice_wav)), "tts")
+    for k, (path, t0, d, entry) in enumerate(spans, 1):
+        if chain_on:
+            src, line_i = tts_processed(path, tts_cache)
+            gain, auto = vo_gain_db(entry, line_i, ref, offset)
+            info["lines"].append({"file": entry.get("file"), "t0": round(t0, 2), "line_I": line_i,
+                                  "gain_db": round(gain, 2), "auto": auto})
+            print(f"[voiceover] {entry.get('file')}: line {line_i:.1f} LUFS -> {gain:+.1f} dB "
+                  f"({'auto, speech ref %.1f' % ref if auto else 'manual gain_db'})", flush=True)
+        else:  # legacy: raw file, fixed `gain` dB (voiceover) / linear `gain` (sfx is mixed in the segment)
+            src, gain = path, float(entry.get("gain", 0.0))
+        args += ["-i", src]
+        # a TTS sfx is cut at its shot's end (10 ms fade so the cut can't click)
+        trim = f"atrim=0:{d:.4f},afade=t=out:st={max(0, d - 0.01):.4f}:d=0.01," if k > len(vo) else ""
+        chain.append(f"[{k}:a]aresample={SR},aformat=sample_fmts=fltp:channel_layouts=stereo,{trim}volume={gain:.2f}dB,"
                      f"afade=t=in:d=0.02,adelay={int(round(t0 * 1000))}:all=1[vo{k}]")
         labels.append(f"[vo{k}]")
     chain.append(f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=first,atrim=0:{total:.3f}[out]")
@@ -400,14 +565,14 @@ def mix_voiceover(edl, voice_wav, total):
     _run(["ffmpeg", "-v", "error", "-y", *args, "-filter_complex", ";".join(chain), "-map", "[out]",
           "-c:a", "pcm_s16le", tmp])
     os.replace(tmp, voice_wav)
-    return True
+    return info
 
 
 def _speech_windows(edl, pad=0.35):
     iv = sorted((max(0, s["t0"] - pad), s["t1"] + pad) for s in E.timeline_subs(edl)
                 if s["kind"] == "speech")  # editor notes don't duck the music
     # narration ducks the music too, whether or not its caption is on a shot (cards draw no subtitles)
-    iv = sorted(iv + [(max(0, t0 - pad), t0 + d + pad) for _p, t0, d, _g in voiceover_spans(edl)])
+    iv = sorted(iv + [(max(0, t0 - pad), t0 + d + pad) for _p, t0, d, _e in voiceover_spans(edl)])
     merged = []
     for a, b in iv:
         if merged and a <= merged[-1][1] + 0.8:
@@ -601,7 +766,7 @@ def render(project, mode):
         _run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", f"{work}/a.txt",
               "-c", "pcm_s16le", f"{work}/voice.wav"])
         status.set(state="running", step="配乐 + 混音", progress=0.88, mode=mode)
-        mix_voiceover(dict(edl, shots=shots, _order=[s["id"] for s in edl["shots"]]), f"{work}/voice.wav", total)
+        vo_info = mix_voiceover(dict(edl, shots=shots, _order=[s["id"] for s in edl["shots"]]), f"{work}/voice.wav", total)
         music_bed(dict(edl, shots=shots, _order=[s["id"] for s in edl["shots"]]), total, work, f"{work}/music.wav")
         if mode == "final":
             out = os.path.join(E.project_dir(project), "02 - Export", os.path.basename(E.project_dir(project)) + ".mov")
@@ -625,7 +790,7 @@ def render(project, mode):
         with open(os.path.join(edit, "captions.srt"), "w", encoding="utf-8") as f:
             f.write(E.to_srt(E.timeline_subs(dict(edl, shots=shots))))
         status.set(state="done", step=f"完成 {int(total // 60)}:{int(total % 60):02d}", progress=1.0,
-                   output=out, mode=mode, duration=total, audio=master)
+                   output=out, mode=mode, duration=total, audio=dict(master, voiceover=vo_info or None))
         return out
     except Exception as e:
         status.set(state="error", step="渲染失败", error=str(e)[-2000:], progress=0.0, mode=mode)
