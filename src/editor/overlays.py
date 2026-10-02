@@ -8,7 +8,7 @@ import os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 # Bump when the look of any overlay changes: invalidates cached PNGs and rendered segments.
-VERSION = 6
+VERSION = 7  # 7: clause-aware caption wrap
 
 _REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SUB_FONTS = ["/System/Library/Fonts/STHeiti Medium.ttc",
@@ -53,6 +53,30 @@ def _font(paths, size, text=""):
 
 
 def _wrap(draw, text, font, max_w):
+    """Wrap a caption. If it needs more than one line, break at clause punctuation (，、；：) first so a
+    line never ends mid-word (creator, 2026-10-01: "上 / 课"); fall back to the char wrap per clause."""
+    if draw.textlength(text, font=font) <= max_w:
+        return [text]
+    clauses, cur = [], ""
+    for ch in text:
+        cur += ch
+        if ch in "，、；：,;":
+            clauses.append(cur); cur = ""
+    if cur:
+        clauses.append(cur)
+    if len(clauses) > 1 and all(draw.textlength(c, font=font) <= max_w for c in clauses):
+        lines, line = [], ""
+        for c in clauses:
+            if line and draw.textlength(line + c, font=font) > max_w:
+                lines.append(line); line = c
+            else:
+                line += c
+        lines.append(line)
+        return [l.rstrip("，、；：,;") if i < len(lines) - 1 else l for i, l in enumerate(lines)]
+    return _wrap_chars(draw, text, font, max_w)
+
+
+def _wrap_chars(draw, text, font, max_w):
     """Greedy wrap that works for CJK (no spaces) and Latin words alike."""
     lines, cur = [], ""
     for ch in text:
