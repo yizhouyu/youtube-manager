@@ -331,7 +331,8 @@ back into the file (poll it; add questions any time, the pages pick them up with
 
 **Review chat (creator, 2026-10-01).** Both pages have a "和 Claude 聊" box.
 - **What it carries:** each message he sends records where he was (raw clip + time, or cut time). The messages are stored in `edit/chat.jsonl`.
-- **Watching:** while he reviews, keep a Monitor running `python -u -m src.editor.chat "<project>" watch`. Re-arm it every 30 min.
+- **Two buttons (2026-10-02):** 「评论」 (Enter) stores a note as pending (`status: "pending"`, tagged 「待交给 Agent」 on the page). 「交给 Agent」 (Cmd+Enter) hands over the typed note plus all pending notes as one batch. Pending notes never reach `watch`: he is still collecting, so don't act on them (`tail` marks them `[待交]`).
+- **Watching:** while he reviews, keep a Monitor running `python -u -m src.editor.chat "<project>" watch`. Re-arm it every 30 min. It prints `CHAT #id [where] text` for a single note and `CHAT BATCH b3 (3 条): #5 [..] a ‖ #6 [..] b ‖ …` for a batch. Treat a batch as one review pass: apply all of it, re-render once, then reply once.
 - **Replying:** answer with `python -m src.editor.chat "<project>" reply "…"`, so he never has to switch back to the terminal.
 - **Acting on notes:** apply a note, re-render, then reply with what changed and the 成片 timestamps.
 
