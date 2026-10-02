@@ -27,6 +27,7 @@ from flask import Flask, Response, abort, jsonify, request, send_file
 from . import edl as E
 from . import questions as QS
 from . import chat as CHAT
+from . import theme as THEME
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CACHE_ROOT = "/tmp/yt-editor"
@@ -338,125 +339,172 @@ PAGE = r"""<!doctype html>
 <title>剪辑审阅</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%230ea5e9'/%3E%3Cstop offset='1' stop-color='%232563eb'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='15' fill='url%28%23g%29'/%3E%3Cg fill='none' stroke='white' stroke-width='5' stroke-linecap='round'%3E%3Ccircle cx='20' cy='44' r='7'/%3E%3Ccircle cx='44' cy='44' r='7'/%3E%3Cpath d='M25 39 L46 14 M39 39 L18 14'/%3E%3C/g%3E%3C/svg%3E">
 <style>
-:root{--bg:#f5f6f8;--card:#fff;--line:#e2e5e9;--text:#1c2127;--mut:#6b7480;--acc:#2563eb;--acc2:#dbe6fd;--warn:#b42318;--ok:#067647}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif}
-button,input,select{font:inherit}
-button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 12px;cursor:pointer;color:var(--text)}
-button:hover{border-color:#b6bdc6;background:#fafbfc}
-button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
-button.pri:hover{background:#1d4ed8}
-button.danger{background:var(--warn);border-color:var(--warn);color:#fff}
-button.sm{padding:2px 8px;font-size:13px}
-button:disabled{opacity:.5;cursor:default}
-input,select{border:1px solid var(--line);border-radius:6px;padding:4px 7px;background:#fff}
-input:focus,select:focus{outline:2px solid var(--acc2);border-color:var(--acc)}
-input.bad{border-color:var(--warn);background:#fef3f2}
-#bar{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
-#bar .top{padding:10px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;max-width:1100px;margin:0 auto}
-#bar h1{font-size:17px;margin:0;font-weight:600}
-#total{color:var(--mut)}
-#total b{color:var(--text)}
-#dirty{color:var(--warn);font-size:13px;display:none}
-.sp{flex:1}
-#rs{display:none;padding:0 20px 10px;max-width:1100px;margin:0 auto;font-size:13px;color:var(--mut)}
-#rs .pb{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:4px}
-#rs .pb i{display:block;height:100%;background:var(--acc);width:0;transition:width .4s}
-#rs.err{color:var(--warn)} #rs.done{color:var(--ok)} #rs.done .pb i{background:var(--ok)}
-main{max-width:1100px;margin:0 auto;padding:14px 20px 24px}
-#listEnd{margin:18px 0 0;padding:22px 0 40vh;text-align:center;color:#6b7280;font-size:14px;border-top:1px dashed #d1d5db}
-#listEnd b{color:#111827}
-#help{background:#eef4ff;border:1px solid #d5e3fd;color:#23408e;border-radius:9px;padding:8px 14px;margin-bottom:12px;font-size:14px}
-#pvwrap{position:sticky;top:var(--barh,56px);z-index:5;background:var(--bg);padding:6px 0 10px;margin-bottom:4px}
-#pv{background:#000;border-radius:10px;overflow:hidden;display:flex;justify-content:center;align-items:center;min-height:80px;position:relative}
-#pv video{max-width:100%;max-height:40vh;display:block}
-#pvnew{display:none;position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:4;border:0;border-radius:999px;padding:6px 14px;font-size:13px;background:#2563eb;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer}
-.bigplay{position:absolute;left:50%;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;background:rgba(0,0,0,.55);pointer-events:none;z-index:3;transition:opacity .2s ease,transform .2s ease}.bigplay::after{content:'';position:absolute;left:33px;top:24px;border-style:solid;border-width:18px 0 18px 30px;border-color:transparent transparent transparent #fff}.bigplay.hide{opacity:0;transform:scale(1.25)}#pvv{cursor:pointer}
+__THEME_CSS__
+input.bad{border-color:var(--danger);background:var(--danger-soft)}
+#bar{position:sticky;top:0;z-index:10;background:var(--surface)}
+#bar .hdr{border-bottom:1px solid var(--line)}
+#dirty{color:var(--danger);font-size:13px;display:none;white-space:nowrap}
+#dirty::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--danger);margin-right:6px;vertical-align:1px}
+#bar .acts-top{display:flex;gap:8px;align-items:center}
+#bar .acts-top button{height:32px;padding:0 14px}
+#rs{display:none;padding:8px 16px 10px;font-size:13px;color:var(--text-2);border-bottom:1px solid var(--line)}
+#rs .pb{height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden;margin-top:6px}
+#rs .pb i{display:block;height:100%;background:var(--accent);width:0;transition:width .4s}
+#rs.err{color:var(--danger)} #rs.done{color:var(--ok)} #rs.done .pb i{background:var(--ok)}
+#stale{display:none;padding:7px 16px;background:var(--q-soft);border-bottom:1px solid var(--q-line);color:var(--q-ink);font-size:13px;text-align:center}
+#stale button{font-size:12px;padding:2px 10px;margin-left:6px}
+/* ---- two columns: shot list | sticky rail (preview, questions, chat) */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) clamp(480px,44vw,640px);align-items:start}
+main{padding:16px;min-width:0}
+.rail{position:sticky;top:var(--barh,52px);height:calc(100vh - var(--barh,52px));display:flex;flex-direction:column;gap:12px;
+  padding:16px 16px 16px 0;min-height:0}
+#help{display:flex;gap:10px;align-items:center;background:var(--accent-soft);border:1px solid var(--accent-line);color:var(--text-2);
+  border-radius:var(--r);padding:7px 8px 7px 14px;margin-bottom:12px;font-size:13px}
+#help .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#help b{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:600;margin:0 4px 0 8px;vertical-align:1px}
+#help b:first-child{margin-left:0}
+#help button{width:26px;height:26px;padding:0;flex:none;color:var(--text-3)}
+body.nohelp #help{display:none}
+#errbox{display:none;white-space:pre-wrap;background:var(--danger-soft);border:1px solid #fecdca;color:var(--danger);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;font-size:13px}
+#listEnd{margin:18px 0 0;padding:22px 0 40vh;text-align:center;color:var(--text-3);font-size:14px;border-top:1px dashed var(--line-2)}
+#listEnd b{color:var(--text)}
+#listEnd a{color:var(--accent);text-decoration:none}
+/* ---- preview */
+#pvwrap{flex:none}
+#pv{background:var(--stage);border-radius:var(--r-lg);overflow:hidden;display:flex;justify-content:center;align-items:center;aspect-ratio:16/9;
+  max-height:46vh;position:relative;box-shadow:var(--sh-1)}
+#pv video{width:100%;height:100%;object-fit:contain;display:block}
+#pvnew{display:none;position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:4;border:0;border-radius:999px;padding:6px 14px;font-size:13px;
+  background:var(--accent);color:#fff;box-shadow:var(--sh-2);cursor:pointer;white-space:nowrap}
+.bigplay{position:absolute;left:50%;top:50%;width:68px;height:68px;margin:-34px 0 0 -34px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);
+  pointer-events:none;z-index:3;transition:opacity .2s ease,transform .2s ease}
+.bigplay::after{content:'';position:absolute;left:27px;top:20px;border-style:solid;border-width:14px 0 14px 23px;border-color:transparent transparent transparent #fff}
+.bigplay.hide{opacity:0;transform:scale(1.25)}#pvv{cursor:pointer}
 #pv:fullscreen{border-radius:0}#pv:fullscreen video{max-height:100vh;width:100%;height:100%}
-#follow{display:none;position:absolute;right:10px;bottom:10px;z-index:2;border:0;border-radius:999px;padding:4px 12px;font-size:13px;background:rgba(255,255,255,.92);color:var(--acc);box-shadow:0 1px 4px rgba(0,0,0,.25)}
-.shot.cur{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc2),0 2px 10px rgba(37,99,235,.12)}
-#pv .none{color:#aaa;padding:30px}
-.skip{display:flex;align-items:center;gap:10px;font-size:13px;color:#5b4a14;background:#fdf8e7;border-radius:6px;padding:4px 10px;margin:6px 0}
-.skip.off{color:var(--mut);background:#f2f3f5}
-.zm{color:var(--mut);font-size:13px}
-#stale{display:none;padding:6px 20px;background:#fff6e5;border-top:1px solid #f5dfae;color:#7a4b00;font-size:14px;text-align:center}
-#errbox{display:none;white-space:pre-wrap;background:#fef3f2;border:1px solid #fecdca;color:var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px}
-.shot{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;padding:14px;display:grid;grid-template-columns:360px 1fr;gap:16px}
+#follow{display:none;position:absolute;right:10px;top:10px;z-index:2;border:0;border-radius:999px;padding:4px 12px;font-size:12px;background:rgba(255,255,255,.94);
+  color:var(--accent);box-shadow:var(--sh-2)}
+#pv .none{color:var(--stage-mute);padding:30px;font-size:13px;text-align:center}
+#qstrip{display:none;position:relative;height:14px;margin:6px auto 0;cursor:default}
+body.hasq #qstrip.on{display:block}
+#qstrip .tr{position:absolute;left:0;right:0;top:9px;height:3px;border-radius:2px;background:var(--line-2)}
+#qstrip .ph{position:absolute;top:6px;width:2px;height:9px;margin-left:-1px;background:var(--text-3);border-radius:1px}
+#qstrip .qm{position:absolute;top:0;width:0;height:0;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;
+  border-top:9px solid var(--q);cursor:pointer}
+#qstrip .qm.done{border-top-color:var(--used)}
+#qcard .qa-card{margin:0;box-shadow:var(--sh-1)}
+#qside{display:none;flex:0 1 auto;min-height:0;max-height:min(24%,180px);overflow:hidden;flex-direction:column}
+body.hasq #qside{display:flex}
+body.qactive #qside{display:none}   /* the pop-up card already shows that question: give the room to the chat */
+#qpanel{overflow-y:auto;padding:8px 8px 16px;min-height:0;-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 22px),transparent)}
+#chatDock{flex:1 1 240px;min-height:200px;overflow:hidden}
+#chatDock.min{flex:none;min-height:0}
+#chatDock #cb{border:0;border-radius:0}
+/* ---- shot cards */
+.shot{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);margin-bottom:12px;padding:14px;
+  display:grid;grid-template-columns:minmax(170px,32%) minmax(0,1fr);gap:16px;box-shadow:var(--sh-1);transition:border-color .15s,box-shadow .15s}
+.shot.cur{border-color:var(--accent-line);box-shadow:inset 3px 0 0 var(--accent),0 0 0 3px var(--accent-soft)}
 .thumbs{display:flex;gap:3px;align-self:start;align-items:flex-start}
-.thumbs img{flex:1;min-width:0;width:33%;aspect-ratio:16/9;object-fit:cover;background:#dde1e6;border-radius:5px;display:block}
-.hd{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
-.hd .n{font-weight:700;font-size:18px;color:var(--mut)}
-.hd .ti{font-weight:600;font-size:16px;flex:1}
-.at{color:var(--acc);font-variant-numeric:tabular-nums;font-size:13px;cursor:pointer;white-space:nowrap}
-.at:hover{text-decoration:underline}
-.acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
-.trim{display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:14px;margin:6px 0}
-.trim .g{display:inline-flex;align-items:center;gap:4px}
-.trim .lb{min-width:88px;font-variant-numeric:tabular-nums}
-.trim input{width:66px;font-size:12px;padding:2px 5px;color:var(--mut)}
-.trim .du{color:var(--mut);font-size:13px}
-.lines{margin-top:8px}
+.thumbs img{flex:1;min-width:0;width:33%;aspect-ratio:16/9;object-fit:cover;background:var(--surface-3);border-radius:6px;display:block}
+.thumbs .card{width:100%;aspect-ratio:48/9;display:flex;align-items:center;justify-content:center;border-radius:6px;font-weight:600;font-size:15px;color:#1f2937;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.hd{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+.hd .n{font-weight:600;font-size:14px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.hd .ti{font-weight:600;font-size:15px;flex:1;min-width:0}
+.at{color:var(--accent);font-variant-numeric:tabular-nums;font-size:13px;cursor:pointer;white-space:nowrap;padding:1px 6px;border-radius:6px}
+.at:hover{background:var(--accent-soft)}
+.acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
+button.soft{background:var(--accent-soft);border-color:transparent;color:var(--accent);font-weight:500}
+button.soft:hover{background:#e0eaff;border-color:transparent}
+.seg2{display:inline-flex;border:1px solid var(--line-2);border-radius:var(--r-sm);overflow:hidden;background:var(--surface)}
+.seg2 button{border:0;border-radius:0;padding:5px 12px;color:var(--text-2)}
+.seg2 button+button{border-left:1px solid var(--line-2)}
+.seg2 button.on{background:var(--ok-soft);color:var(--ok);font-weight:500;cursor:default}
+.seg2 button:not(.on):hover{background:var(--danger-soft);color:var(--danger)}
+.zm{color:var(--text-3);font-size:13px}
+.trim{display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center;font-size:13px;margin:0 0 6px}
+.stp{display:inline-flex;align-items:center;gap:8px}
+.stp .lb{color:var(--text-2)}
+.stp .box{display:inline-flex;align-items:center;border:1px solid var(--line-2);border-radius:var(--r-sm);overflow:hidden;background:var(--surface);height:30px}
+.stp .box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring)}
+.stp button{border:0;border-radius:0;height:100%;padding:0 7px;font-size:12px;color:var(--text-2);background:var(--surface-2);font-variant-numeric:tabular-nums}
+.stp button:hover{background:var(--surface-3);color:var(--text)}
+.stp .u{font-size:12px;color:var(--text-3);padding:0 7px 0 1px;align-self:center}
+.stp input{width:46px;border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);border-radius:0;text-align:right;height:100%;
+  padding:0 4px;font-variant-numeric:tabular-nums;font-size:13px;box-shadow:none !important}
+.stp input::-webkit-inner-spin-button{display:none}
+.stp .num{display:inline-flex;align-items:center;height:100%;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.stp .num input{border:0}
+.trim .du{color:var(--text-3);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.skip{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--q-ink);background:var(--q-soft);border:1px solid var(--q-line);border-radius:var(--r-sm);padding:3px 4px 3px 10px;margin:8px 0;width:fit-content;max-width:100%}
+.skip button{font-size:12px;padding:1px 9px;background:transparent;border-color:transparent;color:var(--q-ink);text-decoration:underline;text-underline-offset:2px}
+.skip button:hover{background:rgba(245,158,11,.12);border-color:transparent}
+.skip.off{color:var(--text-3);background:var(--surface-2);border-color:var(--line)}
+.skip.off button{color:var(--text-2)}
+.lines{margin-top:10px}
 .lines .line{display:flex;margin-bottom:4px}
-.lines input{flex:1;border-color:transparent;background:#f6f7f9}
-.lines input:hover{border-color:var(--line)}
-.lines .line.out input{opacity:.4;text-decoration:line-through}
-.lines .cap{color:var(--mut);font-size:12px;margin-bottom:3px}
-details{margin-top:10px;border-top:1px dashed var(--line);padding-top:6px}
-summary{cursor:pointer;color:var(--mut);font-size:13px;user-select:none}
-.more{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;align-items:center;margin-top:10px;font-size:14px}
-.more .k{color:var(--mut);font-size:13px}
-.more .v{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.more input.w{width:180px}
+.lines input{flex:1;border-color:transparent;background:var(--surface-2);padding:5px 9px;font-size:14px}
+.lines input:hover{border-color:var(--line-2)}
+.lines .line.out input{opacity:.45;text-decoration:line-through}
+.lines .cap{color:var(--text-3);font-size:12px;margin-bottom:4px}
+details{margin-top:10px;border-top:1px solid var(--surface-3);padding-top:8px}
+summary{cursor:pointer;color:var(--text-3);font-size:13px;user-select:none;width:fit-content}
+summary:hover{color:var(--text)}
+.more{display:grid;grid-template-columns:96px 1fr;gap:10px 12px;align-items:center;margin-top:10px;font-size:13px}
+.more .k{color:var(--text-3);font-size:13px}
+.more .v{display:flex;gap:6px;align-items:center;flex-wrap:wrap;color:var(--text-2)}
+.more input.w,.more select{width:170px}
 .more input.n{width:64px}
+.more button.sm,.subrow button.sm{font-size:12px;padding:2px 9px}
 .subrow{display:flex;gap:5px;align-items:center;margin-bottom:4px;width:100%}
 .subrow input.n{width:62px}
 .subrow input.tx{flex:1}
-.mono{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:var(--mut)}
-.shot.off{display:flex;align-items:center;gap:12px;padding:8px 14px;background:#eceef1;color:var(--mut);border-style:dashed}
-.shot.off .ti{flex:1;font-size:14px}
-#modal{position:fixed;inset:0;background:rgba(10,14,20,.72);display:none;align-items:center;justify-content:center;z-index:50}
-#modal .box{background:#fff;border-radius:12px;padding:14px;width:min(1000px,92vw)}
-#modal video{width:100%;max-height:70vh;background:#000;border-radius:8px;display:block}
-#modal .row{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
-#mt{font-variant-numeric:tabular-nums;color:var(--mut)}
-.hint{color:var(--mut);font-size:13px}
-#pvrow{display:flex;gap:12px;align-items:stretch}
-#pvcol{flex:1;min-width:0}
-#qside{display:none;width:310px;flex:none;position:relative;min-height:230px}
-body.hasq #qside{display:block}
-#qpanel{position:absolute;inset:0;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}
-#qstrip{display:none;position:relative;height:14px;margin:5px auto 0;cursor:default}
-body.hasq #qstrip.on{display:block}
-#qstrip .tr{position:absolute;left:0;right:0;top:5px;height:4px;border-radius:2px;background:var(--line)}
-#qstrip .ph{position:absolute;top:2px;width:2px;height:10px;margin-left:-1px;background:var(--mut);border-radius:1px}
-#qstrip .qm{position:absolute;top:0;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#f59e0b;border:2px solid #fff;
-  box-shadow:0 0 0 1px #d97706;cursor:pointer}
-#qstrip .qm.done{background:#22a55a;box-shadow:0 0 0 1px #067647}
-@media (max-width:820px){#pvrow{flex-direction:column}#qside{width:auto}}
+.mono{font-family:var(--mono);font-size:12px;color:var(--text-3)}
+.hint{color:var(--text-3);font-size:12px}
+.shot.off{display:flex;align-items:center;gap:12px;padding:7px 8px 7px 14px;background:var(--surface-2);color:var(--text-3);border-style:dashed;box-shadow:none;font-size:13px}
+.shot.off .n{text-decoration:line-through;font-variant-numeric:tabular-nums}
+.shot.off .ti{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shot.off button{font-size:12px;padding:2px 10px}
+/* ---- per-shot player */
+#modal{position:fixed;inset:0;background:rgba(10,14,20,.6);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:50}
+#modal .box{background:var(--surface);border-radius:var(--r-lg);padding:14px;width:min(1000px,92vw);box-shadow:var(--sh-2)}
+#modal video{width:100%;max-height:70vh;background:var(--stage);border-radius:var(--r);display:block}
+#modal .row{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+#modal .sp{flex:1}
+#mt{font-variant-numeric:tabular-nums;color:var(--text-3)}
+@media (max-width:1360px){.shot{grid-template-columns:200px minmax(0,1fr)}}
+@media (max-width:900px){.layout{grid-template-columns:1fr}.rail{position:static;height:auto;padding:16px 16px 0}#chatDock{height:320px;flex:none}}
 __QA_CSS__
 </style></head><body>
 <div id="bar">
- <div class="top">
-  <h1 id="pname">剪辑审阅</h1>
-  <span id="total"></span>
-  <span id="dirty">● 有修改还没保存</span>
+ <div class="hdr">
+  <span class="kind">剪辑审阅</span><span class="sep"></span><span class="pname" id="pname"></span>
+  <span class="meta" id="total"></span>
+  <span id="dirty">有修改还没保存</span>
   <span class="sp"></span>
-  <button id="bSave">保存</button>
-  <button id="bPrev" class="pri">更新预览</button>
-  <button id="bFinal">导出成片</button>
+  <div class="acts-top">
+   <button id="bSave" title="保存（⌘S）">保存</button>
+   <button id="bFinal" class="outline">导出成片</button>
+   <button id="bPrev" class="pri">更新预览</button>
+  </div>
  </div>
- <div id="stale">文件已被更新，保存会覆盖对方的修改 — <button class="sm" id="bReload">重新载入？</button></div>
+ <div id="stale">文件已被更新，保存会覆盖对方的修改<button id="bReload">重新载入</button></div>
  <div id="rs"><span id="rstext"></span><div class="pb"><i id="rsbar"></i></div></div>
 </div>
+<div class="layout">
 <main>
-  <div id="help">① 看上面的预览 ② 不要的镜头点「删掉」，想短一点就拖/改开始结束 ③ 点「更新预览」看效果 ④ 满意了点「导出成片」</div>
+  <div id="help"><span class="tx"><b>1</b>看预览 <b>2</b>不要的点「删掉」，太长改开始/结束 <b>3</b>「更新预览」看效果 <b>4</b>满意了「导出成片」</span><button class="ghost" id="helpX" title="不再显示">✕</button></div>
   <div id="errbox"></div>
-  <div id="pvwrap"><div id="pvrow"><div id="pvcol"><div id="pv"><div class="none">还没有预览，点右上角「更新预览」生成</div></div>
-    <div id="qstrip" title="黄点 = 有问题想问你（点一下跳过去），绿点 = 已回答"><div class="tr"></div><div class="ph"></div><div id="qmarks"></div></div></div>
-    <div id="qside"><div id="qpanel"></div></div></div></div>
   <div id="list"></div>
   <div id="listEnd">— 已经到最后一段了 —<br><span id="listEndInfo"></span><br><a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false">↑ 回到顶部</a></div>
 </main>
+<aside class="rail">
+  <div id="pvwrap"><div id="pv"><div class="none">还没有预览，点右上角「更新预览」生成</div></div>
+    <div id="qstrip" title="黄色 = 有问题想问你（点一下跳过去），绿色 = 已回答"><div class="tr"></div><div class="ph"></div><div id="qmarks"></div></div></div>
+  <div id="qcard"></div>
+  <div id="qside" class="panel"><div id="qpanel" class="scroll"></div></div>
+  <div id="chatDock" class="panel"></div>
+</aside>
+</div>
 <div id="modal"><div class="box">
   <video id="mv" controls playsinline></video>
   <div class="row">
@@ -533,11 +581,12 @@ async function load(){
 
 function thumbs(s){
   if(s.card)  // generated time card: no source clip, show a mini card instead
-    return `<div style="width:100%;aspect-ratio:48/9;display:flex;align-items:center;justify-content:center;border-radius:6px;background:${esc(s.card.bg||'#ffd84d')};font-weight:800;font-size:18px;color:#1f2937">${esc(s.card.text)}</div>`;
+    return `<div class="card" style="background:${esc(s.card.bg||'#ffd84d')}">${esc(s.card.text)}</div>`;
   return [s.in,(s.in+s.out)/2,Math.max(s.in,s.out-0.1)].map(t=>
     `<img loading="lazy" src="/thumb?clip=${encodeURIComponent(s.clip)}&t=${r1(t).toFixed(1)}">`).join('');
 }
-function trimLabel(f,v){return (f==='in'?'开始 ':'结束 ')+v.toFixed(1)+'s'}
+function trimLabel(f){return f==='in'?'开始':'结束'}
+function tfmt(v){v=+v||0; return v.toFixed(Math.round(v*100)%10?2:1)}   // 9 -> 9.0, 0.12 -> 0.12
 
 function moreHtml(s,i){
   const t=s.title||{}, dur=durs[s.clip];
@@ -550,9 +599,9 @@ function moreHtml(s,i){
   return `<div class="more">
     <span class="k">声音</span><span class="v"><select data-i="${i}" data-f="audio">${Object.keys(AUDIO).map(a=>`<option value="${a}" ${a===(s.audio||'voice')?'selected':''}>${AUDIO[a]}</option>`).join('')}</select></span>
     ${grades.length?`<span class="k">画面调色</span><span class="v"><select data-i="${i}" data-f="grade">${grades.map(g=>`<option value="${esc(g)}" ${g===(s.grade||'default')?'selected':''}>${esc(GRADE[g]||g)}</option>`).join('')}</select></span>`:''}
-    <span class="k">大标题</span><span class="v"><input class="w" data-i="${i}" data-f="title.text" value="${esc(t.text||'')}" placeholder="不填就没有">
-       小标题 <input class="w" data-i="${i}" data-f="title.sub" value="${esc(t.sub||'')}">
-       显示秒数 <input class="n" type="number" step="0.5" min="0.5" data-i="${i}" data-f="title.dur" value="${t.dur??3}"></span>
+    <span class="k">大标题</span><span class="v"><input class="w" data-i="${i}" data-f="title.text" value="${esc(t.text||'')}" placeholder="不填就没有"></span>
+    <span class="k">小标题</span><span class="v"><input class="w" data-i="${i}" data-f="title.sub" value="${esc(t.sub||'')}"></span>
+    <span class="k">标题显示秒数</span><span class="v"><input class="n" type="number" step="0.5" min="0.5" data-i="${i}" data-f="title.dur" value="${t.dur??3}"></span>
     <span class="k">左上角地名</span><span class="v"><input class="w" data-i="${i}" data-f="tag" value="${esc(s.tag||'')}" placeholder="不填就没有"></span>
     <span class="k">字幕（带时间）</span><span class="v" style="display:block">${subs||'<span class="hint">没有字幕</span>'}
        <button class="sm" data-act="addsub" data-i="${i}">＋ 加一句字幕</button></span>
@@ -566,8 +615,8 @@ function moreHtml(s,i){
 
 function row(s,i,st){
   const title=esc(s.note||s.clip);
-  if(s.enabled===false) return `<div class="shot off" id="row-${i}"><span>#${i+1}</span><span class="ti">已删掉 · ${title}</span>
-     <button class="sm" data-act="toggle" data-i="${i}">恢复</button></div>`;
+  if(s.enabled===false) return `<div class="shot off" id="row-${i}"><span class="n">#${i+1}</span><span class="ti">已删掉 · ${title}</span>
+     <button data-act="toggle" data-i="${i}">恢复</button></div>`;
   const lines=(s.subs||[]).map((x,j)=>`<div class="line ${subLive(s,x)?'':'out'}" id="sub-${i}-${j}" title="${subLive(s,x)?'':'不在这段的开始~结束之间，不会显示'}">
       <input data-i="${i}" data-j="${j}" data-f="sub.text" value="${esc(x.text)}"></div>`).join('');
   return `<div class="shot" id="row-${i}">
@@ -576,15 +625,15 @@ function row(s,i,st){
      <div class="hd"><span class="n">#${i+1}</span><span class="ti">${title}</span>
        <span class="at" data-act="seek" data-i="${i}" id="st-${i}" title="在上方预览里跳到这里">⏱ ${fmt(st)}</span></div>
      <div class="acts">
-       <button class="pri" data-act="play" data-i="${i}">▶ 播放这段</button>
-       <button data-act="toggle" data-i="${i}">✓ 保留（点击删掉）</button>
+       <button class="soft" data-act="play" data-i="${i}">▶ 播放这段</button>
+       <span class="seg2" title="删掉的镜头不会出现在成片里，随时可以恢复"><button class="on" tabindex="-1">✓ 保留</button><button data-act="toggle" data-i="${i}">删掉</button></span>
        ${zoomHtml(s)}
      </div>
      <div class="trim">
-       ${['in','out'].map(f=>`<span class="g"><button class="sm" data-act="nudge" data-i="${i}" data-f="${f}" data-d="-0.5">−0.5s</button>
-         <span class="lb" id="lb-${f}-${i}">${trimLabel(f,s[f])}</span>
-         <button class="sm" data-act="nudge" data-i="${i}" data-f="${f}" data-d="0.5">+0.5s</button>
-         <input type="number" step="0.1" min="0" data-i="${i}" data-f="${f}" value="${s[f]}"></span>`).join('')}
+       ${['in','out'].map(f=>`<span class="stp"><span class="lb" id="lb-${f}-${i}">${trimLabel(f)}</span><span class="box">
+         <button data-act="nudge" data-i="${i}" data-f="${f}" data-d="-0.5" title="${f==='in'?'提前':'往前'} 0.5 秒">−0.5</button>
+         <span class="num"><input type="number" step="0.1" min="0" data-i="${i}" data-f="${f}" value="${tfmt(s[f])}" title="秒（素材里的位置）"><span class="u">s</span></span>
+         <button data-act="nudge" data-i="${i}" data-f="${f}" data-d="0.5" title="往后 0.5 秒">+0.5</button></span></span>`).join('')}
        <span class="du" id="du-${i}">共 ${sdur(s).toFixed(1)} 秒</span>
      </div>
      <div id="sk-${i}">${skipHtml(s,i)}</div>
@@ -607,7 +656,7 @@ function recompute(){
     const a=document.getElementById('st-'+i); if(a) a.textContent='⏱ '+fmt(st[i]);
     const du=document.getElementById('du-'+i); if(du) du.textContent=`共 ${sdur(s).toFixed(1)} 秒`;
     const sk=document.getElementById('sk-'+i); if(sk&&s.enabled!==false) sk.innerHTML=skipHtml(s,i);
-    ['in','out'].forEach(f=>{const l=document.getElementById(`lb-${f}-${i}`); if(l) l.textContent=trimLabel(f,s[f])});
+    ['in','out'].forEach(f=>{const l=document.getElementById(`lb-${f}-${i}`); if(l) l.textContent=trimLabel(f)});
     const row=document.getElementById('row-'+i);
     if(row&&s.enabled!==false){
       const bad=!(s.in>=0&&s.in<s.out);
@@ -652,7 +701,7 @@ L.addEventListener('click',e=>{
   const i=+b.dataset.i, s=D.shots[i], a=b.dataset.act;
   if(a==='nudge'){
     const f=b.dataset.f, v=clampT(s,s[f]+parseFloat(b.dataset.d)); if(v!==s[f]){s[f]=v; delete s._qdur}
-    document.querySelector(`#row-${i} input[data-f=${f}]`).value=s[f];
+    document.querySelector(`#row-${i} input[data-f=${f}]`).value=tfmt(s[f]);
     changed(); recompute(); refreshThumbs(i); return;
   }
   if(a==='seek'){seekPreview(starts()[i]);return}
@@ -801,7 +850,7 @@ function pauseFollow(){
 function resumeFollow(){followOff=0; $('#follow').style.display='none'}
 function scrollToCard(i){
   const r=document.getElementById('row-'+i); if(!r) return;
-  const top=r.getBoundingClientRect().top+window.scrollY-$('#bar').offsetHeight-$('#pvwrap').offsetHeight-4;
+  const top=r.getBoundingClientRect().top+window.scrollY-$('#bar').offsetHeight-12;
   progScroll(); window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
 }
 function onPreviewTime(force){
@@ -868,6 +917,8 @@ window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.return
 new ResizeObserver(()=>document.documentElement.style.setProperty('--barh',$('#bar').offsetHeight+'px')).observe($('#bar'));
 window.addEventListener('pageshow',e=>{if(e.persisted) checkRemote()});
 $('#bReload').onclick=async()=>{await fetchEdl(); render()};
+try{if(localStorage.getItem('rv_help')==='0') document.body.classList.add('nohelp')}catch(e){}
+$('#helpX').onclick=()=>{document.body.classList.add('nohelp'); try{localStorage.setItem('rv_help','0')}catch(e){}};
 window.addEventListener('focus',checkRemote);
 setInterval(checkRemote,15000);
 load();
@@ -884,7 +935,7 @@ __QA_JS__
     box.innerHTML=d?QI.map(({q,p})=>`<div class="qm${q.answer?' done':''}" data-id="${esc(q.id)}" style="left:${Math.min(100,p/d*100)}%" title="${esc(fmt(p)+' '+q.text)}"></div>`).join(''):'';
   }
   const api=initQuestions({
-    root:document.getElementById('qpanel'),
+    root:document.getElementById('qpanel'), card:document.getElementById('qcard'),
     pos:q=>typeof q.t==='number'?q.t:null,
     now:()=>{const v=pv(); return v&&v.readyState>=1?v.currentTime:null},
     playing:()=>{const v=pv(); return !!v&&!v.paused&&!v.ended},
@@ -892,7 +943,8 @@ __QA_JS__
     seek:t=>seekPreview(t),
     label:(q,p)=>fmt(p),
     markers:it=>{QI=it; drawMarks()},
-    onTick:pos=>{
+    onTick:(pos,q)=>{
+      document.body.classList.toggle('qactive',!!q);
       const v=pv(), st=document.getElementById('qstrip');
       st.classList.toggle('on',!!v);
       if(!v) return;
@@ -907,7 +959,10 @@ __QA_JS__
 """
 
 
-PAGE = CHAT.inject(QS.inject(PAGE).replace("</body>", "<script>window.chatCtx=()=>({cut_t:Math.round((document.getElementById('mv').currentTime||0)*10)/10})</script></body>", 1), "cut")
+# Chat messages carry where he is: the preview's cut time, plus the raw clip/time while a shot's own player is open.
+CHAT_CTX = r"""<script>window.chatCtx=()=>{const v=document.getElementById('pvv'),c={cut_t:v?Math.round((v.currentTime||0)*10)/10:null};
+  if(modalShot>=0&&D&&D.shots[modalShot]){c.clip=D.shots[modalShot].clip;c.clip_t=Math.round((mv.currentTime||0)*10)/10}return c}</script></body>"""
+PAGE = CHAT.inject(QS.inject(PAGE.replace("__THEME_CSS__", THEME.CSS)).replace("</body>", CHAT_CTX, 1), "cut")
 
 
 def main():

@@ -27,6 +27,7 @@ from flask import Flask, Response, abort, jsonify, send_file
 from . import edl as E
 from . import questions as QS
 from . import chat as CHAT
+from . import theme as THEME
 
 CACHE_ROOT = "/tmp/yt-editor"
 DEFAULT_SOURCE = "01 - Unedited"
@@ -282,129 +283,173 @@ PAGE = r"""<!doctype html>
 <title>__TITLE__ · 原片预览</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fb923c'/%3E%3Cstop offset='1' stop-color='%23e11d48'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='15' fill='url%28%23g%29'/%3E%3Crect x='12' y='16' width='40' height='32' rx='5' fill='none' stroke='white' stroke-width='4'/%3E%3Cpath d='M28 25 L40 32 L28 39 Z' fill='white'/%3E%3Cg fill='white'%3E%3Crect x='16' y='10' width='5' height='4' rx='1'/%3E%3Crect x='29' y='10' width='5' height='4' rx='1'/%3E%3Crect x='42' y='10' width='5' height='4' rx='1'/%3E%3Crect x='16' y='50' width='5' height='4' rx='1'/%3E%3Crect x='29' y='50' width='5' height='4' rx='1'/%3E%3Crect x='42' y='50' width='5' height='4' rx='1'/%3E%3C/g%3E%3C/svg%3E">
 <style>
-:root{--bg:#f6f7f9;--panel:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e3e6eb;
-  --used:#22a55a;--unused:#c9ced6;--accent:#2563eb;--cur:#eaf1ff}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
-  font:14px/1.45 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB",sans-serif}
-.app{display:grid;grid-template-columns:1fr 340px;height:100vh}
-main{display:flex;flex-direction:column;padding:14px 18px;min-width:0;overflow:hidden}
-header{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
-header h1{font-size:17px;margin:0}
-header .est{color:var(--mute)}
-.sub{color:var(--mute);margin:-4px 0 10px}
-.tog{display:inline-flex;align-items:center;gap:5px;cursor:pointer;user-select:none}
-body:not(.showuse) .seg .u,body:not(.showuse) .item .ub,body:not(.showuse) .legend{display:none}
-.dayhead{padding:6px 12px;background:#f3f4f6;color:var(--mute);font-size:12px;font-weight:600;
-  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1}
-.stage{position:relative;flex:1;min-height:0;background:#000;border-radius:10px;overflow:hidden;
-  container-type:size;cursor:default}
-.stage:fullscreen{border-radius:0}
+__THEME_CSS__
+html,body{height:100%}
+.app{display:flex;flex-direction:column;height:100vh}
+.body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(300px,25vw,380px)}
+main{display:flex;flex-direction:column;padding:16px;min-width:0;min-height:0}
+/* ---- video stage (always dark) */
+.stage{position:relative;flex:none;width:100%;aspect-ratio:16/9;max-height:calc(100vh - var(--hdr) - 32px - 40px);
+  background:var(--stage);border-radius:var(--r-lg);overflow:hidden;container-type:size;cursor:default;box-shadow:var(--sh-1)}
+.stage:fullscreen{border-radius:0;max-height:none;aspect-ratio:auto;width:100%;height:100%}
 .stage:not(.ctl){cursor:none}
-.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--stage)}
 .stage video.hidden{visibility:hidden}
 .stage .msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  color:#bbb;font-size:16px;pointer-events:none}
+  color:var(--stage-mute);font-size:16px;pointer-events:none}
 .cap{position:absolute;left:50%;bottom:5%;transform:translateX(-50%);width:84%;text-align:center;
   pointer-events:none;transition:bottom .2s ease;z-index:3;
   font-size:clamp(14px,2.4cqw,44px);font-weight:500;line-height:1.4}
-.cap span{background:rgba(8,8,8,.75);color:#fff;padding:.1em .45em;border-radius:3px;
+.cap span{background:rgba(8,8,8,.75);color:#fff;padding:.1em .45em;border-radius:4px;
   -webkit-box-decoration-break:clone;box-decoration-break:clone}
 .cap:empty{display:none}
-.bigplay{position:absolute;left:50%;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;background:rgba(0,0,0,.55);pointer-events:none;z-index:3;transition:opacity .2s ease,transform .2s ease}.bigplay::after{content:'';position:absolute;left:33px;top:24px;border-style:solid;border-width:18px 0 18px 30px;border-color:transparent transparent transparent #fff}.bigplay.hide{opacity:0;transform:scale(1.25)}
-.stage.ctl .cap{bottom:calc(96px + 3%)}
-.ov{position:absolute;left:0;right:0;bottom:0;padding:44px 16px 10px;z-index:4;color:#fff;
-  background:linear-gradient(to bottom,transparent,rgba(0,0,0,.65));
+.bigplay{position:absolute;left:50%;top:50%;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;background:rgba(0,0,0,.5);
+  backdrop-filter:blur(4px);pointer-events:none;z-index:3;transition:opacity .2s ease,transform .2s ease}
+.bigplay::after{content:'';position:absolute;left:30px;top:22px;border-style:solid;border-width:16px 0 16px 26px;border-color:transparent transparent transparent #fff}
+.bigplay.hide{opacity:0;transform:scale(1.25)}
+.stage.ctl .cap{bottom:calc(92px + 3%)}
+.ov{position:absolute;left:0;right:0;bottom:0;padding:40px 14px 10px;z-index:4;color:var(--stage-ink);
+  background:linear-gradient(to bottom,transparent,rgba(0,0,0,.72));
   opacity:0;pointer-events:none;transition:opacity .25s ease}
 .stage.ctl .ov{opacity:1;pointer-events:auto}
-.bar{display:flex;align-items:center;gap:12px;margin-top:8px}
-.gtime{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
-.info{font-size:12.5px;color:rgba(255,255,255,.78);font-variant-numeric:tabular-nums;
+.bar{display:flex;align-items:center;gap:12px;margin-top:8px;height:32px}
+.gtime{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:#fff}
+.info{font-size:13px;color:var(--stage-mute);font-variant-numeric:tabular-nums;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .spacer{flex:1}
-button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);
-  border-radius:7px;padding:5px 11px;cursor:pointer}
-.ov button{background:transparent;color:#fff;border-color:rgba(255,255,255,.35);padding:4px 10px;white-space:nowrap}
-.ov button:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.6)}
-.ov button.on{background:#fff;border-color:#fff;color:#111}
-.ov #play{min-width:78px;font-weight:600}
-.speeds{display:flex;gap:5px}
+.ov button{background:transparent;color:#fff;border:0;border-radius:var(--r-sm);padding:0;height:32px;min-width:32px;
+  display:inline-grid;place-items:center;white-space:nowrap}
+.ov button:hover{background:rgba(255,255,255,.14)}
+.ov button svg{display:block}
+.speeds{display:flex;height:28px;border-radius:var(--r-sm);background:rgba(255,255,255,.12);padding:2px;gap:2px}
+.speeds button{height:24px;min-width:0;padding:0 9px;font-size:12px;font-weight:500;border-radius:6px;color:var(--stage-ink);font-variant-numeric:tabular-nums}
+.speeds button.on{background:#fff;color:#111}
 .tl-row{position:relative}
-.tl{position:relative;height:10px;border-radius:3px;cursor:pointer;overflow:hidden;display:flex;
-  transition:height .15s ease}
-.tl-row:hover .tl{height:16px}
-.seg{position:relative;height:100%;background:rgba(255,255,255,.38);border-right:1px solid rgba(0,0,0,.45)}
-body.showuse .seg{background:rgba(255,255,255,.22)}
-body.showuse .seg.noedl{background:rgba(255,255,255,.38)}
+.tl{position:relative;height:8px;border-radius:4px;cursor:pointer;overflow:hidden;display:flex;transition:height .15s ease}
+.tl-row:hover .tl{height:14px}
+.seg{position:relative;height:100%;background:rgba(255,255,255,.4);border-right:1px solid rgba(0,0,0,.5)}
+body.showuse .seg{background:rgba(255,255,255,.2)}
+body.showuse .seg.noedl{background:rgba(255,255,255,.4)}
 .seg.day0{border-left:3px solid #fff}
-.seg .u{position:absolute;top:0;bottom:0;background:#34d27a}
+.seg .u{position:absolute;top:0;bottom:0;background:var(--used)}
 .seg.cur{background:rgba(255,255,255,.62)}
-body.showuse .seg.cur{background:rgba(255,255,255,.4)}
-.ph{position:absolute;top:-4px;bottom:-4px;width:3px;margin-left:-1px;background:#ff2d55;
-  border-radius:2px;pointer-events:none;z-index:2}
-.hover{position:absolute;bottom:22px;transform:translateX(-50%);background:rgba(20,20,20,.9);color:#fff;
-  font-size:12px;padding:2px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;display:none}
-.below{display:flex;align-items:center;gap:16px;flex-wrap:wrap;color:var(--mute);font-size:12px;margin-top:8px}
-.legend{display:flex;gap:12px;align-items:center}
-.sw{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:4px}
-aside{border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
-aside .head{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:600}
-aside .head span{color:var(--mute);font-weight:400}
-.list{overflow-y:auto;flex:1}
-.item{display:grid;grid-template-columns:96px 1fr;gap:9px;padding:8px 12px;
-  border-bottom:1px solid #f0f1f4;cursor:pointer}
-.item:hover{background:#f7f9fc}
-.item.cur{background:var(--cur)}
-.item img{width:96px;height:54px;object-fit:cover;border-radius:5px;background:#e5e7eb;display:block}
-.item .t{display:flex;gap:6px;align-items:baseline;font-size:13px}
-.item .t b{font-weight:600}
-.item .t .m{color:var(--mute);font-size:12px;font-variant-numeric:tabular-nums}
-.item .ub{position:relative;height:5px;background:var(--unused);border-radius:3px;margin:4px 0;overflow:hidden}
-.item .ub.noedl{background:#e5e7eb}
-.item .ub i{position:absolute;top:0;bottom:0;background:var(--used)}
-.item .first{color:var(--mute);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#qpanel{display:none;flex:none;max-height:55vh;overflow-y:auto;padding:10px 10px 6px;border-bottom:1px solid var(--line)}
-body.hasq #qpanel{display:block}
+body.showuse .seg.cur{background:rgba(255,255,255,.38)}
+body:not(.showuse) .seg .u,body:not(.showuse) .item .ub,body:not(.showuse) .legend{display:none}
+.ph{position:absolute;top:-4px;bottom:-4px;width:3px;margin-left:-1px;background:#ff3b5c;border-radius:2px;pointer-events:none;z-index:2}
+.hover{position:absolute;bottom:22px;transform:translateX(-50%);background:rgba(20,20,20,.92);color:#fff;
+  font-size:12px;padding:3px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;display:none;font-variant-numeric:tabular-nums}
 .qms{position:absolute;left:0;right:0;top:-11px;height:0;z-index:3}
 .qm{position:absolute;top:0;width:0;height:0;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;
-  border-top:8px solid #fbbf24;cursor:pointer;filter:drop-shadow(0 0 1px rgba(0,0,0,.8))}
-.qm.done{border-top-color:#34d27a}
-.qafs{display:none;position:absolute;top:12px;right:12px;z-index:5;background:rgba(255,251,235,.95);color:#8a6100;
-  font-size:13px;padding:4px 12px;border-radius:999px;pointer-events:none}
+  border-top:8px solid var(--q);cursor:pointer;filter:drop-shadow(0 0 1px rgba(0,0,0,.8))}
+.qm.done{border-top-color:var(--used)}
+.qafs{display:none;position:absolute;top:14px;right:14px;z-index:5;background:var(--q-soft);color:var(--q-ink);
+  font-size:13px;font-weight:500;padding:5px 14px;border-radius:999px;pointer-events:none;box-shadow:var(--sh-2)}
 .stage:fullscreen .qafs.on{display:block}
+/* ---- row under the stage: legend, toggle, shortcuts */
+.below{display:flex;align-items:center;gap:16px;color:var(--text-3);font-size:13px;margin-top:10px;min-height:28px}
+.legend{display:flex;gap:14px;align-items:center;white-space:nowrap;font-variant-numeric:tabular-nums}
+.legend b{color:var(--text);font-weight:600}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:6px}
+.tog{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;white-space:nowrap;color:var(--text-2)}
+.tog input{position:absolute;opacity:0;width:0;height:0}
+.tog .knob{width:28px;height:16px;border-radius:999px;background:var(--line-2);position:relative;transition:background .15s;flex:none}
+.tog .knob::after{content:'';position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .15s}
+.tog input:checked+.knob{background:var(--used)}
+.tog input:checked+.knob::after{transform:translateX(12px)}
+.keys{position:relative}
+.keys>button{font-size:13px;padding:3px 10px;color:var(--text-2)}
+.keypop{display:none;position:absolute;right:0;bottom:calc(100% + 8px);z-index:20;width:300px;padding:10px 12px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-2);color:var(--text-2);font-size:13px}
+.keys:hover .keypop,.keys.open .keypop{display:block}
+.keypop div{display:flex;justify-content:space-between;align-items:center;padding:3px 0}
+/* ---- right rail */
+.rail{display:flex;flex-direction:column;gap:12px;padding:16px 16px 16px 0;min-height:0}
+#qcard .qa-card{margin:0;box-shadow:var(--sh-1)}
+.lists{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.tabs{display:flex;gap:2px;padding:6px 6px 0;border-bottom:1px solid var(--line);flex:none}
+.tab{border:0;background:transparent;border-radius:var(--r-sm) var(--r-sm) 0 0;padding:6px 12px 8px;font-size:13px;font-weight:500;color:var(--text-3);
+  position:relative}
+.tab:hover{background:transparent;color:var(--text)}
+.tab.on{color:var(--text)}
+.tab.on::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2px;border-radius:2px;background:var(--accent)}
+.tab .n{color:var(--text-3);font-weight:400;margin-left:2px;font-variant-numeric:tabular-nums}
+.tab .n.open{color:var(--q-ink);font-weight:500}
+body:not(.hasq) #qtab{display:none}
+.pane{flex:1;min-height:0;overflow-y:auto}
+.pane[hidden]{display:none}
+#qpanel{padding:8px}
+#chatDock{flex:0 0 300px;min-height:0;overflow:hidden}
+#chatDock.min{flex-basis:auto}
+#chatDock #cb{border:0;border-radius:0}
+@media (max-height:860px){#chatDock{flex-basis:250px}}
+.dayhead{padding:8px 12px 6px;background:var(--surface);color:var(--text-2);font-size:12px;font-weight:600;
+  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1}
+.item{display:grid;grid-template-columns:88px 1fr;gap:10px;padding:8px 12px;border-bottom:1px solid var(--surface-3);cursor:pointer;position:relative}
+.item:hover{background:var(--surface-2)}
+.item.cur{background:var(--accent-soft)}
+.item.cur::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
+.item img{width:88px;height:50px;object-fit:cover;border-radius:6px;background:var(--surface-3);display:block}
+.item .t{display:flex;gap:6px;align-items:baseline;font-size:13px}
+.item .t b{font-weight:600}
+.item .t .m{color:var(--text-3);font-size:12px;font-variant-numeric:tabular-nums}
+.item .ub{position:relative;height:4px;background:var(--unused);border-radius:2px;margin:5px 0;overflow:hidden}
+.item .ub.noedl{background:var(--surface-3)}
+.item .ub i{position:absolute;top:0;bottom:0;background:var(--used)}
+.item .first{color:var(--text-3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .first .none{color:var(--faint)}
 __QA_CSS__
 </style></head><body>
 <div class="app">
+<header class="hdr">
+  <span class="kind">原片预览</span><span class="sep"></span><span class="pname">__TITLE__</span>
+  <span class="meta" id="hmeta"></span><span class="sp"></span><span class="meta" id="est"></span>
+</header>
+<div class="body">
 <main>
-  <header><h1 id="h1">原片预览 · __TITLE__</h1><span class="est" id="est"></span></header>
-  <div class="sub">按拍摄顺序连播全部原片，可倍速快速浏览</div>
   <div class="stage ctl" id="stage">
     <video id="va" playsinline preload="auto"></video>
     <video id="vb" class="hidden" playsinline preload="auto" muted></video>
     <div class="msg" id="msg">加载中…</div>
     <div class="bigplay" id="bigplay"></div>
     <div class="cap" id="cap"></div>
-    <div class="qafs" id="qafs">❓ 有个问题想问你 · 按 F 退出全屏回答</div>
+    <div class="qafs" id="qafs">有个问题想问你 · 按 F 退出全屏回答</div>
     <div class="ov" id="ov">
       <div class="tl-row"><div class="tl" id="tl"></div><div class="ph" id="ph"></div><div class="qms" id="qms"></div>
         <div class="hover" id="hover"></div></div>
       <div class="bar">
-        <button id="play">▶ 播放</button>
+        <button id="play" title="播放 / 暂停（空格）"></button>
         <div class="gtime" id="gtime">0:00 / 0:00</div>
         <div class="info" id="info"></div>
         <div class="spacer"></div>
-        <div class="speeds" id="speeds"></div>
-        <button id="fs" title="全屏（F）">⛶ 全屏</button>
+        <div class="speeds" id="speeds" title="速度（数字键 1–5）"></div>
+        <button id="fs" title="全屏（F）"></button>
       </div>
     </div>
   </div>
   <div class="below">
-    <span>空格 播放/暂停 · ←/→ 快退/快进 5 秒 · ↑/↓ 上一段/下一段 · 1–5 切换速度 · F 全屏 · 点进度条任意位置跳过去</span>
-    <span class="spacer"></span><span class="legend" id="legend"></span>
-    <label class="tog"><input type="checkbox" id="showuse">显示成片用到的部分</label>
+    <span class="legend" id="legend"></span>
+    <label class="tog" title="在进度条和片段列表里标出用在成片里的部分"><input type="checkbox" id="showuse"><span class="knob"></span>标出成片用到的部分</label>
+    <span class="spacer"></span>
+    <div class="keys" id="keys"><button class="ghost" id="keysBtn"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="vertical-align:-3px;margin-right:5px"><rect x="1.5" y="4" width="13" height="8.5" rx="1.8"/><path d="M4 6.7h.01M6.3 6.7h.01M8.6 6.7h.01M10.9 6.7h.01M5 9.6h6" stroke-linecap="round" stroke-width="1.6"/></svg>快捷键</button><div class="keypop">
+      <div><span>播放 / 暂停</span><span><kbd>空格</kbd></span></div>
+      <div><span>快退 / 快进 5 秒</span><span><kbd>←</kbd><kbd>→</kbd></span></div>
+      <div><span>上一段 / 下一段</span><span><kbd>↑</kbd><kbd>↓</kbd></span></div>
+      <div><span>切换速度 1x–3x</span><span><kbd>1</kbd>–<kbd>5</kbd></span></div>
+      <div><span>全屏</span><span><kbd>F</kbd></span></div>
+      <div><span>跳到任意位置</span><span>点进度条</span></div>
+    </div></div>
   </div>
 </main>
-<aside><div id="qpanel"></div><div class="head">全部片段 <span id="count"></span></div><div class="list" id="list"></div></aside>
+<aside class="rail">
+  <div id="qcard"></div>
+  <div class="panel lists">
+    <div class="tabs"><button class="tab on" data-tab="list">片段<span class="n" id="count"></span></button><button class="tab" data-tab="qpanel" id="qtab">问题<span class="n" id="qcount"></span></button></div>
+    <div class="pane scroll" id="list"></div>
+    <div class="pane scroll" id="qpanel" hidden></div>
+  </div>
+  <div id="chatDock" class="panel"></div>
+</aside>
+</div>
 </div>
 <script>
 const SPEEDS=[1,1.25,1.5,2,3];
@@ -412,6 +457,13 @@ const PNAME=document.title.replace(/ · 原片预览$/,'');
 let clips=[], starts=[], total=0, idx=0, used={}, hasEdl=false, speed=2;
 const srtCache={};
 const $=id=>document.getElementById(id);
+const IC={play:'<svg width="18" height="18" viewBox="0 0 16 16"><path d="M4.5 2.8v10.4L13 8z" fill="currentColor"/></svg>',
+  pause:'<svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="2.8" width="3.2" height="10.4" rx="1"/><rect x="9.3" y="2.8" width="3.2" height="10.4" rx="1"/></svg>',
+  fs:'<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
+  fsx:'<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5"/></svg>'};
+function playUI(p){$('play').innerHTML=p?IC.pause:IC.play}
+function fsUI(){const f=!!document.fullscreenElement;$('fs').innerHTML=f?IC.fsx:IC.fs;$('fs').title=f?'退出全屏（F）':'全屏（F）'}
+playUI(false);fsUI();
 let cur=$('va'), nxt=$('vb'), nxtIdx=-1;
 try{const s=parseFloat(localStorage.getItem('fp_speed'));if(SPEEDS.includes(s))speed=s}catch(e){}
 
@@ -461,12 +513,12 @@ function markCurrent(){
   if(sg)sg.classList.add('cur')}
 
 function onEnded(e){if(e.target!==cur)return;
-  if(idx+1<clips.length)show(idx+1,0,true);else{$('play').textContent='▶ 播放'}}
+  if(idx+1<clips.length)show(idx+1,0,true);else playUI(false)}
 
 [$('va'),$('vb')].forEach(v=>{
   v.addEventListener('ended',onEnded);
-  v.addEventListener('play',()=>{if(v===cur){$('play').textContent='⏸ 暂停';if(stage.classList.contains('ctl')){clearTimeout(hideT);hideT=setTimeout(maybeHide,2500)}}});
-  v.addEventListener('pause',()=>{if(v===cur&&!swapping&&!v.ended){$('play').textContent='▶ 播放';stage.classList.add('ctl')}});
+  v.addEventListener('play',()=>{if(v===cur){playUI(true);if(stage.classList.contains('ctl')){clearTimeout(hideT);hideT=setTimeout(maybeHide,2500)}}});
+  v.addEventListener('pause',()=>{if(v===cur&&!swapping&&!v.ended){playUI(false);stage.classList.add('ctl')}});
   v.addEventListener('ratechange',()=>{if(v.playbackRate!==speed)v.playbackRate=speed});
   v.addEventListener('error',()=>{if(v===cur&&v.getAttribute('src'))$('msg').textContent='这段播放失败（浏览器可能不支持此编码）'});
 });
@@ -492,8 +544,8 @@ function renderUsage(){
   });
   if(hasEdl){
     const u=clips.reduce((s,c)=>s+(used[c.clip]||[]).reduce((x,[a,b])=>x+Math.min(b,c.dur)-a,0),0);
-    $('legend').innerHTML=`<span><span class="sw" style="background:var(--used)"></span>绿色=用在成片里</span>
-      <span><span class="sw" style="background:var(--unused)"></span>灰色=没用上</span><span>已用 ${fmt(u)} / ${fmt(total)}</span>`;
+    $('legend').innerHTML=`<span title="绿色 = 用在成片里"><i class="sw" style="background:var(--used)"></i>用在成片 <b>${fmt(u)}</b> / ${fmt(total)}</span>
+      <span title="灰色 = 没用上"><i class="sw" style="background:var(--unused)"></i>没用上</span>`;
   }else $('legend').textContent='还没有剪辑方案（edl.json），剪好后这里会标出用上的部分';
 }
 async function loadUsage(){
@@ -501,13 +553,13 @@ async function loadUsage(){
 
 function build(){
   starts=[];total=0;clips.forEach(c=>{starts.push(total);total+=c.dur||0});
-  $('count').textContent=`（${clips.length} 段 · ${fmt(total)}）`;
-  $('h1').textContent=`原片预览 · ${PNAME} · ${clips.length} 段 · ${fmt(total)}`;
+  $('count').textContent=clips.length;
+  $('hmeta').innerHTML=`<b>${clips.length}</b> 段 · 共 <b>${fmt(total)}</b>`;
   $('tl').innerHTML=clips.map((c,i)=>`<div class="seg${i&&c.day!==clips[i-1].day?' day0':''}" style="width:${(c.dur||0)/total*100}%"></div>`).join('');
   $('list').innerHTML=clips.map((c,i)=>(i===0||c.day!==clips[i-1].day?`<div class="dayhead">第${c.day}天</div>`:'')+`<div class="item" data-i="${i}" title="相机时钟 ${esc(c.clock)}（可能不准）">
     <img loading="lazy" data-src="/thumb/${encodeURIComponent(c.clip)}" alt="">
     <div style="min-width:0"><div class="t"><b>${esc(c.clip)}</b><span class="m">${esc(c.when.replace(/^第\d+天 · /,''))} · ${fmt(c.dur)}</span></div>
-    <div class="ub"></div><div class="first">${c.first?esc(c.first):'<span style="color:#c0c4cc">（无字幕）</span>'}</div></div></div>`).join('');
+    <div class="ub"></div><div class="first">${c.first?esc(c.first):'<span class="none">（无字幕）</span>'}</div></div></div>`).join('');
   $('list').querySelectorAll('.item').forEach(el=>el.onclick=()=>show(+el.dataset.i,0,true));
   const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){const im=e.target;im.src=im.dataset.src;io.unobserve(im)}}),{root:$('list'),rootMargin:'300px'});
   $('list').querySelectorAll('img').forEach(im=>io.observe(im));
@@ -547,7 +599,16 @@ function toggleFs(){
 $('fs').onclick=toggleFs;
 // don't let a focused button also react to Space/keys
 document.addEventListener('mouseup',()=>{const a=document.activeElement;if(a&&a.tagName==='BUTTON')a.blur()});
-document.addEventListener('fullscreenchange',()=>{$('fs').textContent=document.fullscreenElement?'退出全屏':'⛶ 全屏'});
+document.addEventListener('fullscreenchange',fsUI);
+// shortcuts popover (also opens on hover) and the rail tabs
+$('keysBtn').onclick=e=>{e.stopPropagation();$('keys').classList.toggle('open')};
+document.addEventListener('click',e=>{if(!$('keys').contains(e.target))$('keys').classList.remove('open')});
+$('keys').addEventListener('mouseleave',()=>$('keys').classList.remove('open'));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('keys').classList.remove('open')});
+function setTab(t){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  ['list','qpanel'].forEach(id=>$(id).hidden=id!==t);try{localStorage.setItem('fp_tab',t)}catch(e){}
+  if(t==='list')markCurrent()}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 
 // Buttons never keep keyboard focus from a mouse click, and Space is swallowed on keyup too —
 // browsers "click" a focused button on Space *keyup*, so blocking keydown alone isn't enough
@@ -574,7 +635,7 @@ function tick(){
     const c=clips[idx],t=cur.currentTime||0,g=starts[idx]+t;
     $('ph').style.left=(g/total*100)+'%';
     $('gtime').textContent=`${fmt(g)} / ${fmt(total)}`;   // YouTube-style: whole trip
-    $('info').innerHTML=`第 ${idx+1}/${clips.length} 段 · ${esc(c.clip)} · <span title="相机时钟 ${esc(c.clock)}（可能不准）">${esc(c.when)}</span> · 本段 ${fmt(t)} / ${fmt(c.dur)}`;
+    $('info').innerHTML=`${idx+1}/${clips.length} · ${esc(c.clip)} · <span title="相机时钟 ${esc(c.clock)}（可能不准）">${esc(c.when)}</span> · 本段 ${fmt(t)} / ${fmt(c.dur)}`;
     const p=srtCache[c.clip];
     if(p&&p.v!==undefined){
       const line=p.v.find(s=>t>=s.t0&&t<s.t1);
@@ -597,13 +658,17 @@ setInterval(updEst,2000);
   $('msg').textContent='';show(0,0,false);requestAnimationFrame(tick);
   setInterval(loadUsage,10000);
   initQA();
+  let t0='list';try{if(localStorage.getItem('fp_tab')==='qpanel')t0='qpanel'}catch(e){}
+  if(t0!=='list')setTab(t0);
 })();
 // ---- questions for the creator, popping up beside the video at their raw-clip time
 function initQA(){
   const pos=q=>{if(!q.clip||typeof q.clip_t!=='number')return null;
     const i=clips.findIndex(c=>c.clip===q.clip);return i<0?null:starts[i]+Math.min(q.clip_t,clips[i].dur||q.clip_t)};
   const api=initQuestions({
-    root:$('qpanel'), pos,
+    root:$('qpanel'), card:$('qcard'), pos,
+    count:(open,n)=>{const e=$('qcount');e.textContent=open||n;e.classList.toggle('open',open>0);
+      if(!n&&!$('qpanel').hidden)setTab('list')},
     now:()=>clips.length&&cur.readyState>=1?starts[idx]+(cur.currentTime||0):null,
     playing:()=>!cur.paused&&!cur.ended,
     pause:()=>cur.pause(),
@@ -622,7 +687,7 @@ setInterval(()=>{if(!clips.length)return;
 __QA_JS__
 </script></body></html>
 """
-PAGE = CHAT.inject(QS.inject(PAGE).replace("</body>", "<script>window.chatCtx=()=>({clip:(clips[idx]||{}).clip,clip_t:Math.round((cur.currentTime||0)*10)/10})</script></body>", 1), "raw")
+PAGE = CHAT.inject(QS.inject(PAGE.replace("__THEME_CSS__", THEME.CSS)).replace("</body>", "<script>window.chatCtx=()=>({clip:(clips[idx]||{}).clip,clip_t:Math.round((cur.currentTime||0)*10)/10})</script></body>", 1), "raw")
 
 
 def main():

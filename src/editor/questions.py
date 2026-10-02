@@ -222,47 +222,52 @@ def register(app, get_project):
 #   now()       current playback position on the same timeline, or null
 #   playing() / pause() / seek(pos)
 #   label(q,p)  timestamp text;  markers(items) / onTick(pos, activeQ)  optional page hooks
-# Styles fall back across the two pages' CSS variable names.
+#   card        optional element for the pop-up card (default: top of root);  count(open, total) optional hook
+# Colours come from the shared theme tokens (theme.py).
 
 CSS = r"""
-.qa{--qa-acc:var(--acc,var(--accent,#2563eb));--qa-mut:var(--mut,var(--mute,#6b7280));--qa-line:var(--line,#e2e5e9);
-  font-size:13.5px;line-height:1.45;color:var(--text,var(--ink,#1c2127))}
-.qa-card{background:#fffbeb;border:1px solid #f5d77a;border-radius:10px;padding:10px 12px;margin-bottom:10px;
-  box-shadow:0 2px 10px rgba(180,130,0,.12);animation:qaIn .25s ease}
+.qa{font-size:14px;line-height:1.55;color:var(--text)}
+.qa-card{background:var(--q-soft);border:1px solid var(--q-line);border-left:3px solid var(--q);border-radius:var(--r);
+  padding:10px 12px 11px;margin-bottom:10px;animation:qaIn .25s ease}
 @keyframes qaIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .qa-card[hidden]{display:none}
-.qa-meta{color:#8a6100;font-size:12px;font-variant-numeric:tabular-nums;margin-bottom:3px}
-.qa-q{font-weight:600;font-size:15px;margin-bottom:3px}
-.qa-ctx{color:var(--qa-mut);font-size:12.5px;margin-bottom:4px}
-.qa-card textarea{width:100%;box-sizing:border-box;font:inherit;font-size:14px;border:1px solid #e8d9a8;border-radius:7px;
-  padding:6px 8px;margin-top:4px;resize:vertical;min-height:52px;background:#fff}
-.qa-card textarea:focus{outline:2px solid #fde68a;border-color:#d4a72c}
-.qa-row{display:flex;gap:8px;align-items:center;margin-top:6px}
-.qa button{font:inherit;font-size:13px;border:1px solid var(--qa-line);background:#fff;border-radius:7px;padding:3px 11px;cursor:pointer;color:inherit}
-.qa button.pri{background:var(--qa-acc);border-color:var(--qa-acc);color:#fff}
-.qa button:disabled{opacity:.5;cursor:default}
-.qa-hint{color:var(--qa-mut);font-size:12px;margin-left:auto}
-.qa-err{color:#b42318;font-size:12.5px}
+.qa-meta{display:flex;align-items:center;gap:8px;color:var(--q-ink);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;margin:-2px -4px 3px 0}
+.qa-meta span{flex:1}
+.qa .qa-skip{border:0;background:transparent;color:var(--q-ink);font-size:12px;padding:1px 8px;opacity:.8}
+.qa .qa-skip:hover{background:rgba(245,158,11,.14);opacity:1}
+.qa-q{font-weight:600;font-size:15px;line-height:1.6;margin-bottom:4px}
+.qa-ctx{color:var(--text-2);font-size:12px;margin-bottom:4px}
+.qa-card textarea{flex:1;min-width:0;font:inherit;font-size:14px;line-height:1.45;border:1px solid var(--q-line);border-radius:var(--r-sm);
+  padding:7px 9px;resize:none;height:36px;max-height:120px;background:var(--surface);overflow-y:auto}
+.qa-card textarea:focus{border-color:var(--q);box-shadow:0 0 0 3px rgba(242,164,12,.18)}
+.qa-row{display:flex;gap:6px;align-items:flex-end;margin-top:8px}
+.qa-row .qa-sub{height:36px;padding:0 14px;flex:none}
+.qa button{font-size:13px;padding:3px 12px}
+.qa-hint{color:var(--text-3);font-size:12px;margin-left:auto}
+.qa-err{color:var(--danger);font-size:12px}
 .qa-err:not(:empty){margin-top:4px}
-.qa-okmsg{display:none;color:#067647;font-weight:600;margin-top:6px}
+.qa-okmsg{display:none;color:var(--ok);font-weight:600;margin-top:6px}
 .qa-card.ok .qa-okmsg{display:block}
 .qa-card.ok textarea,.qa-card.ok .qa-row{display:none}
 .qa-head{display:flex;align-items:center;gap:8px;padding:2px 2px 6px;font-size:13px}
-.qa-head b{cursor:pointer;user-select:none;white-space:nowrap}
-.qa-n{color:var(--qa-mut);white-space:nowrap}
+.qa-head b{cursor:pointer;user-select:none;white-space:nowrap;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.qa-head b::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--q)}
+.qa-n{color:var(--text-3);white-space:nowrap;font-size:12px}
 .qa-sp{flex:1}
-.qa-tog{display:inline-flex;align-items:center;gap:4px;color:var(--qa-mut);cursor:pointer;user-select:none;white-space:nowrap}
+.qa-tog{display:inline-flex;align-items:center;gap:4px;color:var(--text-2);font-size:12px;cursor:pointer;user-select:none;white-space:nowrap}
 .qa.fold .qa-list{display:none}
-.qa-item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:baseline;padding:5px 8px;border-radius:7px;
+.qa-item{display:flex;flex-direction:column;gap:1px;padding:6px 8px;border-radius:var(--r-sm);
   cursor:pointer;border:1px solid transparent}
-.qa-item:hover{background:rgba(37,99,235,.06)}
-.qa-item.on{border-color:#f5d77a;background:#fffbeb}
-.qa-t{color:var(--qa-acc);font-variant-numeric:tabular-nums;font-size:12.5px;white-space:nowrap}
-.qa-tx{min-width:0}
-.qa-ans{display:block;color:var(--qa-mut);font-size:12.5px}
-.qa-st{font-size:12px;color:#b54708;white-space:nowrap}
-.qa-item.done .qa-st{color:#067647}
-.qa-item.done .qa-tx{color:var(--qa-mut)}
+.qa-item:hover{background:var(--surface-2)}
+.qa-item.on{border-color:var(--q-line);background:var(--q-soft)}
+.qa-t{color:var(--accent);font-variant-numeric:tabular-nums;font-size:12px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.qa-t::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--q);flex:none}
+.qa-item.done .qa-t::before{background:var(--used)}
+.qa-tx{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.qa-item.on .qa-tx{-webkit-line-clamp:unset}
+.qa-ans{color:var(--text-2);font-size:12px}
+.qa-st{display:none}
+.qa-item.done .qa-tx{color:var(--text-2)}
 """
 
 JS = r"""
@@ -273,11 +278,12 @@ function initQuestions(cfg){
   let Q=[], mt=null, shown=null, forced=null, forcedAt=0, okId=null, okUntil=0, prevPos=null, autoPause=ls('qa_pause')==='1';
   const dismissed=new Set(), drafts={};
   root.classList.add('qa'); if(ls('qa_fold')==='1') root.classList.add('fold');
-  root.innerHTML=`<div class="qa-card" hidden></div>
-    <div class="qa-head"><b title="点击收起/展开列表">❓ 问你的问题</b><span class="qa-n"></span><span class="qa-sp"></span>
+  root.innerHTML=`${cfg.card?'':'<div class="qa-card" hidden></div>'}
+    <div class="qa-head"><b title="点击收起/展开列表">问你的问题</b><span class="qa-n"></span><span class="qa-sp"></span>
       <label class="qa-tog" title="播放到问题的时间点时自动暂停"><input type="checkbox"> 到问题时暂停</label></div>
     <div class="qa-list"></div>`;
-  const card=root.querySelector('.qa-card'), list=root.querySelector('.qa-list'), tog=root.querySelector('.qa-tog input');
+  if(cfg.card){cfg.card.classList.add('qa'); cfg.card.innerHTML='<div class="qa-card" hidden></div>'}
+  const card=(cfg.card||root).querySelector('.qa-card'), list=root.querySelector('.qa-list'), tog=root.querySelector('.qa-tog input');
   tog.checked=autoPause; tog.onchange=()=>{autoPause=tog.checked; ls('qa_pause',autoPause?'1':'0')};
   root.querySelector('.qa-head b').onclick=()=>{root.classList.toggle('fold'); ls('qa_fold',root.classList.contains('fold')?'1':'0')};
   const items=()=>Q.map(q=>({q,p:cfg.pos(q)})).filter(x=>x.p!=null&&isFinite(x.p)).sort((a,b)=>a.p-b.p);
@@ -288,9 +294,10 @@ function initQuestions(cfg){
     const it=items(), open=it.filter(x=>!x.q.answer).length;
     document.body.classList.toggle('hasq',it.length>0);
     root.querySelector('.qa-n').textContent=it.length?(open?`${open} 个待回答`:'都答完了 ✓'):'';
-    list.innerHTML=it.map(({q,p})=>`<div class="qa-item${q.answer?' done':''}${q.id===shown?' on':''}" data-id="${esc(q.id)}" title="点击跳到这里">
-      <span class="qa-t">⏱ ${esc(cfg.label(q,p))}</span>
-      <span class="qa-tx">${esc(q.text)}${q.answer?`<span class="qa-ans">答：${esc(q.answer)}</span>`:''}</span>
+    cfg.count&&cfg.count(open,it.length);
+    list.innerHTML=it.map(({q,p})=>`<div class="qa-item${q.answer?' done':''}${q.id===shown?' on':''}" data-id="${esc(q.id)}" title="${q.answer?'已回答':'未回答'} · 点击跳到这里">
+      <span class="qa-t">${esc(cfg.label(q,p))}</span>
+      <span class="qa-tx">${esc(q.text)}</span>${q.answer?`<span class="qa-ans">答：${esc(q.answer)}</span>`:''}
       <span class="qa-st">${q.answer?'✓ 已回答':'未回答'}</span></div>`).join('');
     cfg.markers&&cfg.markers(it);
   }
@@ -304,15 +311,15 @@ function initQuestions(cfg){
     shown=q?q.id:null; card.classList.remove('ok');
     list.querySelectorAll('.qa-item').forEach(e=>e.classList.toggle('on',e.dataset.id===shown));
     if(!q){card.hidden=true; card.innerHTML=''; return}
-    card.innerHTML=`<div class="qa-meta">❓ 想问你 · ⏱ ${esc(cfg.label(q,cfg.pos(q)))}</div>
+    card.innerHTML=`<div class="qa-meta"><span>想问你 · ${esc(cfg.label(q,cfg.pos(q)))}</span><button class="qa-skip" title="先不回答，过了这段就收起">跳过</button></div>
       <div class="qa-q">${esc(q.text)}</div>${q.context?`<div class="qa-ctx">${esc(q.context)}</div>`:''}
-      <textarea rows="2" placeholder="在这里写回答，回车提交（Shift+回车换行）"></textarea>
-      <div class="qa-row"><button class="pri qa-sub">提交</button><button class="qa-skip">跳过</button>
-        <span class="qa-hint">视频不会停，边看边写</span></div>
+      <div class="qa-row"><textarea rows="1" placeholder="写回答，回车提交 · 视频不会停" title="回车提交，Shift+回车换行；视频不会停，边看边写"></textarea>
+        <button class="pri qa-sub">提交</button></div>
       <div class="qa-err"></div><div class="qa-okmsg">已记录 ✓</div>`;
     const ta=card.querySelector('textarea');
     ta.value=drafts[q.id]??(q.answer||'');
-    ta.oninput=()=>{drafts[q.id]=ta.value};
+    const grow=()=>{ta.style.height='auto'; ta.style.height=Math.min(120,ta.scrollHeight+2)+'px'};
+    ta.oninput=()=>{drafts[q.id]=ta.value; grow()}; if(ta.value) setTimeout(grow,0);
     ta.onkeydown=e=>{
       e.stopPropagation();
       if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault(); submit()}
