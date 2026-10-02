@@ -210,9 +210,12 @@ values to test, not laws.
 - Name each trip as a series and number its episodes everywhere: titles, covers, end screens, 合集.
 - Give each episode a one-line catch-up and foreshadow the next stop.
 
-**Trials (creator OK'd trying them, 2026-10-01; log the results in LESSONS)**
-- **A letter frame:** a greeting on the postcard card and a P.S. inviting replies.
-- **Short first-person diary lines.**
+**Trials (creator, 2026-10-01; log the results in LESSONS)**
+- **Rejected:** the letter frame (「亲爱的朋友…」, P.S. cards). He said it feels fake; don't use it.
+- **Trying:**
+  - a photo-slideshow ending at a trip finale;
+  - trip-series day markers (「…· 第 1/3 天」);
+  - one plain reflective closing line at a trip finale.
 
 ## 2c. The creator's review checklist (what he asks for when he reviews)
 
