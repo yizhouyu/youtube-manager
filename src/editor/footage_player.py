@@ -286,7 +286,7 @@ PAGE = r"""<!doctype html>
 __THEME_CSS__
 html,body{height:100%}
 .app{display:flex;flex-direction:column;height:100vh}
-.body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(300px,25vw,380px)}
+.body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(400px,34vw,560px)}
 main{display:flex;flex-direction:column;padding:16px;min-width:0;min-height:0}
 /* ---- video stage (always dark) */
 .stage{position:relative;flex:none;width:100%;aspect-ratio:16/9;max-height:calc(100vh - var(--hdr) - 32px - 40px);
@@ -366,7 +366,7 @@ body:not(.showuse) .seg .u,body:not(.showuse) .item .ub,body:not(.showuse) .lege
 .rail{display:flex;flex-direction:column;gap:12px;padding:16px 16px 16px 0;min-height:0}
 #qcard .qa-card{margin:0;box-shadow:var(--sh-1)}
 .lists{flex:0 1 auto;max-height:34vh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-.lists.closed .pane{display:none}.lists.closed .tabs{border-bottom:0;padding-bottom:6px}
+.lists.closed{flex:0 0 auto}.lists.closed .pane{display:none}.lists.closed .tabs{border-bottom:0;padding-bottom:6px}
 #listTog{margin-left:auto;color:var(--text-3);font-weight:400}
 .tabs{display:flex;gap:2px;padding:6px 6px 0;border-bottom:1px solid var(--line);flex:none}
 .tab{border:0;background:transparent;border-radius:var(--r-sm) var(--r-sm) 0 0;padding:6px 12px 8px;font-size:13px;font-weight:500;color:var(--text-3);
@@ -380,9 +380,9 @@ body:not(.hasq) #qtab{display:none}
 .pane{flex:1;min-height:0;overflow-y:auto}
 .pane[hidden]{display:none}
 #qpanel{padding:8px}
-#chatDock{flex:1 1 auto;min-height:280px;overflow:hidden}
+#chatDock{flex:1 1 auto;min-height:360px;overflow:hidden}
 #chatDock.min{flex:0 0 auto;min-height:0}
-.rail:has(#chatDock.min) .lists{flex:1 1 auto;max-height:none}
+.rail:has(#chatDock.min) .lists:not(.closed){flex:1 1 auto;max-height:none}
 #chatDock #cb{border:0;border-radius:0}
 
 .dayhead{padding:8px 12px 6px;background:var(--surface);color:var(--text-2);font-size:12px;font-weight:600;
@@ -606,10 +606,10 @@ $('keysBtn').onclick=e=>{e.stopPropagation();$('keys').classList.toggle('open')}
 document.addEventListener('click',e=>{if(!$('keys').contains(e.target))$('keys').classList.remove('open')});
 $('keys').addEventListener('mouseleave',()=>$('keys').classList.remove('open'));
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('keys').classList.remove('open')});
-function setTab(t){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+function setTab(t){document.querySelectorAll('.tab[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
   ['list','qpanel'].forEach(id=>$(id).hidden=id!==t);try{localStorage.setItem('fp_tab',t)}catch(e){}
   if(t==='list')markCurrent()}
-document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+document.querySelectorAll('.tab[data-tab]').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 
 // Buttons never keep keyboard focus from a mouse click, and Space is swallowed on keyup too —
 // browsers "click" a focused button on Space *keyup*, so blocking keydown alone isn't enough
