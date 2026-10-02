@@ -144,8 +144,9 @@ def title_card(text, sub, w, h, cache_dir):
     return _cached(cache_dir, f"title|{text}|{sub}|{w}x{h}", render)
 
 
-def place_tag(text, w, h, cache_dir):
-    """Small translucent pill, top-left: a location label."""
+def place_tag(text, w, h, cache_dir, pos="tl"):
+    """Small translucent pill: a location label (top-left), or with pos="tr" top-right, e.g. a
+    trip-series day marker on a card whose top-left already holds the card's own title."""
     def render():
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
@@ -154,13 +155,15 @@ def place_tag(text, w, h, cache_dir):
         pad = size * 0.6
         tw = d.textlength(text, font=f)
         x, y = int(w * 0.04), int(h * 0.05)
+        if pos == "tr":
+            x = int(w * 0.96 - (tw + pad * 2 + size * 0.7))
         d.rounded_rectangle([x, y, x + tw + pad * 2 + size * 0.7, y + size + pad * 1.4],
                             radius=int(size * 0.5), fill=(0, 0, 0, 120))
         d.ellipse([x + pad, y + pad * 0.7 + size * 0.3, x + pad + size * 0.4, y + pad * 0.7 + size * 0.7],
                   fill=(255, 214, 90, 255))
         d.text((x + pad + size * 0.7, y + pad * 0.7), text, font=f, fill="white")
         return im
-    return _cached(cache_dir, f"tag|{text}|{w}x{h}", render)
+    return _cached(cache_dir, f"tag|{text}|{w}x{h}" + (f"|{pos}" if pos != "tl" else ""), render)
 
 
 def _hex(c):

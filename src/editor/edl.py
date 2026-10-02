@@ -57,6 +57,8 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
       "fade_in": 0, "fade_out": 0,             # seconds (video+audio)
       "title": {"text": "Day 1", "sub": "圣约翰岛 St. John", "dur": 3.0},   # optional card at shot start
       "tag": "Mongoose Junction",              # optional small place label, top-left, first 3 s
+                                               # (cards too); "tag_pos": "tr" = top-right (e.g. a series
+                                               # day marker on a route card whose top-left has its title)
       "subs": [{"t0": 0.96, "t1": 4.4, "text": "..."}],                     # SOURCE-clip seconds;
                                                # "kind": "note" = editor's caption on a silent shot
       "broll": [{"clip": "GX0001", "in": 2.0, "at": 5.0, "dur": 3.0, "grade": "default"}],

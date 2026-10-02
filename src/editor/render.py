@@ -131,6 +131,14 @@ def _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath):
     if shot.get("fade_out"):
         vf.append(f"fade=t=out:st={max(0, dur - shot['fade_out']):.3f}:d={shot['fade_out']}")
     chains = [f"[0:v]scale={w}:{h},{','.join(vf)},format={_pixfmt(preset)}[v]"]
+    if shot.get("tag"):  # cards carry a tag too (e.g. a trip-series day marker on the title/route card)
+        td = min(3.0, dur)
+        png_tag = overlays.place_tag(shot["tag"], w, h, ov_dir, shot.get("tag_pos", "tl"))
+        inputs = inputs + ["-loop", "1", "-framerate", fps_str, "-t", f"{td:.3f}", "-i", png_tag]
+        chains[0] = chains[0][:-3] + "[vc]"
+        chains.append(f"[1:v]format=rgba,fade=t=in:st=0:d=0.3:alpha=1,"
+                      f"fade=t=out:st={max(0, td - 0.3):.3f}:d=0.3:alpha=1[tg]")
+        chains.append(f"[vc][tg]overlay=0:0:eof_action=pass,format={_pixfmt(preset)}[v]")
     tmpv = vpath + ".part.mp4"
     _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
           "-map", "[v]", "-frames:v", str(n), "-an", *_venc(preset), tmpv])
@@ -388,7 +396,7 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
             td = min(t.get("dur", 3.0), dur)
             ovs.append((overlays.title_card(t["text"], t.get("sub", ""), w, h, ov_dir), 0, td, 0.4))
         if shot.get("tag"):
-            ovs.append((overlays.place_tag(shot["tag"], w, h, ov_dir), 0, min(3.0, dur), 0.3))
+            ovs.append((overlays.place_tag(shot["tag"], w, h, ov_dir, shot.get("tag_pos", "tl")), 0, min(3.0, dur), 0.3))
         for sp in shot.get("spots", []):  # spotlight: dim all but a circle on a hidden subject
             a0, a1 = E.src_to_local(shot, sp["t0"]), min(E.src_to_local(shot, sp["t1"]), dur)
             if a1 - a0 > 0.6:
