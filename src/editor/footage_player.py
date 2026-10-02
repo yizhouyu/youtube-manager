@@ -381,7 +381,8 @@ body:not(.hasq) #qtab{display:none}
 .pane[hidden]{display:none}
 #qpanel{padding:8px}
 #chatDock{flex:1 1 auto;min-height:280px;overflow:hidden}
-#chatDock.min{flex-basis:auto}
+#chatDock.min{flex:0 0 auto;min-height:0}
+.rail:has(#chatDock.min) .lists{flex:1 1 auto;max-height:none}
 #chatDock #cb{border:0;border-radius:0}
 
 .dayhead{padding:8px 12px 6px;background:var(--surface);color:var(--text-2);font-size:12px;font-weight:600;
