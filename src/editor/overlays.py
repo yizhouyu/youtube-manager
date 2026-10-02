@@ -111,7 +111,7 @@ def _cached(cache_dir, key, render):
 NOTE_COLOR = (255, 226, 130, 255)
 
 
-def subtitle(text, w, h, cache_dir, kind="speech"):
+def subtitle(text, w, h, cache_dir, kind="speech", pos="bottom"):
     """kind='speech' (what people say, white) or 'note' (editor's explanatory caption for a
     silent shot — soft yellow, slightly smaller, so viewers can tell it isn't dialogue)."""
     def render():
@@ -121,13 +121,14 @@ def subtitle(text, w, h, cache_dir, kind="speech"):
         f = _font(SUB_FONTS, size, text)
         lines = _wrap(d, text, f, w * 0.84)
         lh = int(size * 1.3)
-        y = h - int(h * 0.07) - lh * len(lines)
+        # pos="top": a note shown at the top while someone is talking (the bottom holds their words)
+        y = int(h * 0.06) if pos == "top" else h - int(h * 0.07) - lh * len(lines)
         for ln in lines:
             d.text((w / 2, y), ln, font=f, fill=NOTE_COLOR if kind == "note" else "white", anchor="ma",
                    stroke_width=max(2, size // 8), stroke_fill=(0, 0, 0, 230))
             y += lh
         return im
-    return _cached(cache_dir, f"sub|{kind}|{text}|{w}x{h}", render)
+    return _cached(cache_dir, f"sub|{kind}|{text}|{w}x{h}" + ("|top" if pos == "top" else ""), render)
 
 
 def title_card(text, sub, w, h, cache_dir):

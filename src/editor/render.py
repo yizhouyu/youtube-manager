@@ -415,7 +415,7 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
             if a1 - a0 > 0.1:
                 ovs.append((overlays.arrow(m.get("label", ""), m["x"], m["y"], w, h, ov_dir), a0, a1, 0))
         for s in E.shot_subs(shot):
-            ovs.append((overlays.subtitle(s["text"], w, h, ov_dir, s.get("kind", "speech")), s["t0"], min(s["t1"], dur), 0))
+            ovs.append((overlays.subtitle(s["text"], w, h, ov_dir, s.get("kind", "speech"), s.get("pos", "bottom")), s["t0"], min(s["t1"], dur), 0))
     for i, (png, t0, t1, fade) in enumerate(ovs, base_inputs):
         if fade:  # fades in at t0 (frames before it are fully transparent), out at t1
             inputs += ["-loop", "1", "-framerate", fps_str, "-t", f"{t1:.3f}", "-i", png]

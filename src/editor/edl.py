@@ -211,7 +211,10 @@ def shot_subs(shot):
         if text.startswith("※"):  # legacy marker for an editor note: never render the symbol
             text, kind = text.lstrip("※ ").strip(), "note"
         if l1 - l0 >= 0.3 and text:
-            out.append({"t0": l0, "t1": l1, "text": text, "kind": kind})
+            d = {"t0": l0, "t1": l1, "text": text, "kind": kind}
+            if s.get("pos"):
+                d["pos"] = s["pos"]
+            out.append(d)
     return out
 
 
