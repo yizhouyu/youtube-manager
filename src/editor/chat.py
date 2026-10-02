@@ -67,7 +67,7 @@ def post(project, role, text, ctx=None):
     with open(p, "a+", encoding="utf-8") as f:
         fcntl.flock(f, fcntl.LOCK_EX)
         f.seek(0)
-        n = sum(1 for l in f if l.strip())
+        n = max([json.loads(l).get("id", 0) for l in f if l.strip()] or [0])  # max id, so deleted lines never cause reuse
         msg = {"id": n + 1, "role": role, "text": text.strip(), "ts": time.strftime("%Y-%m-%d %H:%M:%S")}
         if ctx:
             msg["ctx"] = ctx
