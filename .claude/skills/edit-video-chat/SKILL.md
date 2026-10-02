@@ -260,6 +260,27 @@ Use plain food words ("美食中心" for a food court, "牛肉" not a guessed cu
 
 **English speech gets a Chinese caption (creator, 2026-10-01).** When someone speaks English on camera, caption the Chinese translation only. No English caption line, and no English line with a （中文） gloss: the English subtitle track covers foreign viewers. Navigation or GPS voice prompts get no caption at all.
 
+**Lessons from the 95 live review (creator, 2026-10-02), on top of the rules above:**
+- **Fix the ASR, not just the timing.**
+  - Check every caption against what was actually said: pronouns (我们 vs 我), homophones (松树→松鼠), and wrong words (但又被他就是被 → 但是因为被).
+  - Drop filler-only lines (这么 / 还有什么 / 就是).
+  - Cut stumbles out of the *audio* too, keeping only the clean words ("现在变成了是一个一个什么…一个楼" → 现在变成了地震学的楼). Find the cut points by test-joining candidate in/out points and re-transcribing.
+- **Keep the unique moments.** He restored every "boring-looking" shot that showed something new: a courtyard, a path down from a building, a toy that jumps when pressed, the lake at a garden entrance, a "these buildings are all called Laboratory" observation. Trim repetition, not novelty.
+- **Arrows:** never on subjects viewers can already see (squirrels, their tails). If a moment matters, zoom in slowly instead (a squirrel standing up).
+- **Explain names people say.** When the speaker names a person or old name (Millikan), add who it is in a title sub-line. A historic photo of *that same place* (Millikan Library, 1967) is welcome.
+- **Outside material must match what's on screen and be familiar to Chinese viewers.**
+  - A cast photo next to a building looked random.
+  - A US TV show most viewers don't know (Parks and Recreation) was cut entirely, line and picture.
+  - Prefer references the audience knows; otherwise leave it out.
+- **No calendar dates on screen** (12月26日 etc.): not in titles, cards or route maps. A clock tag can stay.
+- **Music mood:** nothing eerie or mystical under a calm campus walk. Use light or bright tracks there.
+- **Pacing:**
+  - Shorten drive-in or approach shots by 1–2 s.
+  - Trim the waiting between a setup and its payoff (squirrels: "什么意思呢" → the fight).
+  - Hold a little longer on small payoffs (the toy jumping).
+- **Quiet mumbling:** if the speech after a good line is too soft to caption, keep the good line, then mute the rest and let the music play.
+- **Caption length:** one sentence = one cue, but a cue wider than one line splits at its middle comma into two cues.
+
 **Don't caption or label the obvious (creator, 2026-09-29):** no note captions or arrow labels for
 things viewers can plainly see ("一只海鸥在喝水", a "海鸥"/"鹈鹕" arrow, "小朋友离海狮很近",
 "关掉音乐，听听海边的声音"). A note or label must add information viewers don't have: a name,
