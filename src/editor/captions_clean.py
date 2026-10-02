@@ -19,6 +19,7 @@ import sys
 from . import edl as E
 
 HALLUCINATION = re.compile(r"MING PAO|明镜|点点栏目|点赞|订阅|转发|打赏|字幕|by\s|Amara|中文字幕|谢谢观看")
+NAV_PROMPT = re.compile(r"(?i)\b(your destination|destination is|you have arrived|in \d+ (feet|miles?|meters)|turn (left|right)|keep (left|right)|make a u-turn|rerouting)\b|^on the (left|right)\.?$")  # GPS voice: never captioned
 FILLER_ONLY = re.compile(r"^[\s,，.。!！?？~～]*(好|我|哦|哇|嗯|啊|呃|额|唉|哎|对)*[\s,，.。!！?？~～]*$")
 
 
@@ -67,7 +68,7 @@ def clean_project(project):
                         cues.append({"t0": s["t0"], "t1": s["t1"], "text": s["text"]})
                 continue
             text = t2s(c["text"])
-            if HALLUCINATION.search(text) or FILLER_ONLY.match(text):
+            if HALLUCINATION.search(text) or FILLER_ONLY.match(text) or NAV_PROMPT.search(text):
                 continue
             for k, v in glossary.items():
                 text = text.replace(k, v)
