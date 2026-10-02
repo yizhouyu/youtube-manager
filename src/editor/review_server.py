@@ -859,8 +859,8 @@ $('#pv').addEventListener('mouseleave',()=>{clearTimeout(pvActT); $('#pv').class
 $('#pv').addEventListener('click',e=>{const b=e.target.closest('#pvtools button'); if(!b) return; e.stopPropagation();
   if(b.id==='pvfs') pvToggleFs()});
 window.addEventListener('cbfs',()=>{const b=document.getElementById('pvfs'); if(b) fsIcon(b)});
-const IC_FS='<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
-      IC_FSX='<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5"/></svg>';
+const IC_FS='<svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
+      IC_FSX='<svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5"/></svg>';
 function fsIcon(b){const on=window.cbFs&&window.cbFs.active(); b.innerHTML=on?IC_FSX:IC_FS; b.title=on?'退出全屏（F / Esc）':'全屏，右边留着聊天（F）'}
 // Preview player keys (also in fullscreen). Capture phase + preventDefault so the browser's own
 // media controls or a focused button don't handle the same key a second time.
