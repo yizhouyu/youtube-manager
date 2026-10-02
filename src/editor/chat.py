@@ -4,8 +4,8 @@ Messages live in `02 - Export/edit/chat.jsonl` (one JSON per line), shared by bo
 Each creator message carries where he was: the raw clip + time (footage page) or the cut time (review page).
 
 Two ways to send (creator, 2026-10-02: he likes to batch notes while watching):
-  「评论」 (Enter)            -> stored with `status: "pending"`; shown as 「待交给 Agent」; does NOT wake the agent.
-  「交给 Agent」 (Cmd+Enter)  -> the typed note (if any) plus every pending note become `status: "sent"` with one
+  「评论」 (Shift+Enter)      -> stored with `status: "pending"`; shown as 「待交给 Agent」; does NOT wake the agent.
+  「交给 Agent」 (Enter)      -> the typed note (if any) plus every pending note become `status: "sent"` with one
                                  `batch` number (max+1); the watcher announces them together.
 Messages without `status` (older ones, Agent replies, posts from an old page) count as sent.
 
@@ -335,7 +335,7 @@ WIDGET = r"""
  <div id="cbBody"><div id="cbList" class="scroll"><div id="cbEmpty">还没有消息。边看边写意见，Agent 会在这里回复。</div></div>
   <form id="cbForm"><textarea id="cbIn" rows="1" placeholder="边看边写意见…（自动带上当前位置）"></textarea>
    <div id="cbRow"><span id="cbKeys"></span>
-    <button id="cbNote" type="button" title="先存着，不叫 Agent（回车）">评论</button>
+    <button id="cbNote" type="button" title="先存着，不叫 Agent（Shift+回车）">评论</button>
     <button id="cbSend" type="submit" class="pri" title="连同待交的评论一起交给 Agent">交给 Agent<span class="n"></span></button></div></form>
   <div id="cbHint"></div></div>
 </section>
@@ -374,7 +374,7 @@ WIDGET = r"""
     if(!d.querySelector('.w .sent')){const s=document.createElement('span');s.className='sent';s.textContent='✓';s.title='已交给 Agent';d.querySelector('.w').appendChild(s)}}
   function setSent(id){pend.delete(id);const d=list.querySelector('.cbm.creator[data-mid="'+id+'"]');if(d)markSent(d)}
   function count(){const n=pend.size;sendBtn.classList.toggle('has',n>0);sendBtn.querySelector('.n').textContent=n;
-    sendBtn.title=n?`连同 ${n} 条待交的评论一起交给 Agent（${MOD}回车）`:`交给 Agent（${MOD}回车）`}
+    sendBtn.title=n?`连同 ${n} 条待交的评论一起交给 Agent（回车）`:`交给 Agent（回车）`}
   async function poll(){try{const r=await fetch('/api/chat?after='+last);const ms=await r.json();
     ms.forEach(m=>{if(m.id>last){add(m);last=m.id}});count();loaded=true}catch(e){}}
   // is the agent listening? (a `chat watch` heartbeat younger than 8 s)
@@ -387,11 +387,11 @@ WIDGET = r"""
   async function status(){try{const j=await (await fetch('/api/chat/status',{cache:'no-store'})).json();showStatus(!!j.listening);
     if(Array.isArray(j.pending)){const sp=new Set(j.pending);[...pend].forEach(id=>{if(!sp.has(id))setSent(id)});count()}}catch(e){}}  // handed over elsewhere (the other page)
   const MOD=/Mac|iPhone|iPad/.test(navigator.platform)?'⌘':'Ctrl+', keys=document.getElementById('cbKeys'),
-        KEYS=`<span><b>回车</b> 评论 ·</span> <span><b>${MOD}回车</b> 交给 Agent</span>`;
+        KEYS=`<span><b>回车</b> 交给 Agent ·</span> <span><b>Shift+回车</b> 评论</span>`;
   function flash(t){keys.textContent=t;keys.classList.add('flash');const my=flashT=Date.now();   // the confirmation sits where the key hint was
     setTimeout(()=>{if(flashT===my){keys.innerHTML=KEYS;keys.classList.remove('flash')}},3500)}
   keys.innerHTML=KEYS;
-  keys.title='评论：先存着，不叫 Agent；交给 Agent：连同所有待交的评论一起交过去。Shift+回车换行，自动带上当前视频位置。';
+  keys.title='评论：先存着，不叫 Agent；交给 Agent：连同所有待交的评论一起交过去。Option+回车换行，自动带上当前视频位置。';
   const grow=()=>{inp.style.height='auto';inp.style.height=Math.min(110,inp.scrollHeight+2)+'px'};
   const ctxNow=()=>{try{return (window.chatCtx&&window.chatCtx())||{}}catch(e){return {}}};
   let busy=false;
@@ -410,8 +410,8 @@ WIDGET = r"""
   inp.addEventListener('input',grow);
   inp.addEventListener('keydown',e=>{e.stopPropagation();
     if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){
-      if(e.metaKey||e.ctrlKey){e.preventDefault();postChat('handoff')}
-      else if(!e.shiftKey){e.preventDefault();postChat('comment')}}
+      if(e.altKey)return;  // Option+Enter: newline
+      e.preventDefault();postChat(e.shiftKey?'comment':'handoff')}
     else if(e.key==='Escape')inp.blur()});
   inp.addEventListener('keyup',e=>e.stopPropagation());
   count();poll();status();setInterval(()=>{poll();status()},2000);

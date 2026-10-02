@@ -386,6 +386,9 @@ body.dirty #bSave kbd{color:var(--accent);border-color:var(--accent-line)}
   filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:12px}
 #pvtools button:hover{background:rgba(255,255,255,.16)}
 #pvtools svg{display:block}
+#pvtools .speeds{display:flex;align-items:center;height:28px;margin-right:6px;border-radius:8px;background:rgba(0,0,0,.35);padding:2px;gap:2px;align-self:center}
+#pvtools .speeds button{height:24px;min-width:0;padding:0 9px;border-radius:6px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;filter:none}
+#pvtools .speeds button.on{background:#fff;color:#111}
 #pv video::-webkit-media-controls-fullscreen-button{display:none}
 /* fullscreen (chat.py): video on the left, rail with the question card + chat on the right (or floating) */
 .theater.fs .stage{padding:0;height:100vh;min-height:0;overflow:hidden}
@@ -857,7 +860,13 @@ let pvActT=0;
 $('#pv').addEventListener('mousemove',()=>{const p=$('#pv'); p.classList.add('act'); clearTimeout(pvActT); pvActT=setTimeout(()=>p.classList.remove('act'),2500)});
 $('#pv').addEventListener('mouseleave',()=>{clearTimeout(pvActT); $('#pv').classList.remove('act')});
 $('#pv').addEventListener('click',e=>{const b=e.target.closest('#pvtools button'); if(!b) return; e.stopPropagation();
-  if(b.id==='pvfs') pvToggleFs()});
+  if(b.id==='pvfs') pvToggleFs(); else if(b.dataset.r) pvSetSpeed(+b.dataset.r)});
+// speed presets, like the raw-footage page; remembered across reloads and new previews
+const PV_SPEEDS=[1,1.5,2,3];
+let pvSpeed=1; try{const r=parseFloat(localStorage.getItem('rv_speed')); if(PV_SPEEDS.includes(r)) pvSpeed=r}catch(e){}
+function pvMarkSpeed(r){document.querySelectorAll('#pvspeeds button').forEach(b=>b.classList.toggle('on',+b.dataset.r===r))}
+function pvSetSpeed(r){pvSpeed=r; try{localStorage.setItem('rv_speed',String(r))}catch(e){}
+  const v=document.getElementById('pvv'); if(v) v.playbackRate=r; pvMarkSpeed(r)}
 window.addEventListener('cbfs',()=>{const b=document.getElementById('pvfs'); if(b) fsIcon(b)});
 const IC_FS='<svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
       IC_FSX='<svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5"/></svg>';
@@ -875,6 +884,8 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='ArrowLeft'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.max(0,v.currentTime-5)}
   else if(e.key==='f'||e.key==='F'){e.preventDefault();e.stopPropagation();
     pvToggleFs()}
+  else if(e.key>='1'&&e.key<='4'){e.preventDefault();e.stopPropagation(); pvSetSpeed(PV_SPEEDS[+e.key-1]);
+    const p=$('#pv'); p.classList.add('act'); clearTimeout(pvActT); pvActT=setTimeout(()=>p.classList.remove('act'),2500)}
 },true);
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();save();return}
@@ -898,10 +909,11 @@ async function loadPreview(keep){
   const old=$('#pvv'); const wasMuted=old?old.muted:false;
   if(old){old.pause(); old.removeAttribute('src'); old.load()}  // free its connections, or the new one stalls
   $('#pv').innerHTML=(src?`<video id="pvv" controls controlslist="nofullscreen" preload="auto" src="${src}"></video><div class="bigplay" id="pvbig"></div>
-      <div id="pvtools"><button id="pvfs"></button></div><button id="pvnew">新预览已生成 · 点这里切换（从当前位置继续）</button>`
+      <div id="pvtools"><div class="speeds" id="pvspeeds" title="速度（数字键 1–4）">${PV_SPEEDS.map(r=>`<button data-r="${r}">${r}x</button>`).join('')}</div><button id="pvfs"></button></div><button id="pvnew">新预览已生成 · 点这里切换（从当前位置继续）</button>`
     :'<div class="none">还没有预览，点右上角「更新预览」生成</div>');
   const nv=$('#pvv');
-  if(nv){nv.muted=wasMuted}
+  if(nv){nv.muted=wasMuted; nv.playbackRate=pvSpeed; nv.defaultPlaybackRate=pvSpeed; pvMarkSpeed(pvSpeed)
+    nv.addEventListener('ratechange',()=>{if(nv.playbackRate!==pvSpeed){pvSpeed=nv.playbackRate; pvMarkSpeed(pvSpeed)}})}
   if(nv&&keep){const restore=()=>{nv.currentTime=Math.min(keep.t,Math.max(0,nv.duration-0.5)); if(keep.playing) nv.play().catch(()=>{})};
     nv.readyState>=1?restore():nv.addEventListener('loadedmetadata',restore,{once:true})}
   const nb=$('#pvnew'); if(nb) nb.onclick=()=>swapPreview();
