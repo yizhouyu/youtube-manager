@@ -250,6 +250,8 @@ menu or GPS lookup shows it. If it can't be found, leave it out — don't ask th
 Descriptions may name them too.
 Use plain food words ("美食中心" for a food court, "牛肉" not a guessed cut); no fancy menu prose.
 
+**One spoken sentence = one caption (creator, 2026-10-01).** If a complete sentence is split across two or more caption cues, merge them into one cue, joined with "，". This applies to ASR fragments like "现在我们来到了 Caltech" | "加州理工大学", and to "因为…" | "所以…" | "但是…" chains. A line holds about 28 汉字, and two lines are fine. The renderer wraps at clause commas, so a line never breaks mid-word. Keep genuinely separate sentences (a question and its answer, a new thought) as separate cues.
+
 **English speech gets a Chinese caption (creator, 2026-10-01).** When someone speaks English on camera, caption the Chinese translation only. No English caption line, and no English line with a （中文） gloss: the English subtitle track covers foreign viewers. Navigation or GPS voice prompts get no caption at all.
 
 **Don't caption or label the obvious (creator, 2026-09-29):** no note captions or arrow labels for
