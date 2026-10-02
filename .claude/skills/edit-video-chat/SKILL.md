@@ -402,6 +402,19 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
   episode goes (the creator loves it), the city "postcard" title card whose letters are live
   windows onto the day's shots (loved on 91; use for a new city/trip, not every episode), freeze-frame + labels, arrows on landmarks, clock tags
   through golden hour, scale-comparison cards.
+- **Route maps follow real roads (creator, 2026-10-02, ep 96: 「地图做得非常不错…以后也可以保留」).**
+  A straight dashed line between stops doesn't read as driving. He rejected it on 96, and the
+  rebuilt map was praised. Every route map from now on:
+  - draws a real OpenStreetMap base: an Overpass extract saved to `edit/outside/osm_<place>.json`,
+    with coastline/land and a road layer, main roads warm orange;
+  - routes each leg as a shortest path on the OSM road graph, respecting one-ways;
+  - draws an out-and-back on the same road as two parallel dashed lines, offset to the right of travel;
+  - has numbered pins that pop in as each leg arrives, plus the time sub-labels;
+  - carries the credit 「路线示意 · 地图数据 © OpenStreetMap contributors」.
+
+  Copy `96 - Malibu/02 - Export/edit/scripts/make_route_map.py` (driving) or
+  `103 - Sequoia/.../scripts/make_cards.py` (trails) and change only the stops, the bbox and the labels.
+  Fetch with a generic User-Agent; never put personal info in it.
 - **Outside material is allowed (creator, 2026-09-29, from ep 92):** when an idea needs more
   than the footage has (a historic photo, a map, an official diagram, a short archival clip, a
   fact card), download it and put it in. Prefer public-domain / freely licensed sources
