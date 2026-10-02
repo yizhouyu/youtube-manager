@@ -212,7 +212,7 @@ show a **4:3 centre crop** and every card overlays duration (bottom-right) and p
 
 **Packaging rules from research (2026-10-01, our data + platform guidance):**
 - **Package the topic before editing.** One famous, nameable thing per episode. Topic choice explains far more than styling does.
-- **Bilibili title**
+- **Bilibili title** (creator approved short titles, 2026-10-01; applies to every episode not yet uploaded)
   - Bilibili's official guidance: ≤18 characters, ideally 10–15.
   - Lead with a question, a number or a named highlight.
   - No English suffix and no long list titles. Our 84–88 list titles had about 0.2% cover/title CTR against a peer median of about 1.8%.

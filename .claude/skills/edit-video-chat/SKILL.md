@@ -210,7 +210,7 @@ values to test, not laws.
 - Name each trip as a series and number its episodes everywhere: titles, covers, end screens, 合集.
 - Give each episode a one-line catch-up and foreshadow the next stop.
 
-**Trials (ask the creator first)**
+**Trials (creator OK'd trying them, 2026-10-01; log the results in LESSONS)**
 - **A letter frame:** a greeting on the postcard card and a P.S. inviting replies.
 - **Short first-person diary lines.**
 
