@@ -114,6 +114,24 @@ def cut_to_clip(edl, t):
     return None
 
 
+def shot_at(edl, t):
+    """Cut seconds -> (shot id, seconds into that shot), or None."""
+    rows, _ = E.timeline(edl)
+    for s, st in rows:
+        if st <= t < st + E.shot_dur(s) or (s is rows[-1][0] and t <= st + E.shot_dur(s)):
+            return s.get("id"), round(t - st, 2)
+    return None
+
+
+def shot_to_cut(edl, sid, shot_t):
+    """(shot id, seconds into it) -> cut seconds, or None if that shot is gone/disabled."""
+    rows, _ = E.timeline(edl)
+    for s, st in rows:
+        if s.get("id") == sid:
+            return round(st + min(float(shot_t or 0), E.shot_dur(s)), 2)
+    return None
+
+
 def _next_id(qs):
     n = 0
     for q in qs:
@@ -139,7 +157,11 @@ def add(project, text, t=None, clip=None, clip_t=None, context=None, where=None)
             hit = cut_to_clip(edl, float(t))
             if hit:
                 clip, clip_t = hit
+    # a card/map moment has no raw anchor: pin it to its shot so later edits don't strand it
+    sid = shot_at(edl, float(t)) if (edl and clip is None and t is not None) else None
     q = {"where": where}
+    if sid:
+        q["shot"], q["shot_t"] = sid
     if t is not None:
         q["t"] = round(float(t), 2)
     if clip is not None:
@@ -168,18 +190,23 @@ def answer(project, qid, text):
 
 
 def with_anchors(project, qs):
-    """Copies of the questions with a missing anchor filled from the current EDL (not saved),
-    so a question asked on one page also pops up at the same moment on the other."""
-    need = [q for q in qs if (q.get("t") is None) != (q.get("clip") is None)]
-    edl = _edl(project) if need else None
+    """Copies of the questions with the cut time re-derived from the current EDL (not saved), so
+    a question follows its moment after edits shift the cut, and one asked on one page also pops
+    up at the same moment on the other. Anchor priority: shot > raw clip > the stored cut time."""
+    edl = _edl(project) if qs else None
     if not edl:
         return qs
     out = []
     for q in qs:
         q = dict(q)
         try:
-            if q.get("t") is None and q.get("clip"):
-                q["t"] = clip_to_cut(edl, q["clip"], float(q.get("clip_t") or 0))
+            t = None
+            if q.get("shot"):
+                t = shot_to_cut(edl, q["shot"], q.get("shot_t"))
+            if t is None and q.get("clip"):
+                t = clip_to_cut(edl, q["clip"], float(q.get("clip_t") or 0))
+            if t is not None:
+                q["t"] = t
             elif q.get("clip") is None and q.get("t") is not None:
                 hit = cut_to_clip(edl, float(q["t"]))
                 if hit:
