@@ -428,6 +428,7 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
   - Walk legs need footpaths in the extract. The default `fetch` adds `paths` whenever a leg is walk.
   - The fetch uses a generic User-Agent; never put personal info in it. Coordinates stay in the
     episode config, never in the (public) repo.
+  Exception: a multi-day *overview* sketch (e.g. a trip-recap end screen showing which days went where) may keep straight lines. The creator: 「如果只是想要大体上展现我们去了哪里的话，用直线也是 OK 的」.
 - **Outside material is allowed (creator, 2026-09-29, from ep 92):** when an idea needs more
   than the footage has (a historic photo, a map, an official diagram, a short archival clip, a
   fact card), download it and put it in. Prefer public-domain / freely licensed sources
