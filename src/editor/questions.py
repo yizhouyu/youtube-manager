@@ -5,8 +5,8 @@ moment he sees that footage. Questions live in `<project>/02 - Export/edit/quest
 
     [{"id": "q1",
       "where": "cut" | "raw",                  # where it was asked (display uses the anchors below)
-      "t": 216.9,                              # cut seconds  -> pops up on the review page (8765)
-      "clip": "GX015467", "clip_t": 1.0,       # raw anchor   -> pops up in the footage player (8766)
+      "t": 216.9,                              # cut seconds  -> pops up on the review page (8766)
+      "clip": "GX015467", "clip_t": 1.0,       # raw anchor   -> pops up in the footage player (8765)
       "text": "晚饭这家墨西哥餐厅叫什么？",
       "context": "optional short note",
       "answer": null, "answered_at": null}]

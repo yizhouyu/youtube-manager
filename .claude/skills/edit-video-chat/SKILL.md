@@ -47,7 +47,7 @@ fit one more, wait for its reset; if the weekly quota is near its end, stop and 
 
 As soon as the creator hands over a folder, start these side by side (subagents):
 - **Raw-footage player** for the creator, up immediately (it needs no EDL) —
-  `./venv/bin/python -m src.editor.footage_player "<project>"` (port 8766): all clips back-to-back
+  `./venv/bin/python -m src.editor.footage_player "<project>"` (port 8765, opened first): all clips back-to-back
   in capture order at 1×–3×, with the transcript line. Its job is letting the creator preview the
   raw material and grasp the whole trip; marking what the cut used is an optional toggle.
   It shows ONLY proofread captions (`src.editor.captions_clean`: EDL lines where they exist, else
@@ -286,7 +286,7 @@ about facts only he knows.
 
 **Open questions go into `edit/questions.json`, not a list in chat.** He can't answer "what was the
 restaurant called?" before he has watched the footage. Anchor each question to the moment it is
-about; it pops up beside the video on both pages (8765 cut / 8766 raw) and his answer is saved
+about; it pops up beside the video on both pages (8765 raw / 8766 cut) and his answer is saved
 back into the file (poll it; add questions any time, the pages pick them up without a reload):
 `./venv/bin/python -m src.editor.questions "<project>" add "问题" --clip GX015467 --clip-t 1.0 [--t <cut s>] [--context "…"]`
 (give either anchor; the other is filled from the EDL). `... questions "<project>" list` shows answers.
@@ -295,10 +295,17 @@ back into the file (poll it; add questions any time, the pages pick them up with
 
 ```bash
 ./venv/bin/python -m src.editor.render "<project>" --preview   # 1080p → edit/preview.mp4
-./venv/bin/python -m src.editor.review_server "<project>"       # http://127.0.0.1:8765
+./venv/bin/python -m src.editor.review_server "<project>"       # http://127.0.0.1:8766
 ./venv/bin/python -m src.editor.render "<project>" --final     # 4K → 02 - Export/<project>.mp4
 ./venv/bin/python -m src.editor.render "<project>" --package   # clean numbered clips + SRT for CapCut
 ```
+
+**Review chat (creator, 2026-10-01).** Both pages have a "和 Claude 聊" box.
+- **What it carries:** each message he sends records where he was (raw clip + time, or cut time). The messages are stored in `edit/chat.jsonl`.
+- **Watching:** while he reviews, keep a Monitor running `python -u -m src.editor.chat "<project>" watch`. Re-arm it every 30 min.
+- **Replying:** answer with `python -m src.editor.chat "<project>" reply "…"`, so he never has to switch back to the terminal.
+- **Acting on notes:** apply a note, re-render, then reply with what changed and the 成片 timestamps.
+
 
 Segments are cached by content hash (video and audio separately), so a re-render after edits
 only re-encodes changed shots, and an audio-only change re-renders PCM only.
@@ -397,7 +404,7 @@ against captions.srt; ebur128 loudness over time for music-over-speech, pops, ho
 what it can directly in the EDL (reload before every write — the creator may be editing), and
 re-renders. Round 2+: the reviewer also watches the RAW footage (contact sheets + proofread
 transcripts) against the cut and restores missed moments; editor and reviewer iterate until
-neither has substantive issues. Then hand the review page (port 8765, plain-language UI) to the creator. Their edits are
+neither has substantive issues. Then hand the review page (port 8766, plain-language UI) to the creator. Their edits are
 saved back to the EDL (with history in `edit/history/`); every recurring correction becomes a
 preference in memory.
 

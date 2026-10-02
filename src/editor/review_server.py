@@ -1,6 +1,6 @@
 """Local review/edit page for an auto-assembled vlog EDL.
 
-    ./venv/bin/python -m src.editor.review_server "<project>" [--port 8765]
+    ./venv/bin/python -m src.editor.review_server "<project>" [--port 8766]
 
 Serves one self-contained HTML page (no CDN) where the creator trims, reorders, splits
 and re-captions shots, then saves the EDL and kicks off the renderer:
@@ -26,6 +26,7 @@ from flask import Flask, Response, abort, jsonify, request, send_file
 
 from . import edl as E
 from . import questions as QS
+from . import chat as CHAT
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CACHE_ROOT = "/tmp/yt-editor"
@@ -40,6 +41,7 @@ _thumb_sem = threading.Semaphore(4)
 # ---------------------------------------------------------------- helpers
 
 QS.register(app, lambda: PROJECT)
+CHAT.register(app, lambda: PROJECT)
 
 
 def edit_dir():
@@ -905,14 +907,14 @@ __QA_JS__
 """
 
 
-PAGE = QS.inject(PAGE)
+PAGE = CHAT.inject(QS.inject(PAGE).replace("</body>", "<script>window.chatCtx=()=>({cut_t:Math.round((document.getElementById('mv').currentTime||0)*10)/10})</script></body>", 1), "cut")
 
 
 def main():
     global PROJECT
     ap = argparse.ArgumentParser(description="Review/edit page for an auto-assembled vlog EDL")
     ap.add_argument("project", help="project folder name under ~/Desktop, or a path")
-    ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--port", type=int, default=8766)
     ap.add_argument("--host", default="127.0.0.1")
     a = ap.parse_args()
     PROJECT = os.path.abspath(E.project_dir(a.project))

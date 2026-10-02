@@ -1,6 +1,6 @@
 """Raw footage player: watch every unedited clip of a trip back-to-back.
 
-    ./venv/bin/python -m src.editor.footage_player "<project>" [--port 8766]
+    ./venv/bin/python -m src.editor.footage_player "<project>" [--port 8765]
 
 Plays `<project>/01 - Unedited/*.MP4` in capture order (ffprobe creation_time, then
 filename) as one continuous stream, with speed presets, a whole-trip timeline, a clip list
@@ -26,6 +26,7 @@ from flask import Flask, Response, abort, jsonify, send_file
 
 from . import edl as E
 from . import questions as QS
+from . import chat as CHAT
 
 CACHE_ROOT = "/tmp/yt-editor"
 DEFAULT_SOURCE = "01 - Unedited"
@@ -36,6 +37,7 @@ _lock = threading.Lock()
 _clips = {"key": None, "list": []}
 _thumb_sem = threading.Semaphore(3)
 QS.register(app, lambda: PROJECT)
+CHAT.register(app, lambda: PROJECT)
 
 
 # ---------------------------------------------------------------- helpers
@@ -620,14 +622,14 @@ setInterval(()=>{if(!clips.length)return;
 __QA_JS__
 </script></body></html>
 """
-PAGE = QS.inject(PAGE)
+PAGE = CHAT.inject(QS.inject(PAGE).replace("</body>", "<script>window.chatCtx=()=>({clip:(clips[idx]||{}).clip,clip_t:Math.round((cur.currentTime||0)*10)/10})</script></body>", 1), "raw")
 
 
 def main():
     global PROJECT
     ap = argparse.ArgumentParser(description="Watch all raw clips of a trip back-to-back")
     ap.add_argument("project", help="project folder name under ~/Desktop, or a path")
-    ap.add_argument("--port", type=int, default=8766)
+    ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--host", default="127.0.0.1")
     a = ap.parse_args()
     PROJECT = os.path.abspath(E.project_dir(a.project))
