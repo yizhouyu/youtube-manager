@@ -380,11 +380,11 @@ body.dirty #bSave kbd{color:var(--accent);border-color:var(--accent-line)}
 .bigplay.hide{opacity:0;transform:scale(1.25)}#pvv{cursor:pointer}
 /* fullscreen / chat-mode buttons on the picture (the native bar's own fullscreen is off: it would fullscreen the bare
    <video> and leave the chat behind). Shown on mouse movement or while paused, like the native bar. */
-#pvtools{position:absolute;bottom:46px;right:84px;z-index:4;display:flex;gap:6px;opacity:0;transition:opacity .2s;pointer-events:none}
+#pvtools{position:absolute;bottom:30px;right:92px;z-index:4;display:flex;gap:6px;opacity:0;transition:opacity .2s;pointer-events:none}
 #pv.act #pvtools,#pv.paused #pvtools{opacity:1;pointer-events:auto}
-#pvtools button{height:34px;min-width:34px;padding:0 9px;border:0;border-radius:9px;background:rgba(0,0,0,.5);color:#fff;
-  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:12px}
-#pvtools button:hover{background:rgba(0,0,0,.72)}
+#pvtools button{height:34px;min-width:34px;padding:0 6px;border:0;border-radius:50%;background:transparent;color:#fff;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:12px}
+#pvtools button:hover{background:rgba(255,255,255,.16)}
 #pvtools svg{display:block}
 #pv video::-webkit-media-controls-fullscreen-button{display:none}
 /* fullscreen (chat.py): video on the left, rail with the question card + chat on the right (or floating) */
