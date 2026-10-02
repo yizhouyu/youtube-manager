@@ -365,7 +365,9 @@ body:not(.showuse) .seg .u,body:not(.showuse) .item .ub,body:not(.showuse) .lege
 /* ---- right rail */
 .rail{display:flex;flex-direction:column;gap:12px;padding:16px 16px 16px 0;min-height:0}
 #qcard .qa-card{margin:0;box-shadow:var(--sh-1)}
-.lists{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.lists{flex:0 1 auto;max-height:34vh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.lists.closed .pane{display:none}.lists.closed .tabs{border-bottom:0;padding-bottom:6px}
+#listTog{margin-left:auto;color:var(--text-3);font-weight:400}
 .tabs{display:flex;gap:2px;padding:6px 6px 0;border-bottom:1px solid var(--line);flex:none}
 .tab{border:0;background:transparent;border-radius:var(--r-sm) var(--r-sm) 0 0;padding:6px 12px 8px;font-size:13px;font-weight:500;color:var(--text-3);
   position:relative}
@@ -378,10 +380,10 @@ body:not(.hasq) #qtab{display:none}
 .pane{flex:1;min-height:0;overflow-y:auto}
 .pane[hidden]{display:none}
 #qpanel{padding:8px}
-#chatDock{flex:0 0 300px;min-height:0;overflow:hidden}
+#chatDock{flex:1 1 auto;min-height:280px;overflow:hidden}
 #chatDock.min{flex-basis:auto}
 #chatDock #cb{border:0;border-radius:0}
-@media (max-height:860px){#chatDock{flex-basis:250px}}
+
 .dayhead{padding:8px 12px 6px;background:var(--surface);color:var(--text-2);font-size:12px;font-weight:600;
   border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1}
 .item{display:grid;grid-template-columns:88px 1fr;gap:10px;padding:8px 12px;border-bottom:1px solid var(--surface-3);cursor:pointer;position:relative}
@@ -442,8 +444,8 @@ __QA_CSS__
 </main>
 <aside class="rail" data-fsrail>
   <div id="qcard"></div>
-  <div class="panel lists">
-    <div class="tabs"><button class="tab on" data-tab="list">片段<span class="n" id="count"></span></button><button class="tab" data-tab="qpanel" id="qtab">问题<span class="n" id="qcount"></span></button></div>
+  <div class="panel lists closed" id="lists">
+    <div class="tabs"><button class="tab on" data-tab="list">片段<span class="n" id="count"></span></button><button class="tab" data-tab="qpanel" id="qtab">问题<span class="n" id="qcount"></span></button><button class="tab" id="listTog" title="片段列表默认收起，聊天框更大">展开 ▾</button></div>
     <div class="pane scroll" id="list"></div>
     <div class="pane scroll" id="qpanel" hidden></div>
   </div>
@@ -682,7 +684,11 @@ setInterval(()=>{if(!clips.length)return;
 </script>
 <script>
 __QA_JS__
-</script></body></html>
+</script><script>(function(){const L=document.getElementById('lists'),b=document.getElementById('listTog');
+let open=false;try{open=localStorage.getItem('fp_lists_open')==='1'}catch(e){}
+const set=o=>{open=o;L.classList.toggle('closed',!o);b.textContent=o?'收起 ▴':'展开 ▾';try{localStorage.setItem('fp_lists_open',o?'1':'0')}catch(e){}};
+set(open);b.addEventListener('click',e=>{e.stopPropagation();set(!open)});
+document.querySelectorAll('.tabs .tab[data-tab]').forEach(t=>t.addEventListener('click',()=>{if(!open)set(true)}));})();</script></body></html>
 """
 PAGE = CHAT.inject(QS.inject(PAGE.replace("__THEME_CSS__", THEME.CSS)).replace("</body>", "<script>window.chatCtx=()=>({clip:(clips[idx]||{}).clip,clip_t:Math.round((cur.currentTime||0)*10)/10})</script></body>", 1), "raw")
 
