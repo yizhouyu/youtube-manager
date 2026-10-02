@@ -327,9 +327,9 @@ main{display:flex;flex-direction:column;padding:16px;min-width:0;min-height:0}
 .speeds{display:flex;height:28px;border-radius:var(--r-sm);background:rgba(255,255,255,.12);padding:2px;gap:2px}
 .speeds button{height:24px;min-width:0;padding:0 9px;font-size:12px;font-weight:500;border-radius:6px;color:var(--stage-ink);font-variant-numeric:tabular-nums}
 .speeds button.on{background:#fff;color:#111}
-.tl-row{position:relative}
-.tl{position:relative;height:8px;border-radius:4px;cursor:pointer;overflow:hidden;display:flex;transition:height .15s ease}
-.tl-row:hover .tl{height:14px}
+.tl-row{position:relative;padding:8px 0;margin:-8px 0;cursor:pointer}
+.tl{position:relative;height:14px;border-radius:5px;cursor:pointer;overflow:hidden;display:flex;transition:height .15s ease}
+.tl-row:hover .tl,.tl-row.drag .tl{height:22px}
 .seg{position:relative;height:100%;background:rgba(255,255,255,.4);border-right:1px solid rgba(0,0,0,.5)}
 body.showuse .seg{background:rgba(255,255,255,.2)}
 body.showuse .seg.noedl{background:rgba(255,255,255,.4)}
@@ -338,7 +338,7 @@ body.showuse .seg.noedl{background:rgba(255,255,255,.4)}
 .seg.cur{background:rgba(255,255,255,.62)}
 body.showuse .seg.cur{background:rgba(255,255,255,.38)}
 body:not(.showuse) .seg .u,body:not(.showuse) .item .ub,body:not(.showuse) .legend{display:none}
-.ph{position:absolute;top:-4px;bottom:-4px;width:3px;margin-left:-1px;background:#ff3b5c;border-radius:2px;pointer-events:none;z-index:2}
+.ph{position:absolute;top:2px;bottom:2px;width:4px;margin-left:-1px;background:#ff3b5c;border-radius:2px;pointer-events:none;z-index:2}
 .hover{position:absolute;bottom:22px;transform:translateX(-50%);background:rgba(20,20,20,.92);color:#fff;
   font-size:12px;padding:3px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;display:none;font-variant-numeric:tabular-nums}
 .qms{position:absolute;left:0;right:0;top:-11px;height:0;z-index:3}
@@ -573,6 +573,11 @@ function build(){
 const tl=$('tl');
 function tlAt(e){const r=tl.getBoundingClientRect();return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*total}
 tl.addEventListener('click',e=>jumpGlobal(tlAt(e)));
+// drag to scrub (YouTube-style): hold and slide along the bar
+(function(){let drag=false,last=0;const row=tl.parentElement;
+  tl.addEventListener('pointerdown',e=>{drag=true;row.classList.add('drag');tl.setPointerCapture(e.pointerId);jumpGlobal(tlAt(e));e.preventDefault()});
+  tl.addEventListener('pointermove',e=>{if(!drag)return;const now=performance.now();if(now-last<80)return;last=now;jumpGlobal(tlAt(e))});
+  const end=()=>{drag=false;row.classList.remove('drag')};tl.addEventListener('pointerup',end);tl.addEventListener('pointercancel',end)})();
 tl.addEventListener('mousemove',e=>{const g=tlAt(e);let i=0;while(i+1<clips.length&&starts[i+1]<=g)i++;
   const h=$('hover');h.style.display='block';h.style.left=(g/total*100)+'%';
   h.textContent=`${fmt(g)} · ${clips[i].clip} ${clips[i].when}`});
