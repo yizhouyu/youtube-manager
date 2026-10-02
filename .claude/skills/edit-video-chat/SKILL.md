@@ -379,6 +379,9 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
   fact card), download it and put it in. Prefer public-domain / freely licensed sources
   (Wikimedia Commons, NPS/NASA/Library of Congress, official park maps), keep it short, and
   credit the source on screen or in the description. No other creators' vlog footage or music.
+  **Bilibili (creator suggestion, 2026-10-01).** It's a good place to *find* references and ideas. Most uploads there are other people's copyrighted work, though: re-uploaded TV and film clips, and other creators' vlogs. Using those risks Content ID claims and takedowns on both platforms.
+  - **Allowed:** download from Bilibili only when the uploader clearly licenses reuse (e.g. CC marked), or it's official public-domain or press material, or it's the creator's own upload.
+  - **Otherwise:** use Bilibili to identify what to show, then source a licensed equivalent (Wikimedia Commons, official press kits, PD archives).
   Short video clips may come from YouTube via `yt-dlp` only when the watch page says "Creative
   Commons Attribution": keep them ≤ ~10 s, credit the uploader on screen and in the description,
   and expect that Content ID can still claim a CC re-upload (Deedy Das, LinkedIn 2026-09).
