@@ -18,6 +18,8 @@ This repository is the source of truth for editing a creator's travel videos. Th
 - Treat new motion graphics, archival photos, data cards, AI-generated narration/music and generated visuals as authored assets: verify facts/licence, label illustrative material, credit sources, preserve files and settings, and never fabricate documentary evidence.
 - QA is part of the edit: review the rendered images, listen/re-transcribe dialogue against captions, measure audio, compare the cut against the original footage, and leave a reviewable handoff with known limitations.
 
+- **Exhaust every option before saying "can't".** Before reporting that a fact can't be verified or a task is blocked, try every reasonable route: a browser search, other engines, official sites, archives, local data, a subagent. Report what was tried. Persistence is the default.
+
 ## Data and version safety
 
 - Never modify, rename or delete `01 - Unedited/` raw media.
