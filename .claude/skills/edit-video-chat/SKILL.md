@@ -382,7 +382,7 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
   **Bilibili (creator suggestion, 2026-10-01).** It's a good place to *find* references and ideas. Most uploads there are other people's copyrighted work, though: re-uploaded TV and film clips, and other creators' vlogs. Using those risks Content ID claims and takedowns on both platforms.
   - **Allowed:** download from Bilibili only when the uploader clearly licenses reuse (e.g. CC marked), or it's official public-domain or press material, or it's the creator's own upload.
   - **Otherwise:** use Bilibili to identify what to show, then source a licensed equivalent (Wikimedia Commons, official press kits, PD archives).
-  - **Update, same day:** the creator allows **short clips (≤ about 5 s)** from Bilibili when they add real context, such as a TV show, film, documentary, news or archival moment about what we're showing.
+  - **Update, same day:** the creator allows **short clips (≤ about 5 s)** from Bilibili **or any other site** (YouTube, news sites, archives…) when they add real context, such as a TV show, film, documentary, news or archival moment about what we're showing.
     - Credit the source on screen and in the description.
     - Log every use in `edit/outside/bili/CREDITS.md` so a clip can be swapped if it's claimed.
     - Don't use other travel vloggers' own footage.
