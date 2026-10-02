@@ -921,6 +921,18 @@ def _speech_windows(edl, pad=0.35):
                 if s["kind"] == "speech")  # editor notes don't duck the music
     # narration ducks the music too, whether or not its caption is on a shot (cards draw no subtitles)
     iv = sorted(iv + [(max(0, t0 - pad), t0 + d + pad) for _p, t0, d, _e in voiceover_spans(edl)])
+    # ...and so do TTS lines placed as a shot's sfx: their caption is a note (white subtitles carry
+    # real speech only), so without this the music would play at full level under them
+    rows, _ = E.timeline(edl)
+    for s, st in rows:
+        for fx in s.get("sfx", []):
+            path = os.path.join(E.edit_dir(edl["project"]), fx.get("file", ""))
+            if is_tts_sfx(fx) and os.path.exists(path):
+                at = float(fx.get("at", 0.0))
+                d = min(_media_dur(path), E.shot_dur(s) - at)
+                if d > 0.05:
+                    iv.append((max(0, st + at - pad), st + at + d + pad))
+    iv.sort()
     merged = []
     for a, b in iv:
         if merged and a <= merged[-1][1] + 0.8:

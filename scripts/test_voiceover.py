@@ -44,6 +44,11 @@ def main():
         # c1 at 0 + 1.0 (runs over the c1|c3 cut at 2.0); c2 is cut -> falls through to c3 at 2.0 + 0.5
         assert [(round(t, 3), round(d, 2), e.get("gain")) for _p, t, d, e in spans] == [(1.0, 3.0, -6), (2.5, 3.0, None)], spans
         assert R._speech_windows(edl)[0][0] < 1.0 and R._speech_windows(edl)[-1][1] > 5.5  # music ducks under it
+        # a TTS line placed as a shot sfx, captioned as a note (white subtitles = real speech only), ducks too;
+        # the window is cut at the shot's end like the sfx itself
+        sfx_edl = {"project": proj, "shots": [dict(card("c1", 2.0), subs=[{"t0": 0.5, "t1": 1.8, "text": "n", "kind": "note"}],
+                                                   sfx=[{"file": "tts/line.wav", "at": 0.5}]), card("c3", 4.0)]}
+        assert [[round(a, 2), round(b, 2)] for a, b in R._speech_windows(sfx_edl)] == [[0.15, 2.35]], R._speech_windows(sfx_edl)
         voice = os.path.join(td, "voice.wav")
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"anullsrc=r={SR}:cl=stereo", "-t", "6",
                         "-c:a", "pcm_s16le", voice], check=True)
