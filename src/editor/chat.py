@@ -85,6 +85,24 @@ def post(project, role, text, ctx=None):
     return msg
 
 
+def _set_react(project, msg_id, target):
+    """Turn message msg_id into a reaction to `target` (rewrites that one line)."""
+    p = path(project)
+    with open(p, "r+", encoding="utf-8") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        lines = f.read().splitlines()
+        out = []
+        for l in lines:
+            if l.strip():
+                m = json.loads(l)
+                if m.get("id") == msg_id:
+                    m["react_to"] = target
+                l = json.dumps(m, ensure_ascii=False)
+            out.append(l)
+        f.seek(0); f.truncate(); f.write("\n".join(out) + "\n")
+        fcntl.flock(f, fcntl.LOCK_UN)
+
+
 def _where(ctx):
     if not ctx:
         return ""
@@ -151,7 +169,8 @@ WIDGET = r"""
 #cbBody{display:flex;flex-direction:column;flex:1;min-height:0}
 #cbList{flex:1;min-height:0;overflow-y:auto;padding:10px 12px 4px;background:var(--surface-2)}
 #cbEmpty{color:var(--text-3);font-size:12px;text-align:center;padding:18px 8px}
-.cbm{display:flex;flex-direction:column;margin:0 0 10px;max-width:90%}
+.cbm{display:flex;flex-direction:column;margin:0 0 10px;max-width:90%;position:relative}
+.cbm .react{align-self:flex-end;margin-top:-8px;margin-right:6px;font-size:13px;line-height:1;padding:3px 6px;border-radius:999px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--sh-1)}
 .cbm .bub{padding:7px 11px;border-radius:12px;white-space:pre-wrap;word-break:break-word}
 .cbm.creator{margin-left:auto;align-items:flex-end}
 .cbm.creator .bub{background:var(--accent-soft);color:#1b3a7a;border-bottom-right-radius:4px}
@@ -183,10 +202,16 @@ WIDGET = r"""
 .fsbar .fsb[data-a=min]{display:none}
 /* float: the video gets the whole screen, the rail becomes a translucent panel */
 [data-fsroot].fs.fs-float{grid-template-columns:minmax(0,1fr)}
-[data-fsroot].fs.fs-float [data-fsrail]{position:absolute;right:var(--fsr,20px);bottom:var(--fsb,164px);width:min(350px,calc(100vw - 32px));
-  height:min(560px,calc(100vh - 200px));padding:4px 10px 10px;z-index:20;border:1px solid rgba(255,255,255,.12);border-radius:14px;
+[data-fsroot].fs.fs-float [data-fsrail]{position:absolute;right:var(--fsr,20px);bottom:var(--fsb,164px);width:var(--fsw,min(350px,calc(100vw - 32px)));
+  height:var(--fsh,min(560px,calc(100vh - 200px)));padding:4px 10px 10px;z-index:20;border:1px solid rgba(255,255,255,.12);border-radius:14px;
   background:rgba(16,18,22,.66);-webkit-backdrop-filter:blur(18px) saturate(1.3);backdrop-filter:blur(18px) saturate(1.3);
   box-shadow:0 14px 44px rgba(0,0,0,.5);--surface:rgba(255,255,255,.05);--surface-2:rgba(0,0,0,.18);--line:rgba(255,255,255,.10)}
+/* float panel: drag the left edge, top edge or top-left corner to resize */
+.fsrz{display:none;position:absolute;z-index:3}
+[data-fsroot].fs.fs-float .fsrz{display:block}
+.fsrz.l{left:-5px;top:12px;bottom:12px;width:10px;cursor:ew-resize}
+.fsrz.t{top:-5px;left:12px;right:12px;height:10px;cursor:ns-resize}
+.fsrz.tl{left:-6px;top:-6px;width:16px;height:16px;cursor:nwse-resize}
 [data-fsroot].fs.fs-float [data-fsrail] #cbForm textarea{background:rgba(0,0,0,.25)}
 [data-fsroot].fs.fs-float #cbList{-webkit-mask-image:linear-gradient(to bottom,transparent,#000 22px);mask-image:linear-gradient(to bottom,transparent,#000 22px)}
 [data-fsroot].fs.fs-float .fsbar{cursor:grab}
@@ -238,7 +263,9 @@ WIDGET = r"""
     try{localStorage.setItem('cb_min',box.classList.contains('min')?'1':'0')}catch(e){}};
   const where=c=>!c?'':c.clip?`原片 ${c.clip} @ ${(+c.clip_t||0).toFixed(1)}s`:(c.cut_t!=null?`成片 ${Math.floor(c.cut_t/60)}:${(c.cut_t%60).toFixed(1).padStart(4,'0')}`:'');
   function add(m){const e=document.getElementById('cbEmpty');if(e)e.remove();
-    const d=document.createElement('div');d.className='cbm '+m.role;
+    if(m.react_to){const t=list.querySelector('[data-mid="'+m.react_to+'"]');
+      if(t){let r=t.querySelector('.react');if(!r){r=document.createElement('span');r.className='react';t.appendChild(r)}r.textContent=m.text}return}
+    const d=document.createElement('div');d.className='cbm '+m.role;d.dataset.mid=m.id;
     const w=document.createElement('span');w.className='w';w.textContent=(m.role==='claude'?'Agent':'我')+' · '+String(m.ts||'').slice(11,16)+(m.ctx&&where(m.ctx)?' · '+where(m.ctx):'');
     const b=document.createElement('div');b.className='bub';b.textContent=m.text;
     d.appendChild(w);d.appendChild(b);list.appendChild(d);if(pinned||m.role==='creator')list.scrollTop=list.scrollHeight;
@@ -319,6 +346,17 @@ WIDGET = r"""
     const end=()=>{if(!drag)return;drag=null;bar.classList.remove('drag');ls('cb_fs_pos',JSON.stringify(S.pos))};
     bar.addEventListener('pointerup',end);bar.addEventListener('pointercancel',end);
     window.addEventListener('resize',()=>{if(S.on&&S.mode==='float')place()});
+    // resize the floating panel: it is anchored bottom-right, so dragging the left/top edges grows it
+    let rz=null;
+    try{const z=JSON.parse(ls('cb_fs_size')||'null');if(z){root.style.setProperty('--fsw',z.w+'px');root.style.setProperty('--fsh',z.h+'px')}}catch(e){}
+    ['l','t','tl'].forEach(d=>{const h=document.createElement('div');h.className='fsrz '+d;rail.appendChild(h);
+      h.addEventListener('pointerdown',e=>{if(!(S.on&&S.mode==='float'))return;rz={d,x:e.clientX,y:e.clientY,w:rail.offsetWidth,h:rail.offsetHeight};
+        h.setPointerCapture(e.pointerId);e.preventDefault();e.stopPropagation()});
+      h.addEventListener('pointermove',e=>{if(!rz)return;const W=root.clientWidth,H=root.clientHeight;
+        if(rz.d!=='t')root.style.setProperty('--fsw',Math.max(260,Math.min(W*0.7,rz.w-(e.clientX-rz.x)))+'px');
+        if(rz.d!=='l')root.style.setProperty('--fsh',Math.max(220,Math.min(H-40,rz.h-(e.clientY-rz.y)))+'px')});
+      const done=()=>{if(!rz)return;rz=null;ls('cb_fs_size',JSON.stringify({w:rail.offsetWidth,h:rail.offsetHeight}));place()};
+      h.addEventListener('pointerup',done);h.addEventListener('pointercancel',done)});
     // C: rail <-> float (only in fullscreen, never while typing)
     document.addEventListener('keydown',e=>{
       if(!S.on||e.metaKey||e.ctrlKey||e.altKey||(e.key!=='c'&&e.key!=='C'))return;
@@ -373,6 +411,11 @@ def main():
     project, cmd = sys.argv[1], sys.argv[2]
     if cmd == "reply":
         print(post(project, "claude", " ".join(sys.argv[3:])))
+    elif cmd == "react":  # react <id> [emoji]: a small badge on the creator's message, e.g. 👍 = received
+        mid = int(sys.argv[3]); emoji = sys.argv[4] if len(sys.argv) > 4 else "👍"
+        m = post(project, "claude", emoji)
+        _set_react(project, m["id"], mid)
+        print(m)
     elif cmd == "tail":
         n = int(sys.argv[3]) if len(sys.argv) > 3 else 20
         for m in load(project)[-n:]:
