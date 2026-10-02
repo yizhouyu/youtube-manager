@@ -484,6 +484,8 @@ def compose(spec, size, bili=False):
     boxes = {}
     for i, L in enumerate(spec.get("layers", [])):
         g = lambda k, d=None: _v(L, k, d, bili)  # noqa: E731
+        if g("skip", False):                                    # e.g. {"bili": {"skip": True}}: one platform only
+            continue
         kind = L["kind"]
         if kind == "subject":                                  # hero foreground over whatever came before
             if hero_mask is None or hero_mask.size != (W, H):

@@ -221,6 +221,15 @@ show a **4:3 centre crop** and every card overlays duration (bottom-right) and p
   - ≤6 core characters, one font, ≤2 colours.
   - Nothing in the bottom strip (the play-count and duration overlays sit there), no border, don't cover the subject.
 - **YouTube thumbnail:** one subject plus two short lines.
+- **Title type (creator, 2026-10-01).**
+  - Use: clean heavy type with a thin dark stroke (about 1.2–1.5% of the height) and a soft halo, in white with one yellow accent word. This is the treatment of 94 G and 92/93 G.
+  - Never: the thick white "sticker" double outline, which he called "太丑了、太粗了". Never: fills that close up the glyph counters.
+- **Thumbnail review is mandatory and strict.** A separate reviewer subagent, not the one who made the thumbnail:
+  - compares each option side by side with the creator-picked references (94 G, 93 G, 92 G, 88 E in `sessions/archive/*/thumbnail/`);
+  - zooms to 100% on the title to check stroke weight and open counters (画, 最, 贵);
+  - checks the phone sizes (320 px / 168 px);
+  - checks the Bilibili 16:10 version separately: a card must not cover the subject, and dropping it is fine.
+  - Anything that looks heavier or uglier than the references fails, whatever its score.
 - **The cover moment appears in the first seconds of the video,** so the click is reaffirmed (see the edit skill, 2b+).
 - **Test & Compare**
   - Picks its winner by watch-time share.
