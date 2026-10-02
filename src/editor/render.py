@@ -89,7 +89,9 @@ def _zoom_filters(z, dur, w, h):
     float precision, then crop — avoids zoompan's integer-pixel jitter."""
     a, b = z.get("from", 1.0), z.get("to", 1.2)
     x, y = z.get("x", 0.5), z.get("y", 0.5)
-    p = f"min(t/{dur:.3f},1)"
+    # optional t0/t1 (rendered shot-local s): hold at `from` until t0, reach `to` at t1
+    t0, t1 = z.get("t0", 0.0), z.get("t1", dur)
+    p = f"clip((t-{t0:.3f})/{max(t1 - t0, 0.05):.3f},0,1)"
     zz = f"({a}+({b - a})*{p}*{p}*(3-2*{p}))"
     return [f"scale='trunc({w}*{zz}/2)*2':'trunc({h}*{zz}/2)*2':eval=frame:flags=bicubic",
             # crop's iw/ih are fixed at init (the first frame's size), so compute the offset
