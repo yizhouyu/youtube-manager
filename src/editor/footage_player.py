@@ -291,7 +291,10 @@ main{display:flex;flex-direction:column;padding:16px;min-width:0;min-height:0}
 /* ---- video stage (always dark) */
 .stage{position:relative;flex:none;width:100%;aspect-ratio:16/9;max-height:calc(100vh - var(--hdr) - 32px - 40px);
   background:var(--stage);border-radius:var(--r-lg);overflow:hidden;container-type:size;cursor:default;box-shadow:var(--sh-1)}
-.stage:fullscreen{border-radius:0;max-height:none;aspect-ratio:auto;width:100%;height:100%}
+/* fullscreen = this whole area (video + rail), so the chat stays on screen (chat.py: .fs / .fs-rail / .fs-float) */
+.body.fs main{padding:0;min-height:0;height:100vh}
+.body.fs .stage{border-radius:0;max-height:none;aspect-ratio:auto;width:100%;height:100%;box-shadow:none}
+.body.fs .below,.body.fs .lists{display:none !important}
 .stage:not(.ctl){cursor:none}
 .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--stage)}
 .stage video.hidden{visibility:hidden}
@@ -342,9 +345,6 @@ body:not(.showuse) .seg .u,body:not(.showuse) .item .ub,body:not(.showuse) .lege
 .qm{position:absolute;top:0;width:0;height:0;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;
   border-top:8px solid var(--q);cursor:pointer;filter:drop-shadow(0 0 1px rgba(0,0,0,.8))}
 .qm.done{border-top-color:var(--used)}
-.qafs{display:none;position:absolute;top:14px;right:14px;z-index:5;background:var(--q-soft);color:var(--q-ink);
-  font-size:13px;font-weight:500;padding:5px 14px;border-radius:999px;pointer-events:none;box-shadow:var(--sh-2)}
-.stage:fullscreen .qafs.on{display:block}
 /* ---- row under the stage: legend, toggle, shortcuts */
 .below{display:flex;align-items:center;gap:16px;color:var(--text-3);font-size:13px;margin-top:10px;min-height:28px}
 .legend{display:flex;gap:14px;align-items:center;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -404,7 +404,7 @@ __QA_CSS__
   <span class="kind">原片预览</span><span class="sep"></span><span class="pname">__TITLE__</span>
   <span class="meta" id="hmeta"></span><span class="sp"></span><span class="meta" id="est"></span>
 </header>
-<div class="body">
+<div class="body" data-fsroot>
 <main>
   <div class="stage ctl" id="stage">
     <video id="va" playsinline preload="auto"></video>
@@ -412,7 +412,6 @@ __QA_CSS__
     <div class="msg" id="msg">加载中…</div>
     <div class="bigplay" id="bigplay"></div>
     <div class="cap" id="cap"></div>
-    <div class="qafs" id="qafs">有个问题想问你 · 按 F 退出全屏回答</div>
     <div class="ov" id="ov">
       <div class="tl-row"><div class="tl" id="tl"></div><div class="ph" id="ph"></div><div class="qms" id="qms"></div>
         <div class="hover" id="hover"></div></div>
@@ -435,12 +434,13 @@ __QA_CSS__
       <div><span>快退 / 快进 5 秒</span><span><kbd>←</kbd><kbd>→</kbd></span></div>
       <div><span>上一段 / 下一段</span><span><kbd>↑</kbd><kbd>↓</kbd></span></div>
       <div><span>切换速度 1x–3x</span><span><kbd>1</kbd>–<kbd>5</kbd></span></div>
-      <div><span>全屏</span><span><kbd>F</kbd></span></div>
+      <div><span>全屏（右边留着聊天）</span><span><kbd>F</kbd></span></div>
+      <div><span>全屏时聊天：右边 / 悬浮</span><span><kbd>C</kbd></span></div>
       <div><span>跳到任意位置</span><span>点进度条</span></div>
     </div></div>
   </div>
 </main>
-<aside class="rail">
+<aside class="rail" data-fsrail>
   <div id="qcard"></div>
   <div class="panel lists">
     <div class="tabs"><button class="tab on" data-tab="list">片段<span class="n" id="count"></span></button><button class="tab" data-tab="qpanel" id="qtab">问题<span class="n" id="qcount"></span></button></div>
@@ -462,7 +462,7 @@ const IC={play:'<svg width="18" height="18" viewBox="0 0 16 16"><path d="M4.5 2.
   fs:'<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
   fsx:'<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5"/></svg>'};
 function playUI(p){$('play').innerHTML=p?IC.pause:IC.play}
-function fsUI(){const f=!!document.fullscreenElement;$('fs').innerHTML=f?IC.fsx:IC.fs;$('fs').title=f?'退出全屏（F）':'全屏（F）'}
+function fsUI(){const f=!!(window.cbFs&&cbFs.active());$('fs').innerHTML=f?IC.fsx:IC.fs;$('fs').title=f?'退出全屏（F / Esc）':'全屏，右边留着聊天（F）'}
 playUI(false);fsUI();
 let cur=$('va'), nxt=$('vb'), nxtIdx=-1;
 try{const s=parseFloat(localStorage.getItem('fp_speed'));if(SPEEDS.includes(s))speed=s}catch(e){}
@@ -593,13 +593,11 @@ function maybeHide(){if(PIN||cur.paused||ov.matches(':hover'))return;
 ['mousedown','touchstart','wheel'].forEach(ev=>stage.addEventListener(ev,()=>{lastUse=Date.now()},{passive:true,capture:true}));
 stage.addEventListener('mousemove',showCtl);
 stage.addEventListener('mouseleave',()=>{clearTimeout(hideT);if(!PIN&&!cur.paused)stage.classList.remove('ctl')});
-function toggleFs(){
-  if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
-  else (stage.requestFullscreen||stage.webkitRequestFullscreen).call(stage)}
+function toggleFs(){window.cbFs.toggle()}   // fullscreen = video + chat rail (chat.py)
 $('fs').onclick=toggleFs;
 // don't let a focused button also react to Space/keys
 document.addEventListener('mouseup',()=>{const a=document.activeElement;if(a&&a.tagName==='BUTTON')a.blur()});
-document.addEventListener('fullscreenchange',fsUI);
+window.addEventListener('cbfs',fsUI);
 // shortcuts popover (also opens on hover) and the rail tabs
 $('keysBtn').onclick=e=>{e.stopPropagation();$('keys').classList.toggle('open')};
 document.addEventListener('click',e=>{if(!$('keys').contains(e.target))$('keys').classList.remove('open')});
@@ -675,7 +673,6 @@ function initQA(){
     seek:g=>{let i=0;while(i+1<clips.length&&starts[i+1]<=g)i++;show(i,g-starts[i],true)},
     label:q=>`${q.clip} · ${fmt(q.clip_t)}`,
     markers:it=>{$('qms').innerHTML=total?it.map(({q,p})=>`<div class="qm${q.answer?' done':''}" data-id="${esc(q.id)}" style="left:${p/total*100}%" title="${esc(q.clip+' · '+fmt(q.clip_t)+' '+q.text)}"></div>`).join(''):''},
-    onTick:(p,q)=>$('qafs').classList.toggle('on',!!q)
   });
   $('qms').addEventListener('click',e=>{const m=e.target.closest('.qm');if(m)api.jump(m.dataset.id)});
 }

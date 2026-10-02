@@ -313,7 +313,7 @@ function initQuestions(cfg){
     if(!q){card.hidden=true; card.innerHTML=''; return}
     card.innerHTML=`<div class="qa-meta"><span>想问你 · ${esc(cfg.label(q,cfg.pos(q)))}</span><button class="qa-skip" title="先不回答，过了这段就收起">跳过</button></div>
       <div class="qa-q">${esc(q.text)}</div>${q.context?`<div class="qa-ctx">${esc(q.context)}</div>`:''}
-      <div class="qa-row"><textarea rows="1" placeholder="写回答，回车提交 · 视频不会停" title="回车提交，Shift+回车换行；视频不会停，边看边写"></textarea>
+      <div class="qa-row"><textarea rows="1" placeholder="写回答，回车提交" title="回车提交，Shift+回车换行；视频不会停，边看边写"></textarea>
         <button class="pri qa-sub">提交</button></div>
       <div class="qa-err"></div><div class="qa-okmsg">已记录 ✓</div>`;
     const ta=card.querySelector('textarea');

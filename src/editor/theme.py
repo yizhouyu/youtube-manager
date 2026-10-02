@@ -4,9 +4,10 @@
     from . import theme
     page = page.replace("__THEME_CSS__", theme.CSS)
 
-Light only (color-scheme: light): the creator works in macOS light mode and the video stage stays
-dark either way. Every colour on the pages and in the widgets comes from these tokens, so a change
-here restyles both pages, and a dark block can be added later in one place.
+Light (color-scheme: light): the creator works in macOS light mode and the video stage stays dark either
+way. Every colour on the pages and in the widgets comes from these tokens, so a change here restyles both
+pages. DARK re-declares the same tokens for dark surroundings; it is scoped to the fullscreen view (video
+plus chat rail, see chat.py), where a light panel next to the picture would glare.
 """
 
 CSS = r"""
@@ -78,4 +79,18 @@ kbd{font:500 12px/1 var(--font);color:var(--text-2);background:var(--surface);bo
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--sh-1)}
 .panel-h{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:13px;font-weight:600;border-bottom:1px solid var(--line)}
 .panel-h .n{color:var(--text-3);font-weight:400}
+"""
+
+# Same tokens for a dark context. Used as declarations inside a selector, e.g. `.fs{__DARK__}`.
+DARK = r"""
+  color-scheme:dark;
+  --bg:#0b0d10; --surface:#171a1f; --surface-2:#1d2127; --surface-3:#272c34;
+  --line:#2a3039; --line-2:#3b424d;
+  --text:#e7e9ec; --text-2:#b6bec8; --text-3:#8e98a4; --faint:#5d6672;
+  --accent:#3b82f6; --accent-hover:#5b9bff; --accent-soft:rgba(59,130,246,.18); --accent-line:rgba(96,150,255,.45);
+  --accent-ring:rgba(59,130,246,.38);
+  --ok:#4ade80; --ok-soft:rgba(34,197,94,.14);
+  --danger:#f87171; --danger-soft:rgba(248,113,113,.12);
+  --q-ink:#fbbf24; --q-soft:rgba(245,158,11,.12); --q-line:rgba(245,158,11,.40);
+  --sh-1:none; --sh-2:0 10px 32px rgba(0,0,0,.5);
 """

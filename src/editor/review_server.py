@@ -345,45 +345,63 @@ input.bad{border-color:var(--danger);background:var(--danger-soft)}
 #bar .hdr{border-bottom:1px solid var(--line)}
 #dirty{color:var(--danger);font-size:13px;display:none;white-space:nowrap}
 #dirty::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--danger);margin-right:6px;vertical-align:1px}
-#bar .acts-top{display:flex;gap:8px;align-items:center}
-#bar .acts-top button{height:32px;padding:0 14px}
+/* top bar actions: quiet; only 更新预览 is a filled button. 保存 lights up when there are unsaved edits */
+#bar .acts-top{display:flex;gap:4px;align-items:center}
+#bar .acts-top button{height:32px;padding:0 12px;font-size:13px}
+#bar .acts-top button.ghost{color:var(--text-2)}
+#bar .acts-top kbd{font-size:11px;padding:1px 4px;margin-left:6px;color:var(--text-3);border-bottom-width:1px}
+body.dirty #bSave{color:var(--accent);background:var(--accent-soft)}
+body.dirty #bSave kbd{color:var(--accent);border-color:var(--accent-line)}
+#bar .acts-top .vs{width:1px;height:18px;background:var(--line);margin:0 6px}
+#bar .acts-top button.pri{padding:0 16px}
 #rs{display:none;padding:8px 16px 10px;font-size:13px;color:var(--text-2);border-bottom:1px solid var(--line)}
 #rs .pb{height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden;margin-top:6px}
 #rs .pb i{display:block;height:100%;background:var(--accent);width:0;transition:width .4s}
 #rs.err{color:var(--danger)} #rs.done{color:var(--ok)} #rs.done .pb i{background:var(--ok)}
 #stale{display:none;padding:7px 16px;background:var(--q-soft);border-bottom:1px solid var(--q-line);color:var(--q-ink);font-size:13px;text-align:center}
 #stale button{font-size:12px;padding:2px 10px;margin-left:6px}
-/* ---- two columns: shot list | sticky rail (preview, questions, chat) */
-.layout{display:grid;grid-template-columns:minmax(0,1fr) clamp(480px,44vw,640px);align-items:start}
-main{padding:16px;min-width:0}
+#errbox{display:none;white-space:pre-wrap;background:var(--danger-soft);border-bottom:1px solid #fecdca;color:var(--danger);padding:8px 16px;
+  font-size:13px;max-height:30vh;overflow-y:auto}
+/* ---- theater layout: big player | narrow rail (question card, chat). Shot editing is a drawer under the player. */
+.theater{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,25vw,400px);align-items:start}
+.stage{padding:16px;min-width:0;display:flex;flex-direction:column}
 .rail{position:sticky;top:var(--barh,52px);height:calc(100vh - var(--barh,52px));display:flex;flex-direction:column;gap:12px;
   padding:16px 16px 16px 0;min-height:0}
-#help{display:flex;gap:10px;align-items:center;background:var(--accent-soft);border:1px solid var(--accent-line);color:var(--text-2);
-  border-radius:var(--r);padding:7px 8px 7px 14px;margin-bottom:12px;font-size:13px}
-#help .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#help b{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:600;margin:0 4px 0 8px;vertical-align:1px}
-#help b:first-child{margin-left:0}
-#help button{width:26px;height:26px;padding:0;flex:none;color:var(--text-3)}
-body.nohelp #help{display:none}
-#errbox{display:none;white-space:pre-wrap;background:var(--danger-soft);border:1px solid #fecdca;color:var(--danger);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;font-size:13px}
-#listEnd{margin:18px 0 0;padding:22px 0 40vh;text-align:center;color:var(--text-3);font-size:14px;border-top:1px dashed var(--line-2)}
-#listEnd b{color:var(--text)}
-#listEnd a{color:var(--accent);text-decoration:none}
-/* ---- preview */
-#pvwrap{flex:none}
+/* player: as wide as the column, but never taller than the window allows (16:9) */
+#pvwrap{flex:none;width:min(100%,calc((100vh - var(--barh,52px) - 150px)*16/9));margin:0 auto;transition:width .25s ease}
 #pv{background:var(--stage);border-radius:var(--r-lg);overflow:hidden;display:flex;justify-content:center;align-items:center;aspect-ratio:16/9;
-  max-height:46vh;position:relative;box-shadow:var(--sh-1)}
+  width:100%;position:relative;box-shadow:var(--sh-1)}
 #pv video{width:100%;height:100%;object-fit:contain;display:block}
-#pvnew{display:none;position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:4;border:0;border-radius:999px;padding:6px 14px;font-size:13px;
+#pvnew{display:none;position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:4;border:0;border-radius:999px;padding:6px 14px;font-size:13px;
   background:var(--accent);color:#fff;box-shadow:var(--sh-2);cursor:pointer;white-space:nowrap}
-.bigplay{position:absolute;left:50%;top:50%;width:68px;height:68px;margin:-34px 0 0 -34px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);
+.bigplay{position:absolute;left:50%;top:50%;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);
   pointer-events:none;z-index:3;transition:opacity .2s ease,transform .2s ease}
-.bigplay::after{content:'';position:absolute;left:27px;top:20px;border-style:solid;border-width:14px 0 14px 23px;border-color:transparent transparent transparent #fff}
+.bigplay::after{content:'';position:absolute;left:30px;top:23px;border-style:solid;border-width:15px 0 15px 25px;border-color:transparent transparent transparent #fff}
 .bigplay.hide{opacity:0;transform:scale(1.25)}#pvv{cursor:pointer}
-#pv:fullscreen{border-radius:0}#pv:fullscreen video{max-height:100vh;width:100%;height:100%}
-#follow{display:none;position:absolute;right:10px;top:10px;z-index:2;border:0;border-radius:999px;padding:4px 12px;font-size:12px;background:rgba(255,255,255,.94);
-  color:var(--accent);box-shadow:var(--sh-2)}
-#pv .none{color:var(--stage-mute);padding:30px;font-size:13px;text-align:center}
+/* fullscreen / chat-mode buttons on the picture (the native bar's own fullscreen is off: it would fullscreen the bare
+   <video> and leave the chat behind). Shown on mouse movement or while paused, like the native bar. */
+#pvtools{position:absolute;top:10px;right:10px;z-index:4;display:flex;gap:6px;opacity:0;transition:opacity .2s;pointer-events:none}
+#pv.act #pvtools,#pv.paused #pvtools{opacity:1;pointer-events:auto}
+#pvtools button{height:34px;min-width:34px;padding:0 9px;border:0;border-radius:9px;background:rgba(0,0,0,.5);color:#fff;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:12px}
+#pvtools button:hover{background:rgba(0,0,0,.72)}
+#pvtools svg{display:block}
+#pv video::-webkit-media-controls-fullscreen-button{display:none}
+/* fullscreen (chat.py): video on the left, rail with the question card + chat on the right (or floating) */
+.theater.fs .stage{padding:0;height:100vh;min-height:0;overflow:hidden}
+.theater.fs #pvwrap{width:100%;height:100%;margin:0;transition:none}
+.theater.fs #pv{aspect-ratio:auto;height:100%;border-radius:0;box-shadow:none}
+.theater.fs #nowrow,.theater.fs #edits,.theater.fs #qside{display:none !important}
+.theater.fs #pvwrap{position:relative}
+/* question markers sit right on the native seek bar while it is showing */
+.theater.fs #qstrip{position:absolute;left:16px;right:16px;bottom:25px;width:auto !important;height:9px;margin:0;z-index:5;pointer-events:none;
+  opacity:0;transition:opacity .2s}
+.theater.fs #pv.act~#qstrip,.theater.fs #pv.paused~#qstrip{opacity:1}
+.theater.fs #qstrip .tr,.theater.fs #qstrip .ph{display:none}
+.theater.fs #qstrip .qm{filter:drop-shadow(0 0 1px rgba(0,0,0,.9))}
+#nowrow .keys button{border:0;background:transparent;padding:0 2px;font-size:12px;color:var(--text-3);height:auto}
+#nowrow .keys button:hover{color:var(--text)}
+#pv .none{color:var(--stage-mute);padding:30px;font-size:14px;text-align:center}
 #qstrip{display:none;position:relative;height:14px;margin:6px auto 0;cursor:default}
 body.hasq #qstrip.on{display:block}
 #qstrip .tr{position:absolute;left:0;right:0;top:9px;height:3px;border-radius:2px;background:var(--line-2)}
@@ -391,8 +409,46 @@ body.hasq #qstrip.on{display:block}
 #qstrip .qm{position:absolute;top:0;width:0;height:0;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;
   border-top:9px solid var(--q);cursor:pointer}
 #qstrip .qm.done{border-top-color:var(--used)}
+/* under the player, like a video title: which shot is playing + the keys */
+#nowrow{display:flex;align-items:baseline;gap:12px;padding:10px 2px 0;min-width:0}
+#nowt{font-size:17px;font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#nowt .n{color:var(--text-3);font-weight:500;font-variant-numeric:tabular-nums;margin-right:8px}
+#nowt .at{font-size:13px;font-weight:400;margin-left:6px}
+#nowrow .sp{flex:1}
+#nowrow .keys{font-size:12px;color:var(--text-3);white-space:nowrap}
+#nowrow .keys kbd{font-size:11px;padding:1px 5px}
+#nowrow .keys span+span{margin-left:10px}
+/* the shot-by-shot drawer */
+#edits{margin-top:14px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+#edh{display:flex;align-items:center;gap:10px;padding:0 10px 0 14px;height:46px;cursor:pointer;user-select:none;flex:none}
+#edh:hover{background:var(--surface-2)}
+#edh .chev{width:20px;height:20px;display:grid;place-items:center;color:var(--text-3);transition:transform .15s}
+body.edopen #edh .chev{transform:rotate(90deg)}
+#edh b{font-weight:600;font-size:14px;white-space:nowrap}
+#edh b i{font-style:normal;font-weight:400;color:var(--text-3)}
+#edh .n{color:var(--text-3);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#edh .sp{flex:1}
+#follow{display:none;border:0;border-radius:999px;padding:3px 12px;font-size:12px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+#edBody{display:none;border-top:1px solid var(--line);padding:14px 14px 0;overflow-y:auto;overscroll-behavior:contain;background:var(--bg);min-height:0;flex:1}
+body.edopen #edBody{display:block}
+/* drawer open = editing: the page becomes one screen; the player shrinks a bit and the shot list scrolls on its own */
+body.edopen .stage{height:calc(100vh - var(--barh,52px))}
+body.edopen #pvwrap{width:min(100%,calc(max(240px,100vh - var(--barh,52px) - 440px)*16/9))}
+body.edopen #nowrow .keys{display:none}
+body.edopen #edits{flex:1}
+#help{display:flex;gap:10px;align-items:center;background:var(--accent-soft);border:1px solid var(--accent-line);color:var(--text-2);
+  border-radius:var(--r);padding:7px 8px 7px 14px;margin-bottom:12px;font-size:13px}
+#help .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#help b{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:600;margin:0 4px 0 8px;vertical-align:1px}
+#help b:first-child{margin-left:0}
+#help button{width:26px;height:26px;padding:0;flex:none;color:var(--text-3)}
+body.nohelp #help{display:none}
+#listEnd{margin:18px 0 0;padding:22px 0 40px;text-align:center;color:var(--text-3);font-size:14px;border-top:1px dashed var(--line-2)}
+#listEnd b{color:var(--text)}
+#listEnd a{color:var(--accent);text-decoration:none}
+#qcard{flex:none}
 #qcard .qa-card{margin:0;box-shadow:var(--sh-1)}
-#qside{display:none;flex:0 1 auto;min-height:0;max-height:min(24%,180px);overflow:hidden;flex-direction:column}
+#qside{display:none;flex:0 1 auto;min-height:0;max-height:min(30%,220px);overflow:hidden;flex-direction:column}
 body.hasq #qside{display:flex}
 body.qactive #qside{display:none}   /* the pop-up card already shows that question: give the room to the chat */
 #qpanel{overflow-y:auto;padding:8px 8px 16px;min-height:0;-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 22px),transparent)}
@@ -471,8 +527,9 @@ summary:hover{color:var(--text)}
 #modal .row{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
 #modal .sp{flex:1}
 #mt{font-variant-numeric:tabular-nums;color:var(--text-3)}
-@media (max-width:1360px){.shot{grid-template-columns:200px minmax(0,1fr)}}
-@media (max-width:900px){.layout{grid-template-columns:1fr}.rail{position:static;height:auto;padding:16px 16px 0}#chatDock{height:320px;flex:none}}
+@media (max-width:1100px){.shot{grid-template-columns:200px minmax(0,1fr)}}
+@media (max-width:900px){.theater{grid-template-columns:1fr}.rail{position:static;height:auto;padding:0 16px 16px}#chatDock{height:360px;flex:none}
+  body.edopen .stage{height:auto}#edBody{max-height:75vh}#nowrow .keys{display:none}}
 __QA_CSS__
 </style></head><body>
 <div id="bar">
@@ -482,24 +539,36 @@ __QA_CSS__
   <span id="dirty">有修改还没保存</span>
   <span class="sp"></span>
   <div class="acts-top">
-   <button id="bSave" title="保存（⌘S）">保存</button>
-   <button id="bFinal" class="outline">导出成片</button>
-   <button id="bPrev" class="pri">更新预览</button>
+   <button id="bSave" class="ghost" title="保存（⌘S）">保存<kbd>⌘S</kbd></button>
+   <button id="bFinal" class="ghost" title="用现在的剪辑导出 4K 成片（要点两次确认）">导出成片</button>
+   <span class="vs"></span>
+   <button id="bPrev" class="pri" title="保存并重新生成上面的预览">更新预览</button>
   </div>
  </div>
+ <div id="errbox"></div>
  <div id="stale">文件已被更新，保存会覆盖对方的修改<button id="bReload">重新载入</button></div>
  <div id="rs"><span id="rstext"></span><div class="pb"><i id="rsbar"></i></div></div>
 </div>
-<div class="layout">
-<main>
-  <div id="help"><span class="tx"><b>1</b>看预览 <b>2</b>不要的点「删掉」，太长改开始/结束 <b>3</b>「更新预览」看效果 <b>4</b>满意了「导出成片」</span><button class="ghost" id="helpX" title="不再显示">✕</button></div>
-  <div id="errbox"></div>
-  <div id="list"></div>
-  <div id="listEnd">— 已经到最后一段了 —<br><span id="listEndInfo"></span><br><a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false">↑ 回到顶部</a></div>
-</main>
-<aside class="rail">
+<div class="theater" data-fsroot>
+<main class="stage">
   <div id="pvwrap"><div id="pv"><div class="none">还没有预览，点右上角「更新预览」生成</div></div>
-    <div id="qstrip" title="黄色 = 有问题想问你（点一下跳过去），绿色 = 已回答"><div class="tr"></div><div class="ph"></div><div id="qmarks"></div></div></div>
+    <div id="qstrip" title="黄色 = 有问题想问你（点一下跳过去），绿色 = 已回答"><div class="tr"></div><div class="ph"></div><div id="qmarks"></div></div>
+    <div id="nowrow"><span id="nowt"></span><span class="sp"></span>
+      <span class="keys"><span><kbd>空格</kbd> 播放/暂停</span><span><kbd>←</kbd><kbd>→</kbd> 5 秒</span><span><button id="fsHint" title="全屏时右边留着聊天（C 切换成悬浮）"><kbd>F</kbd> 全屏</button></span></span></div></div>
+  <section id="edits" class="panel">
+    <div id="edh" role="button" tabindex="0" aria-controls="edBody" title="逐段修改：删镜头、改开始/结束、改字幕">
+      <span class="chev"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5L10.5 8 6 12.5"/></svg></span>
+      <b>剪辑细节<i id="edState">（展开）</i></b><span class="n" id="edInfo">逐段删镜头、改开始/结束、改字幕</span><span class="sp"></span>
+      <button id="follow" title="镜头列表重新跟着预览走">↩ 跟随播放</button>
+    </div>
+    <div id="edBody" class="scroll">
+      <div id="help"><span class="tx"><b>1</b>看预览 <b>2</b>不要的点「删掉」，太长改开始/结束 <b>3</b>「更新预览」看效果 <b>4</b>满意了「导出成片」</span><button class="ghost" id="helpX" title="不再显示">✕</button></div>
+      <div id="list"></div>
+      <div id="listEnd">— 已经到最后一段了 —<br><span id="listEndInfo"></span><br><a href="#" id="toTop">↑ 回到第一段</a></div>
+    </div>
+  </section>
+</main>
+<aside class="rail" data-fsrail>
   <div id="qcard"></div>
   <div id="qside" class="panel"><div id="qpanel" class="scroll"></div></div>
   <div id="chatDock" class="panel"></div>
@@ -549,7 +618,7 @@ function skipHtml(s,i){
     :`<div class="skip">✂ 已自动去掉 ${k.n} 处停顿/嗯啊（共 ${sec.toFixed(1)} 秒）<button class="sm" data-act="skipon" data-i="${i}">恢复原样</button></div>`;
 }
 function zoomHtml(s){const z=s.zoom; if(!z||typeof z!=='object') return ''; return `<span class="zm">🔍 镜头慢慢${(+z.to)<(+z.from)?'拉远':'推近'}</span>`}
-function setDirty(v){dirty=v;$('#dirty').style.display=v?'inline':'none'}
+function setDirty(v){dirty=v;$('#dirty').style.display=v?'inline':'none';document.body.classList.toggle('dirty',v)}
 // dirty only when the EDL really differs from the last loaded/saved version (spurious
 // input events from autofill/form-restore, or no-op edits, must not flag it)
 function markBase(){base=JSON.stringify(D); setDirty(false)}
@@ -623,7 +692,7 @@ function row(s,i,st){
    <div class="thumbs" id="th-${i}">${thumbs(s)}</div>
    <div>
      <div class="hd"><span class="n">#${i+1}</span><span class="ti">${title}</span>
-       <span class="at" data-act="seek" data-i="${i}" id="st-${i}" title="在上方预览里跳到这里">⏱ ${fmt(st)}</span></div>
+       <span class="at" data-act="seek" data-i="${i}" id="st-${i}" title="在上面的预览里跳到这里">⏱ ${fmt(st)}</span></div>
      <div class="acts">
        <button class="soft" data-act="play" data-i="${i}">▶ 播放这段</button>
        <span class="seg2" title="删掉的镜头不会出现在成片里，随时可以恢复"><button class="on" tabindex="-1">✓ 保留</button><button data-act="toggle" data-i="${i}">删掉</button></span>
@@ -643,10 +712,11 @@ function row(s,i,st){
 }
 
 function render(){
-  const y=window.scrollY, st=starts();
+  const y=EB.scrollTop, st=starts();
   $('#list').innerHTML=D.shots.map((s,i)=>row(s,i,st[i])).join('');
-  recompute(); progScroll(); window.scrollTo(0,y);
+  recompute(); progScroll(); EB.scrollTop=y;
   if(curIdx>=0){const r=document.getElementById('row-'+curIdx); if(r) r.classList.add('cur')}
+  nowTitle();
 }
 
 function recompute(){
@@ -665,6 +735,7 @@ function recompute(){
     }
   });
   $('#total').innerHTML=`成片 <b>${fmt(t)}</b> · ${n} 段`;
+  $('#edInfo').textContent=`${n} 段 · 逐段删镜头、改开始/结束、改字幕`;
   const le=document.getElementById('listEndInfo'); if(le) le.innerHTML=`共 <b>${n}</b> 段 · 成片 <b>${fmt(t)}</b>`;
 }
 
@@ -693,7 +764,7 @@ function setField(i,f,el){
   changed(); recompute();
 }
 
-const L=$('#list');
+const L=$('#list'), EB=$('#edBody');
 L.addEventListener('input',e=>{const el=e.target; if(el.dataset.f) setField(+el.dataset.i,el.dataset.f,el)});
 L.addEventListener('toggle',e=>{const d=e.target; if(d.tagName!=='DETAILS') return; const id=D.shots[+d.dataset.i].id; d.open?openMore.add(id):openMore.delete(id)},true);
 L.addEventListener('click',e=>{
@@ -765,8 +836,10 @@ $('#mSplit').onclick=()=>{const i=modalShot,t=mv.currentTime; closeModal(); spli
 // (Space after clicking fullscreen used to exit fullscreen instead of pausing).
 document.addEventListener('mousedown',e=>{if(e.target.closest&&e.target.closest('button'))e.preventDefault()},true);
 document.addEventListener('keyup',e=>{if(e.code==='Space'&&!/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))e.preventDefault()},true);
-function pvToggleFs(){const v=document.getElementById('pvv');
-  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); else if(v) v.requestFullscreen().catch(()=>{})}
+// Fullscreen = the whole player + rail (chat.py), so the chat and the question card stay on screen.
+function pvToggleFs(){if(document.fullscreenElement&&document.fullscreenElement!==document.querySelector('[data-fsroot]')){document.exitFullscreen().catch(()=>{});return}
+  window.cbFs.toggle()}
+$('#fsHint').onclick=pvToggleFs;
 document.addEventListener('fullscreenchange',()=>setTimeout(()=>{
   // native fullscreen leaves focus on the controls' fullscreen button (shadow DOM): Space would
   // re-trigger it. Blur it so Space reaches our handler and just plays/pauses.
@@ -775,7 +848,20 @@ document.addEventListener('fullscreenchange',()=>setTimeout(()=>{
 document.addEventListener('click',e=>{const v=e.target; if(!v||v.id!=='pvv') return;
   const r=v.getBoundingClientRect(); if(e.clientY>r.bottom-Math.min(44,r.height*0.2)) return;  // native control bar
   e.preventDefault(); v.paused?v.play().catch(()=>{}):v.pause()},true);
-setInterval(()=>{const v=document.getElementById('pvv'),g=document.getElementById('pvbig'); if(v&&g) g.classList.toggle('hide',!v.paused)},150);
+// double-click the picture = fullscreen (ours, not the bare <video>'s)
+document.addEventListener('dblclick',e=>{if(!e.target||e.target.id!=='pvv') return; e.preventDefault(); e.stopPropagation(); pvToggleFs()},true);
+setInterval(()=>{const v=document.getElementById('pvv'),g=document.getElementById('pvbig'),p=$('#pv'); if(v&&g) g.classList.toggle('hide',!v.paused);
+  if(p) p.classList.toggle('paused',!!v&&v.paused)},150);
+// the buttons on the picture show on mouse movement, then fade like the native bar
+let pvActT=0;
+$('#pv').addEventListener('mousemove',()=>{const p=$('#pv'); p.classList.add('act'); clearTimeout(pvActT); pvActT=setTimeout(()=>p.classList.remove('act'),2500)});
+$('#pv').addEventListener('mouseleave',()=>{clearTimeout(pvActT); $('#pv').classList.remove('act')});
+$('#pv').addEventListener('click',e=>{const b=e.target.closest('#pvtools button'); if(!b) return; e.stopPropagation();
+  if(b.id==='pvfs') pvToggleFs()});
+window.addEventListener('cbfs',()=>{const b=document.getElementById('pvfs'); if(b) fsIcon(b)});
+const IC_FS='<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
+      IC_FSX='<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5"/></svg>';
+function fsIcon(b){const on=window.cbFs&&window.cbFs.active(); b.innerHTML=on?IC_FSX:IC_FS; b.title=on?'退出全屏（F / Esc）':'全屏，右边留着聊天（F）'}
 // Preview player keys (also in fullscreen). Capture phase + preventDefault so the browser's own
 // media controls or a focused button don't handle the same key a second time.
 document.addEventListener('keydown',e=>{
@@ -811,14 +897,15 @@ async function loadPreview(keep){
   else{const r=await fetch('/preview.mp4',{method:'HEAD'}); if(r.ok) src='/preview.mp4?v='+Date.now()}
   const old=$('#pvv'); const wasMuted=old?old.muted:false;
   if(old){old.pause(); old.removeAttribute('src'); old.load()}  // free its connections, or the new one stalls
-  $('#pv').innerHTML=(src?`<video id="pvv" controls preload="auto" src="${src}"></video><div class="bigplay" id="pvbig"></div><button id="pvnew">新预览已生成 · 点这里切换（从当前位置继续）</button>`
-    :'<div class="none">还没有预览，点右上角「更新预览」生成</div>')+'<button id="follow">↩ 跟随播放</button>';
+  $('#pv').innerHTML=(src?`<video id="pvv" controls controlslist="nofullscreen" preload="auto" src="${src}"></video><div class="bigplay" id="pvbig"></div>
+      <div id="pvtools"><button id="pvfs"></button></div><button id="pvnew">新预览已生成 · 点这里切换（从当前位置继续）</button>`
+    :'<div class="none">还没有预览，点右上角「更新预览」生成</div>');
   const nv=$('#pvv');
   if(nv){nv.muted=wasMuted}
   if(nv&&keep){const restore=()=>{nv.currentTime=Math.min(keep.t,Math.max(0,nv.duration-0.5)); if(keep.playing) nv.play().catch(()=>{})};
     nv.readyState>=1?restore():nv.addEventListener('loadedmetadata',restore,{once:true})}
   const nb=$('#pvnew'); if(nb) nb.onclick=()=>swapPreview();
-  $('#follow').onclick=()=>{resumeFollow(); curIdx=-2; onPreviewTime(true)};
+  const fb=$('#pvfs'); if(fb) fsIcon(fb);
   const v=$('#pvv'); if(v){v.addEventListener('timeupdate',()=>onPreviewTime(false)); v.addEventListener('seeked',()=>onPreviewTime(true))}
 }
 function swapPreview(){const v=$('#pvv'); loadPreview(v?{t:v.currentTime,playing:!v.paused&&!v.ended}:null)}
@@ -833,28 +920,38 @@ function seekPreview(t){
   const v=$('#pvv'); if(!v){showErr('还没有预览，先点「更新预览」');return}
   resumeFollow(); v.currentTime=t+0.01; v.play().catch(()=>{});
 }
-// ---- cards follow the preview
-let curIdx=-1, followOff=0, progUntil=0;
+// ---- cards follow the preview (inside the drawer; the page itself never moves under the player)
+let curIdx=-1, followOff=0, progUntil=0, nowIdx=-1;
 function progScroll(ms=1500){progUntil=Date.now()+ms}
-window.addEventListener('scrollend',()=>{if(progUntil>Date.now()) progUntil=Date.now()+100});
+EB.addEventListener('scrollend',()=>{if(progUntil>Date.now()) progUntil=Date.now()+100});
 function shotAt(t){
   const st=starts(); let last=-1;
   for(let i=0;i<D.shots.length;i++){if(!isOn(D.shots[i])) continue; last=i; if(t<st[i]+sdur(D.shots[i])) return i}
   return last;
 }
+function edOpen(){return document.body.classList.contains('edopen')}
 function following(){return Date.now()>=followOff}
 function pauseFollow(){
   followOff=Date.now()+6000; const v=$('#pvv');
-  $('#follow').style.display=v&&!v.paused?'block':'none';
+  $('#follow').style.display=v&&!v.paused&&edOpen()?'block':'none';
 }
 function resumeFollow(){followOff=0; $('#follow').style.display='none'}
-function scrollToCard(i){
-  const r=document.getElementById('row-'+i); if(!r) return;
-  const top=r.getBoundingClientRect().top+window.scrollY-$('#bar').offsetHeight-12;
-  progScroll(); window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+function scrollToCard(i,instant){
+  const r=document.getElementById('row-'+i); if(!r||!edOpen()) return;
+  const top=r.getBoundingClientRect().top-EB.getBoundingClientRect().top+EB.scrollTop-14;
+  progScroll(); EB.scrollTo({top:Math.max(0,top),behavior:instant?'auto':'smooth'});
 }
+// the title line under the player: which shot is on screen now
+function nowTitle(){
+  const v=$('#pvv'), e=$('#nowt'); if(!D) return;
+  if(!v){e.innerHTML=''; nowIdx=-1; return}
+  const i=shotAt(v.currentTime||0), s=D.shots[i]; nowIdx=i;
+  e.innerHTML=s?`<span class="n">#${i+1}</span>${esc(s.note||s.clip)}<span class="at" title="打开剪辑细节，看这一段" data-now="1">${fmt(starts()[i])}</span>`:'';
+}
+$('#nowt').addEventListener('click',e=>{if(!e.target.closest('[data-now]')||nowIdx<0) return; setEd(true); resumeFollow(); curIdx=-2; onPreviewTime(true)});
 function onPreviewTime(force){
   const v=$('#pvv'); if(!v||!D) return;
+  if(shotAt(v.currentTime)!==nowIdx) nowTitle();
   if(!following()) return; if($('#follow').style.display!=='none') $('#follow').style.display='none';
   const i=shotAt(v.currentTime);
   if(i!==curIdx){
@@ -863,11 +960,29 @@ function onPreviewTime(force){
     scrollToCard(i);
   } else if(force) scrollToCard(i);
 }
-window.addEventListener('scroll',()=>{if(Date.now()>progUntil) pauseFollow()},{passive:true});
-['wheel','touchmove'].forEach(ev=>window.addEventListener(ev,()=>{progUntil=0; pauseFollow()},{passive:true}));
+EB.addEventListener('scroll',()=>{if(Date.now()>progUntil) pauseFollow()},{passive:true});
+['wheel','touchmove'].forEach(ev=>EB.addEventListener(ev,()=>{progUntil=0; pauseFollow()},{passive:true}));
 L.addEventListener('focusin',pauseFollow);
 L.addEventListener('input',pauseFollow);
 setInterval(()=>{if(following()&&$('#follow').style.display!=='none') $('#follow').style.display='none'},1000);
+$('#follow').onclick=e=>{e.stopPropagation(); resumeFollow(); curIdx=-2; onPreviewTime(true)};
+$('#toTop').onclick=e=>{e.preventDefault(); EB.scrollTo({top:0,behavior:'smooth'})};
+// ---- the 剪辑细节 drawer: closed by default, remembered
+function setEd(open){
+  if(open===edOpen()) return;
+  document.body.classList.toggle('edopen',open);
+  $('#edState').textContent=open?'（收起）':'（展开）'; $('#edh').setAttribute('aria-expanded',open);
+  try{localStorage.setItem('rv_edits',open?'1':'0')}catch(e){}
+  if(open){resumeFollow(); requestAnimationFrame(()=>{   // land on the shot that is playing, no long scroll animation
+    const v=$('#pvv'); if(!v||!D) return; const i=shotAt(v.currentTime);
+    const o=document.getElementById('row-'+curIdx); if(o) o.classList.remove('cur');
+    curIdx=i; const r=document.getElementById('row-'+i); if(r) r.classList.add('cur'); scrollToCard(i,true)})}
+  else $('#follow').style.display='none';
+}
+$('#edh').addEventListener('click',()=>setEd(!edOpen()));
+$('#edh').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();setEd(!edOpen())}});
+try{if(localStorage.getItem('rv_edits')==='1'){document.body.classList.add('edopen'); $('#edState').textContent='（收起）'}}catch(e){}
+$('#edh').setAttribute('aria-expanded',edOpen());
 async function save(){
   for(const [k,s] of D.shots.entries()) if(!(s.in>=0&&s.in<s.out)){showErr(`第 ${k+1} 段：开始时间要早于结束时间`);return false}
   const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(D)});
