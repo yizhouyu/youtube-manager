@@ -125,7 +125,7 @@ WIDGET = r"""
 /* Chat box. Docks into the page's #chatDock (a sidebar slot) when there is one, else floats bottom-right.
    Colours come from theme.py tokens, so it matches the page around it. */
 #cb{display:flex;flex-direction:column;min-height:0;background:var(--surface);color:var(--text);
-  font:14px/1.55 var(--font);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  font:15px/1.6 var(--font);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 #cb.float{position:fixed;right:16px;bottom:16px;width:340px;height:420px;max-width:calc(100vw - 32px);z-index:9999;box-shadow:var(--sh-2)}
 #cb.docked{height:100%}
 #cb.min{height:auto}

@@ -363,7 +363,7 @@ body.dirty #bSave kbd{color:var(--accent);border-color:var(--accent-line)}
 #errbox{display:none;white-space:pre-wrap;background:var(--danger-soft);border-bottom:1px solid #fecdca;color:var(--danger);padding:8px 16px;
   font-size:13px;max-height:30vh;overflow-y:auto}
 /* ---- theater layout: big player | narrow rail (question card, chat). Shot editing is a drawer under the player. */
-.theater{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,25vw,400px);align-items:start}
+.theater{display:grid;grid-template-columns:minmax(0,1fr) clamp(400px,32vw,540px);align-items:start}
 .stage{padding:16px;min-width:0;display:flex;flex-direction:column}
 .rail{position:sticky;top:var(--barh,52px);height:calc(100vh - var(--barh,52px));display:flex;flex-direction:column;gap:12px;
   padding:16px 16px 16px 0;min-height:0}
