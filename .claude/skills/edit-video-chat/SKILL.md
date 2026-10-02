@@ -412,9 +412,22 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
   - has numbered pins that pop in as each leg arrives, plus the time sub-labels;
   - carries the credit 「路线示意 · 地图数据 © OpenStreetMap contributors」.
 
-  Copy `96 - Malibu/02 - Export/edit/scripts/make_route_map.py` (driving) or
-  `103 - Sequoia/.../scripts/make_cards.py` (trails) and change only the stops, the bbox and the labels.
-  Fetch with a generic User-Agent; never put personal info in it.
+  Don't copy episode scripts any more; use the shared module `src/editor/routemap.py`. Write
+  `edit/maps/route_config.json` and run it from the repo:
+  `./venv/bin/python -m src.editor.routemap "<ep>/02 - Export/edit/maps/route_config.json" fetch route`
+  (`fetch` caches the Overpass extract in the `"osm"` path, so later runs only need `route`; `legs`
+  prints each leg's km and roads for a quick check). Its defaults give the ep 96 look; the full
+  example is `96 - Malibu/02 - Export/edit/maps/route_config.json`, and the keys are documented in
+  `render_route` / `DEFAULTS`.
+  - Change only `stops` (cn, sub, lat, lon, `side` up/upright/upleft/down/left/right, `halo` sea
+    for labels over water), `bbox` plus `frame`/`fit`, `title`, map `labels` and `spans`.
+  - Each leg's `mode` is `drive` (one-way aware), `walk` (trails, footways and steps, ignores
+    one-ways) or `straight`. `via` points force a road choice.
+  - Optional: `panel` (ep 103-style left list of stops), `flight` (plane arc home, or
+    `"style": "arrow"` for an off-map continuation), `colors`, `size`, `dur`.
+  - Walk legs need footpaths in the extract. The default `fetch` adds `paths` whenever a leg is walk.
+  - The fetch uses a generic User-Agent; never put personal info in it. Coordinates stay in the
+    episode config, never in the (public) repo.
 - **Outside material is allowed (creator, 2026-09-29, from ep 92):** when an idea needs more
   than the footage has (a historic photo, a map, an official diagram, a short archival clip, a
   fact card), download it and put it in. Prefer public-domain / freely licensed sources
