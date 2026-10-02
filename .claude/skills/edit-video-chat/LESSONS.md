@@ -216,6 +216,9 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   the kumi.systems Overpass mirror answered later in the day. Label straight legs 示意.
 - **DJI Pocket 3 clips can carry a −180° display matrix the renderer ignores** (104: 0462 upside down): check
   `ffprobe -show_entries stream_side_data=rotation` and fix with an `hflip,vflip` grade.
+  Since 2026-10-02 the EDL takes `"noautorotate": [clip, …]`: those clips are decoded as stored (shots, B-roll, clip
+  pips). Use it for DJI clips tagged rotate 90/−90/180 whose stored frame is upright (the Mexico City trip had 9;
+  contact sheets show them sideways because ffmpeg applied the bogus matrix). Grab stills with `-noautorotate` too.
 - **A shot whose subject sits in the bottom 15 % of the frame fights the subtitle** (102 hook: the jaguar walked along
   the fence bottom). A zoom can't lift it (the crop clamps at the frame edge): pick the moment the subject is
   higher, or split the caption so its words land on the next shot.

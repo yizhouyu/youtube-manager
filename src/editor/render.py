@@ -325,6 +325,10 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
     brg = {b.get("grade", "default"): edl.get("grades", {}).get(b.get("grade", "default"), "")
            for b in shot.get("broll", [])}
     extra = ["zoomfix"] if shot.get("zoom") else []
+    norot = set(edl.get("noautorotate", []))
+    used = {shot.get("clip")} | {b.get("clip") for b in shot.get("broll", [])} | {p.get("clip") for p in shot.get("pip", [])}
+    if norot & used:  # decoding without the display matrix changes the picture: re-render
+        extra.append(["noautorotate", sorted(norot & used)])
     for pp in shot.get("pip", []):  # re-render when a pip file (e.g. a mini-map animation) changes
         if pp.get("file"):
             fp = os.path.join(E.edit_dir(edl["project"]), pp["file"])
@@ -345,7 +349,7 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
         return _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath)
     src = E.clip_path(edl, shot["clip"])
     span = shot["out"] - shot["in"]
-    inputs = ["-ss", f"{shot['in']:.3f}", "-t", f"{span + 0.2:.3f}", "-i", src]
+    inputs = [*E.input_args(edl, shot["clip"]), "-ss", f"{shot['in']:.3f}", "-t", f"{span + 0.2:.3f}", "-i", src]
     chains, last = [], "v0"
     # jump-cut out skipped spans (pauses / fillers): trim each kept range and concat
     ranges = [(a - shot["in"], b - shot["in"]) for a, b in E.kept_ranges(shot)]
@@ -379,15 +383,16 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
         bd = min(b["dur"], dur - at)
         if bd <= 0.1:
             continue
-        k = len(inputs) // 6  # every input below is 6 args
-        inputs += ["-ss", f"{b['in']:.3f}", "-t", f"{bd + 0.2:.3f}", "-i", E.clip_path(edl, b["clip"])]
+        k = inputs.count("-i")  # index of the input appended below
+        inputs += [*E.input_args(edl, b["clip"]), "-ss", f"{b['in']:.3f}", "-t", f"{bd + 0.2:.3f}", "-i",
+                   E.clip_path(edl, b["clip"])]
         bvf = [f"scale={w}:{h}:flags=lanczos", f"fps={fps_str}"]
         if grades.get(b.get("grade", "default")):
             bvf.append(grades[b.get("grade", "default")])
         chains.append(f"[{k}:v]trim=0:{bd:.3f},setpts=PTS-STARTPTS+{at:.3f}/TB,{','.join(bvf)},format={_pixfmt(preset)}[b{k}]")
         chains.append(f"[{last}][b{k}]overlay=0:0:eof_action=pass:enable='between(t,{at:.3f},{at + bd:.3f})'[vb{k}]")
         last = f"vb{k}"
-    base_inputs = len(inputs) // 6
+    base_inputs = inputs.count("-i")
 
     ovs = []  # (png, t0, t1, fade)
     if not clean:
@@ -699,7 +704,8 @@ def _pip_chain(edl, pp, j, dur, fps_str, preset, inputs, idx, last, chains):
     grade = edl.get("grades", {}).get(pp.get("grade", "default"), "") if pp.get("clip") else ""
     if pp.get("clip"):
         k = max(0.25, float(pp.get("speed", 1.0) or 1.0))
-        inputs += ["-ss", f"{float(pp.get('in', 0.0)):.3f}", "-t", f"{span * k + 0.3:.3f}", "-i", E.clip_path(edl, pp["clip"])]
+        inputs += [*E.input_args(edl, pp["clip"]), "-ss", f"{float(pp.get('in', 0.0)):.3f}", "-t",
+                   f"{span * k + 0.3:.3f}", "-i", E.clip_path(edl, pp["clip"])]
         head = f"[{idx}:v]setpts=(PTS-STARTPTS)/{k},"
     else:
         path = os.path.join(E.edit_dir(edl["project"]), pp["file"])

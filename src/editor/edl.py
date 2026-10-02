@@ -156,6 +156,13 @@ def clip_path(edl, clip):
     return os.path.join(project_dir(edl["project"]), edl.get("source_dir", "01 - Unedited"), clip + ".MP4")
 
 
+def input_args(edl, clip):
+    """ffmpeg input options for a raw clip. DJI Pocket clips can carry a bogus display matrix (rotate
+    90/-90/180) although the stored picture is upright; list such clips in the EDL's
+    `"noautorotate": [clip, ...]` so ffmpeg decodes the stored frame as is."""
+    return ["-noautorotate"] if clip in set(edl.get("noautorotate", [])) else []
+
+
 def active_shots(edl):
     return [s for s in edl["shots"] if s.get("enabled", True) and s["out"] > s["in"]]
 
