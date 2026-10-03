@@ -327,6 +327,8 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
     brg = {b.get("grade", "default"): edl.get("grades", {}).get(b.get("grade", "default"), "")
            for b in shot.get("broll", [])}
     extra = ["zoomfix"] if shot.get("zoom") else []
+    if any(m.get("track") for m in shot.get("marks", [])):
+        extra.append("track-smooth-1")  # tracked arrows: renderer version
     norot = set(edl.get("noautorotate", []))
     used = {shot.get("clip")} | {b.get("clip") for b in shot.get("broll", [])} | {p.get("clip") for p in shot.get("pip", [])}
     if norot & used:  # decoding without the display matrix changes the picture: re-render
@@ -412,11 +414,44 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
                 ovs.append((png, a0, a1, 0.3))
         for m in shot.get("marks", []):
             a0, a1 = E.src_to_local(shot, m["t0"]), min(E.src_to_local(shot, m["t1"]), dur)
-            if a1 - a0 > 0.1:
+            if a1 - a0 <= 0.1:
+                continue
+            if m.get("track") and shot.get("clip"):
+                # follow the target while the camera moves (optical flow on the source clip)
+                from .track import track_point
+                pts = track_point(E.clip_path(edl, shot["clip"]), m["t0"], m["t1"], m["x"], m["y"],
+                                  step=0.1, noautorotate=shot["clip"] in set(edl.get("noautorotate", [])))
+                # one arrow image, slid every frame along the (lightly smoothed) track: no stepping
+                xs = [p[1] for p in pts]
+                ys = [p[2] for p in pts]
+                sm = lambda v: [sum(v[max(0, k - 2):k + 3]) / len(v[max(0, k - 2):k + 3]) for k in range(len(v))]
+                xs, ys = sm(xs), sm(ys)
+                ls = [E.src_to_local(shot, p[0]) for p in pts]
+                x0, y0 = xs[0], ys[0]
+                png = overlays.arrow(m.get("label", ""), round(x0, 3), round(y0, 3), w, h, ov_dir)
+
+                def lerp(vals, scale, base):
+                    expr = f"{(vals[-1] - base) * scale:.2f}"
+                    for k in range(len(ls) - 2, -1, -1):
+                        l0, l1 = ls[k], ls[k + 1]
+                        if l1 - l0 < 1e-3:
+                            continue
+                        v0, v1 = (vals[k] - base) * scale, (vals[k + 1] - base) * scale
+                        expr = f"if(lt(t,{l1:.3f}),{v0:.2f}+({v1 - v0:.2f})*(t-{l0:.3f})/{l1 - l0:.3f},{expr})"
+                    return expr
+                ovs.append((png, a0, a1, 0, (lerp(xs, w, x0), lerp(ys, h, y0))))
+            else:
                 ovs.append((overlays.arrow(m.get("label", ""), m["x"], m["y"], w, h, ov_dir), a0, a1, 0))
         for s in E.shot_subs(shot):
             ovs.append((overlays.subtitle(s["text"], w, h, ov_dir, s.get("kind", "speech"), s.get("pos", "bottom")), s["t0"], min(s["t1"], dur), 0))
-    for i, (png, t0, t1, fade) in enumerate(ovs, base_inputs):
+    for i, ov in enumerate(ovs, base_inputs):
+        png, t0, t1, fade = ov[:4]
+        if len(ov) > 4:  # moving overlay: x/y offset expressions in t (tracked arrows)
+            ex, ey = ov[4]
+            inputs += ["-i", png]
+            chains.append(f"[{last}][{i}:v]overlay=x='{ex}':y='{ey}':eval=frame:enable='between(t,{t0:.3f},{t1:.3f})'[v{i}]")
+            last = f"v{i}"
+            continue
         if fade:  # fades in at t0 (frames before it are fully transparent), out at t1
             inputs += ["-loop", "1", "-framerate", fps_str, "-t", f"{t1:.3f}", "-i", png]
             chains.append(f"[{i}:v]format=rgba,fade=t=in:st={t0:.3f}:d={fade}:alpha=1,"
