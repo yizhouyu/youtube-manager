@@ -224,6 +224,7 @@ show a **4:3 centre crop** and every card overlays duration (bottom-right) and p
 - **Title type (creator, 2026-10-01).**
   - Use: clean heavy type with a thin dark stroke (about 1.2–1.5% of the height) and a soft halo, in white with one yellow accent word. This is the treatment of 94 G and 92/93 G.
   - Never: the thick white "sticker" double outline, which he called "太丑了、太粗了". Never: fills that close up the glyph counters.
+- **"Editorial" challenger style (creator's reference channel, 2026-10-03):** a bright destination hero, people from behind, one big clean place name (PingFang SC Semibold, white, no stroke, soft shadow), a small wide-tracked English line, and an optional script descriptor. The hero may be a seamless 2–3 panel collage. Offer it as the A/B challenger next to the usual style; adopt it only if tests favour it. Notes: `sessions/research/2026-10-03/daleh.md` (local).
 - **Thumbnail review is mandatory and strict.** A separate reviewer subagent, not the one who made the thumbnail:
   - compares each option side by side with the creator-picked references (94 G, 93 G, 92 G, 88 E in `sessions/archive/*/thumbnail/`);
   - zooms to 100% on the title to check stroke weight and open counters (画, 最, 贵);
