@@ -485,6 +485,7 @@ Then continue with the publish-video-chat skill. After publishing: delete `edit/
 
 Contact sheets: `./venv/bin/python -m src.editor.scan "<project>"` → `edit/scan/sheets/grid_NN.jpg`.
 
+- **No runtime cap (creator, 2026-10-03: 「成片的长度不需要有限制。你就只要把精彩的都留下就可以」).** Don't cut good moments to hit a target length. Every highlight stays: action, reactions, the creator's real commentary, pretty scenery with something happening. Trim only what is dull or repeated: dead air, retakes, fillers, waiting. This applies to every episode.
 - **No captions for fillers and stray fragments (creator, 2026-10-03, ep 97).**
   - Interjection-only lines get no caption: 嗨, 哇, 哎呀, 天哪, "Oh no no no", "There you go".
   - Neither do odd 1–2 word scraps like 好了你, 拿哎呀, 去吧.
