@@ -12,6 +12,7 @@ music-only / natural-sound break, and more than 3 sound effects in any minute.
 import csv
 import os
 import re
+from difflib import SequenceMatcher
 import subprocess
 import sys
 
@@ -49,6 +50,11 @@ def check(edl):
                 warns.append(f"{sid}: out {s['out']} cuts caption 「{x['text']}」 (ends {x['t1']})")
             if x["t0"] < s["in"] - EDGE_SLACK:
                 warns.append(f"{sid}: in {s['in']} cuts caption 「{x['text']}」 (starts {x['t0']})")
+        sp = [x for x in E.shot_subs(s) if x["kind"] != "note"]
+        for a_, b_ in zip(sp, sp[1:]):  # a restart: keep only the good take (creator, 2026-10-03)
+            ta, tb = re.sub(r"[\W_]", "", a_["text"]), re.sub(r"[\W_]", "", b_["text"])
+            if len(ta) >= 3 and b_["t0"] - a_["t1"] < 6 and (tb.startswith(ta) or SequenceMatcher(None, ta, tb).ratio() >= 0.6):
+                warns.append(f"{sid}: possible retake 「{a_['text']}」 then 「{b_['text']}」: keep only the good take")
         for x in E.shot_subs(s):
             if x["kind"] != "note" and x["t1"] - x["t0"] < MIN_CAPTION_S:
                 warns.append(f"{sid}: caption 「{x['text']}」 on screen only {x['t1'] - x['t0']:.2f} s")
