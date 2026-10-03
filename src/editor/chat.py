@@ -360,7 +360,7 @@ WIDGET = r"""
       if(t){let r=t.querySelector('.react');if(!r){r=document.createElement('span');r.className='react';t.appendChild(r)}r.textContent=m.text}return}
     const d=document.createElement('div');d.className='cbm '+m.role;d.dataset.mid=m.id;
     const w=document.createElement('span');w.className='w';
-    const wt=document.createElement('span');wt.textContent=(m.role==='claude'?'Agent':'我')+' · '+String(m.ts||'').slice(11,16)+(m.ctx&&where(m.ctx)?' · '+where(m.ctx):'');w.appendChild(wt);
+    const wt=document.createElement('span');wt.textContent=(m.id?'#'+m.id+' · ':'')+(m.role==='claude'?'Agent':'我')+' · '+String(m.ts||'').slice(11,16)+(m.ctx&&where(m.ctx)?' · '+where(m.ctx):'');w.appendChild(wt);
     const b=document.createElement('div');b.className='bub';b.textContent=m.text;
     d.appendChild(w);d.appendChild(b);list.appendChild(d);
     if(m.role==='creator'){if(m.status==='pending'){d.classList.add('pending');const p=document.createElement('span');p.className='pend';p.textContent='待交给 Agent';w.appendChild(p);pend.add(m.id)}
