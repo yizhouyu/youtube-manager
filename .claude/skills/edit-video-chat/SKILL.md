@@ -331,6 +331,12 @@ back into the file (poll it; add questions any time, the pages pick them up with
 
 **Review chat (creator, 2026-10-01).** Both pages have a "和 Claude 聊" box.
 - **What it carries:** each message he sends records where he was (raw clip + time, or cut time). The messages are stored in `edit/chat.jsonl`.
+- **Open all three pages yourself (creator, 2026-10-03).** When review starts or moves to the next episode, `open` these right away:
+  1. the raw page, 8765;
+  2. the cut page, 8766;
+  3. the episode's cover page, `thumbnail/editorial.html` or `review.html`.
+  
+  Before that, confirm `scan/.proofread` exists. Starting servers without opening the pages counts as not done.
 - **Two buttons (2026-10-02):** 「评论」 (Shift+Enter) stores a note as pending (`status: "pending"`, tagged 「待交给 Agent」 on the page); Option+Enter is a newline. 「交给 Agent」 (Enter, or Cmd+Enter) hands over the typed note plus all pending notes as one batch. Pending notes never reach `watch`: he is still collecting, so don't act on them (`tail` marks them `[待交]`).
 - **Watching:** while he reviews, keep a Monitor running `python -u -m src.editor.chat "<project>" watch`. Re-arm it every 30 min. It prints `CHAT #id [where] text` for a single note and `CHAT BATCH b3 (3 条): #5 [..] a ‖ #6 [..] b ‖ …` for a batch. Treat a batch as one review pass: apply all of it, re-render once, then reply once.
 - **Replying:** answer with `python -m src.editor.chat "<project>" reply "…"`, so he never has to switch back to the terminal.
