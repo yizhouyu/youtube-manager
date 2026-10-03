@@ -72,6 +72,9 @@ def clean_project(project):
             text = t2s(c["text"])
             if HALLUCINATION.search(text) or FILLER_ONLY.match(text) or NAV_PROMPT.search(text):
                 continue
+            if not re.search(r"[\u4e00-\u9fff]", text):
+                continue  # no Chinese = guides, strangers, background (the creator speaks Chinese); his own English
+                # lines that matter are already in the EDL subs above (creator, 2026-10-03: 背景、其他人说的不要字幕)
             if INTERJECTION.match(text) or len(re.sub(r"[\W_]", "", text)) <= 3:
                 continue  # stray 1-3 character fragments (嗨, 好了你, 拿哎呀) are fillers: never captioned (creator, 2026-10-03)
             for k, v in glossary.items():
