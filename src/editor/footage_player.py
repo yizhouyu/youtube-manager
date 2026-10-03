@@ -316,6 +316,12 @@ main{display:flex;flex-direction:column;padding:16px;min-width:0;min-height:0}
   opacity:0;pointer-events:none;transition:opacity .25s ease}
 .stage.ctl .ov{opacity:1;pointer-events:auto}
 .bar{display:flex;align-items:center;gap:12px;margin-top:8px;height:32px}
+.inlamp{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px 0 9px;border-radius:13px;font-size:13px;font-weight:600;
+  white-space:nowrap;background:rgba(255,255,255,.08);color:var(--stage-mute);border:1px solid rgba(255,255,255,.14);transition:all .15s}
+.inlamp i{width:12px;height:12px;border-radius:50%;background:transparent;border:2px solid rgba(255,255,255,.45);transition:all .15s}
+.inlamp.on{background:rgba(34,197,94,.18);color:#86efac;border-color:rgba(74,222,128,.55)}
+.inlamp.on i{background:#4ade80;border-color:#4ade80;box-shadow:0 0 10px #4ade80}
+.inlamp.off-edl{display:none}
 .gtime{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:#fff}
 .info{font-size:13px;color:var(--stage-mute);font-variant-numeric:tabular-nums;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -420,6 +426,7 @@ __QA_CSS__
         <div class="hover" id="hover"></div></div>
       <div class="bar">
         <button id="play" title="播放 / 暂停（空格）"></button>
+        <div class="inlamp" id="inlamp" title="这一帧有没有用在成片里"><i></i><span>未用</span></div>
         <div class="gtime" id="gtime">0:00 / 0:00</div>
         <div class="info" id="info"></div>
         <div class="spacer"></div>
@@ -645,6 +652,9 @@ function tick(){
     $('ph').style.left=(g/total*100)+'%';
     $('gtime').textContent=`${fmt(g)} / ${fmt(total)}`;   // YouTube-style: whole trip
     $('info').innerHTML=`${idx+1}/${clips.length} · ${esc(c.clip)} · <span title="相机时钟 ${esc(c.clock)}（可能不准）">${esc(c.when)}</span> · 本段 ${fmt(t)} / ${fmt(c.dur)}`;
+    {const rs=used[c.clip]||[], on=rs.some(([a,b])=>t>=a-0.05&&t<=b+0.05), L=$('inlamp');
+     if(L){L.classList.toggle('off-edl',!hasEdl); if(L.classList.contains('on')!==on){L.classList.toggle('on',on);
+       L.querySelector('span').textContent=on?'在成片里':'未用'}}}
     const p=srtCache[c.clip];
     if(p&&p.v!==undefined){
       const line=p.v.find(s=>t>=s.t0&&t<s.t1);
