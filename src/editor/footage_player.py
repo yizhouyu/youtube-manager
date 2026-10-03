@@ -589,7 +589,10 @@ stage.addEventListener('dblclick',e=>{if(!ov.contains(e.target))toggleFs()});
 ov.addEventListener('click',e=>e.stopPropagation());
 ov.addEventListener('dblclick',e=>e.stopPropagation());
 // YouTube-style auto-hide: visible while paused, on mouse movement, or hovering the controls
-const PIN=new URLSearchParams(location.search).has('ctl');
+// Review tool, not a viewing app: keep the bar + timeline visible while playing (creator, 2026-10-03).
+// ?autohide restores the fade-out.
+const PIN=!new URLSearchParams(location.search).has('autohide');
+if(PIN) stage.classList.add('ctl');
 let hideT=0;
 let lastUse=0, swapping=false;   // last time the viewer touched the controls; clip hand-off in progress
 function showCtl(){lastUse=Date.now();stage.classList.add('ctl');clearTimeout(hideT);hideT=setTimeout(maybeHide,2500)}
