@@ -478,3 +478,11 @@ Then continue with the publish-video-chat skill. After publishing: delete `edit/
 `/tmp/yt-editor/<project>` (the master + EDL are the source of truth), and update LESSONS.md.
 
 Contact sheets: `./venv/bin/python -m src.editor.scan "<project>"` → `edit/scan/sheets/grid_NN.jpg`.
+
+- **No captions for fillers and stray fragments (creator, 2026-10-03, ep 97).**
+  - Interjection-only lines get no caption: 嗨, 哇, 哎呀, 天哪, "Oh no no no", "There you go".
+  - Neither do odd 1–2 word scraps like 好了你, 拿哎呀, 去吧.
+  - Background strangers talking are never captioned.
+  - `captions_clean` drops these on the raw page (the INTERJECTION regex and the ≤3-character rule). In the cut, leave them out of `subs`.
+  - Keep short lines that mean something: 很大, 好美啊, 哇，好吃.
+

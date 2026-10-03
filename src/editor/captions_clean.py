@@ -20,6 +20,8 @@ from . import edl as E
 
 HALLUCINATION = re.compile(r"MING PAO|明镜|点点栏目|点赞|订阅|转发|打赏|字幕|by\s|Amara|中文字幕|谢谢观看")
 NAV_PROMPT = re.compile(r"(?i)\b(your destination|destination is|you have arrived|in \d+ (feet|miles?|meters)|turn (left|right)|keep (left|right)|make a u-turn|rerouting|continue( straight| on)?|for (one|\d+|a half|half a) (mile|miles|feet|kilometers?)|then,? turn|at the roundabout|slight (left|right))\b|^on the (left|right)\.?$|^continue\.?$")  # GPS voice: never captioned
+# interjection-only lines (哇 / 哎呀 / Oh no no no / Oh my God / There you go): never captioned (creator, 2026-10-03)
+INTERJECTION = re.compile(r"(?i)^[\s,，.。!！?？~～…]*((oh|ooh|wow|whoa|hey|hi|hello|yeah|yay|oops|no|yes|okay|ok|god|my|there you go|come on|go|nice|cool|嗨|哈+|哎呀|哎呦|哎哟|哎|唉|哇塞?|呀|啊+|哦|噢|嗯|呃|额|好了你?|好|对+|来+|走+|天哪|我的天)[\s,，.。!！?？~～…]*)+$")
 FILLER_ONLY = re.compile(r"^[\s,，.。!！?？~～]*(好|我|哦|哇|嗯|啊|呃|额|唉|哎|对|这么|那个|就是|然后)*[\s,，.。!！?？~～]*$")
 
 
@@ -70,6 +72,8 @@ def clean_project(project):
             text = t2s(c["text"])
             if HALLUCINATION.search(text) or FILLER_ONLY.match(text) or NAV_PROMPT.search(text):
                 continue
+            if INTERJECTION.match(text) or len(re.sub(r"[\W_]", "", text)) <= 3:
+                continue  # stray 1-3 character fragments (嗨, 好了你, 拿哎呀) are fillers: never captioned (creator, 2026-10-03)
             for k, v in glossary.items():
                 text = text.replace(k, v)
             if not text.strip(" ，,。"):
