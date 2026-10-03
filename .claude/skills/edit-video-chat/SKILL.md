@@ -417,7 +417,7 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
   `./venv/bin/python -m src.editor.routemap "<ep>/02 - Export/edit/maps/route_config.json" fetch route`
   (`fetch` caches the Overpass extract in the `"osm"` path, so later runs only need `route`; `legs`
   prints each leg's km and roads for a quick check). Its defaults give the ep 96 look; the full
-  example is `96 - Malibu/02 - Export/edit/maps/route_config.json`, and the keys are documented in
+  example is `examples/routemap_malibu.json` (ep 96; its `osm` path points at that episode's extract, so re-run `fetch` for a new place), and the keys are documented in
   `render_route` / `DEFAULTS`.
   - Change only `stops` (cn, sub, lat, lon, `side` up/upright/upleft/down/left/right, `halo` sea
     for labels over water), `bbox` plus `frame`/`fit`, `title`, map `labels` and `spans`.

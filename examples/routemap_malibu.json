@@ -1,0 +1,28 @@
+{
+  "_comment": "Ep 96 route map. Render from youtube-manager: ./venv/bin/python -m src.editor.routemap \"<this file>\" [fetch] [route]",
+  "osm": "../outside/osm_malibu.json",
+  "out": "route.mp4",
+  "preview": "route_last_frame.jpg",
+  "size": [3840, 2160], "fps": 30, "dur": 5.0,
+  "bbox": [33.9, -118.86, 34.08, -118.36],
+  "frame": [0.08, 0.30, 0.88, 1.0], "fit": "width", "align": [0.5, 0.0], "ref_lat": 34.0,
+  "title": "南加州最后一天",
+  "mode": "drive",
+  "stops": [
+    {"cn": "马里布海鲜", "sub": "午饭 · 下午 2:23", "lat": 34.03382, "lon": -118.73511, "side": "up"},
+    {"cn": "Westward Beach", "sub": "日落 · 下午 4:55", "lat": 34.005, "lon": -118.8108, "side": "down", "halo": "sea"},
+    {"cn": "马里布码头", "sub": "下午 5:31", "lat": 34.037, "lon": -118.6762, "side": "down", "halo": "sea"},
+    {"cn": "圣莫尼卡", "sub": "码头 · 晚上 7:16", "lat": 34.0095, "lon": -118.4972, "side": "upright"},
+    {"cn": "LAX · In-N-Out", "sub": "晚上 8:22", "lat": 33.95371, "lon": -118.39678, "side": "down"}
+  ],
+  "spans": [[0.3, 0.95], [0.95, 1.7], [1.7, 2.55], [2.55, 3.25]],
+  "flight": {"span": [3.35, 4.35], "to": [0.95, 0.30], "lift": 380, "label": "飞回纽约 EWR", "style": "plane"},
+  "labels": [
+    {"text": "太平洋", "lat": 33.935, "lon": -118.66, "size": 110, "color": [90, 130, 160], "halo": null},
+    {"text": "圣莫尼卡山", "lat": 34.075, "lon": -118.66, "size": 80},
+    {"text": "洛杉矶", "lat": 34.06, "lon": -118.50, "size": 90}
+  ],
+  "credit_halo": "sea",
+  "fetch": {"bbox": [33.84, -118.95, 34.20, -118.25], "coast_bbox": [33.60, -119.10, 34.25, -118.20],
+            "kinds": ["major", "coast"], "around_radius": 600, "around_kinds": ["minor"]}
+}
