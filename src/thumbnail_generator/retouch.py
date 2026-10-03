@@ -23,11 +23,12 @@ def retouch(im, style="natural"):
     sh=0.22 if style=="natural" else 0.28; hl=0.25 if style=="natural" else 0.3
     newl=lum+sh*(1-lum)**3*lum*3 - hl*lum**4*(1-lum)*3
     a=to(a*(newl/np.maximum(lum,1e-4)))
-    # 2) local contrast / clarity (large-radius unsharp)
-    im2=Image.fromarray((a*255).astype(np.uint8))
-    blur=np.asarray(im2.filter(ImageFilter.GaussianBlur(40))).astype(np.float32)/255
+    # 2) local contrast / clarity on luminance only (per-channel clarity drew cyan halos around
+    #    saturated reds, e.g. the Mexican flag) — fix from the 105–107 covers, 2026-10-03
+    L=(0.299*a[...,0]+0.587*a[...,1]+0.114*a[...,2])
+    Lb=np.asarray(Image.fromarray((L*255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(40))).astype(np.float32)/255
     k=0.35 if style=="natural" else 0.5
-    a=to(a+k*(a-blur))
+    a=to(a+k*(L-Lb)[...,None])
     # 3) dehaze: subtract a bit of the dark channel haze
     dark=a.min(axis=2,keepdims=True); a=to((a-0.06*dark)/(1-0.06))
     # 4) vibrance: boost low-saturation pixels more
