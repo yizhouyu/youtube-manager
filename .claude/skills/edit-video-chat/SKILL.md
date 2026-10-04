@@ -486,6 +486,12 @@ Then continue with the publish-video-chat skill. After publishing: delete `edit/
 Contact sheets: `./venv/bin/python -m src.editor.scan "<project>"` → `edit/scan/sheets/grid_NN.jpg`.
 
 - **No runtime cap (creator, 2026-10-03: 「成片的长度不需要有限制。你就只要把精彩的都留下就可以」).** Don't cut good moments to hit a target length. Every highlight stays: action, reactions, the creator's real commentary, pretty scenery with something happening. Trim only what is dull or repeated: dead air, retakes, fillers, waiting. This applies to every episode.
+- **Keep only the clean take; captions are held to a high standard (creator, 2026-10-03: 「这个以后也要记得，字幕水平要保持高水准」).** Before any episode goes to review, check every kept speech line against the raw transcript and against whisper large-v3 run on the kept audio. If Qwen3-ASR with per-character timestamps is available, use it as well: whisper hides restarts.
+  - Cut false starts, half-sentences that get restarted, doubled words (「这个这个」「一一块钱」), and lone fragments before the real line.
+  - Test-join every cut and re-transcribe it, so that no word is clipped.
+  - Captions must match what remains, word for word: one sentence per caption, no fillers, no other people's background talk.
+  - The `lint` retake warning only catches near-identical captions. The full audit is still required.
+  - The 100–107 pass on 2026-10-03 cut 93 retakes; that is the bar.
 - **No captions for fillers and stray fragments (creator, 2026-10-03, ep 97).**
   - Interjection-only lines get no caption: 嗨, 哇, 哎呀, 天哪, "Oh no no no", "There you go".
   - Neither do odd 1–2 word scraps like 好了你, 拿哎呀, 去吧.
