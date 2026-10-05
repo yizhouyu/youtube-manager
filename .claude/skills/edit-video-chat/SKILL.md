@@ -171,6 +171,11 @@ see LESSONS.md for sources). Treat them as the bar every cut must clear:
    point to that region's playlist/合集 instead. No separate outro card.
 10. **Chapters = location names** (first at 0:00, ≥ 3, each ≥ 10 s) — written into publish metadata.
 11. **Shorts:** note 1–3 self-contained peak moments (≤ 60 s each) in HANDOFF.md for later cut-downs.
+    Leave ~3 s after the last spoken line of each moment: `scripts/make_short.py`'s CTA (creator,
+    2026-10-04) sends viewers to the long video through the Short's bottom-left Related-video link
+    (「完整版👇 点左下角的链接」 + an arrow at that link, a bell, and the spoken 「完整版在左下角，点进去看」).
+    It never talks over speech, and the build stops if the line can't fit. No 「关注」 pill. Note
+    labels sit centred on their dark plate.
 
 ### 2b+. Craft rules from the 2026-10-01 research (Chinese and English creators, retention, audio)
 Sources and evidence: `docs/`-style reports kept locally (zh-creators, en-creators, retention-packaging,

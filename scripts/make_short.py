@@ -41,10 +41,17 @@ Spec (all times in seconds; segment times and keyframes are SOURCE-clip seconds)
   "hook": {"text": "...\\n一只{...}", "sub": "place · region", "t1": 1.8, "y": 0.16},
                                         # big title that pops in over the first ~1.5-2 s and fades out
                                         # (y = top of the block, 0-1 of H; "size" overrides 118 px)
-  "cta": {"text": "关注我 · 带你看更多美国宝藏景点", "button": "关注", "dur": 2.2},
-                                        # end overlay: one line + a subscribe-style pill + an arrow that
-                                        # bobs toward the channel row; `true` = these defaults. Captions
-                                        # still on screen then are lifted above it.
+  "cta": true,                          # end CTA that sends viewers to the long video (defaults below):
+                                        # 「完整版👇 点{左下角}的链接」 + a yellow arrow bobbing down-left at
+                                        # the Related-video chip (RELATED_CHIP, bottom-left above the
+                                        # channel name), a bell (assets/sfx/cta_bell.wav) when it appears,
+                                        # and the spoken line 「完整版在左下角，点进去看」 (edge-tts Yunxi,
+                                        # broadcast-VO chain, bed ducked) right after -- both placed after
+                                        # any speech still running; the build stops if it can't fit.
+                                        # Override: {"text", "button" (adds a red pill), "dur" (3.0),
+                                        # "voice": false | {"text", "voice", "rate", "gain_db", "duck_db"},
+                                        # "voice_delay" (0.35), "bell": false | {"file", "bell_lu" (-5)}}.
+                                        # Captions still on screen then are lifted above it.
   "loop_xfade": 0.35,                   # last N s dissolve into the first frame, so the loop is seamless
   "music": {"file": "music/track.mp3", "in": 0, "volume": 0.30, "duck": 0.08,
             "match": true,              # loudness-match the track to -14 LUFS first (volume is then
@@ -83,7 +90,8 @@ import tempfile
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, REPO)
 
-from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
+import numpy as np  # noqa: E402
+from PIL import Image, ImageDraw, ImageFilter, ImageFont  # noqa: E402
 
 from src.editor import edl as E  # noqa: E402
 from src.editor import overlays as O  # noqa: E402
@@ -96,9 +104,18 @@ SAFE = {"top": 220, "bottom": 480, "right": 150, "left": 60}
 CAPTION_BOTTOM = 0.675  # speech / note block ends here (fraction of H), well above the bottom overlay
 HEADLINE_TOP = 0.125
 HILITE = (255, 212, 0, 255)       # keyword yellow (the covers use the same)
-CTA_TEXT = "关注我 · 带你看更多美国宝藏景点"
-CTA_BUTTON = "关注"
+# CTA (creator, 2026-10-04): send viewers to the long video through the Short's Related-video link,
+# which YouTube draws as a tappable chip at the bottom-left, just above the channel name and title.
+# No 「关注」 pill: viewers didn't know the Short links to the full video.
+CTA_TEXT = "完整版👇 点{左下角}的链接"
+CTA_BUTTON = None                 # a spec may still add a red pill ("button": "关注")
 CTA_RED = (255, 0, 51, 255)
+CTA_DUR = 3.0                     # s; bell + overlay at the start, the spoken line right after
+RELATED_CHIP = (0.12, 0.80, 0.35, 0.86)   # x0, y0, x1, y1 (fraction of W/H) of the Related-video chip
+CTA_VOICE = {"text": "完整版在左下角，点进去看", "voice": "zh-CN-YunxiNeural", "rate": "-5%"}
+CTA_BELL = os.path.join(REPO, "assets", "sfx", "cta_bell.wav")
+EDGE_TTS = os.path.join(REPO, "venv", "bin", "edge-tts")
+EMOJI_FONT = "/System/Library/Fonts/Apple Color Emoji.ttc"
 
 
 def run(cmd, **kw):
@@ -296,16 +313,74 @@ def _runs(line):
     return runs
 
 
+def _is_emoji(ch):
+    o = ord(ch)
+    return o >= 0x1F000 or 0x2600 <= o <= 0x27BF or o in (0x2B05, 0x2B06, 0x2B07, 0x2199)
+
+
+_EMOJI = {}
+
+
+def _emoji_img(ch, size):
+    """Colour emoji (Apple Color Emoji only renders at 160 px) scaled to sit like a CJK glyph of `size`."""
+    if (ch, size) not in _EMOJI:
+        ef = ImageFont.truetype(EMOJI_FONT, 160)
+        im = Image.new("RGBA", (240, 240), (0, 0, 0, 0))
+        ImageDraw.Draw(im).text((40, 40), ch, font=ef, embedded_color=True)
+        im = im.crop(im.getbbox())
+        k = 1.15 * size / im.height
+        _EMOJI[(ch, size)] = im.resize((max(1, int(im.width * k)), max(1, int(im.height * k))), Image.LANCZOS)
+    return _EMOJI[(ch, size)]
+
+
+def _pieces(s):
+    """Split a run into text pieces and single emoji (the text fonts have no emoji glyphs)."""
+    out, cur = [], ""
+    for ch in s:
+        if _is_emoji(ch):
+            if cur:
+                out.append((cur, False))
+            out.append((ch, True))
+            cur = ""
+        else:
+            cur += ch
+    if cur:
+        out.append((cur, False))
+    return out
+
+
+def _piece_w(d, s, emo, font):
+    return _emoji_img(s, font.size).width + 0.16 * font.size if emo else d.textlength(s, font=font)
+
+
 def _draw_marked_line(d, x0, y, line, font, stroke, fill=(255, 255, 255, 255), hl=HILITE,
                       stroke_fill=(0, 0, 0, 240)):
     x = x0
     for s, h in _runs(line):
-        d.text((x, y), s, font=font, fill=hl if h else fill, stroke_width=stroke, stroke_fill=stroke_fill)
-        x += d.textlength(s, font=font)
+        for p, emo in _pieces(s):
+            if emo:   # centred on the real glyph box of a CJK character on this line
+                e = _emoji_img(p, font.size)
+                _, gt, _, gb = d.textbbox((x, y), "国", font=font)
+                d._image.alpha_composite(e, (int(x + 0.08 * font.size), int((gt + gb - e.height) / 2)))
+            else:
+                d.text((x, y), p, font=font, fill=hl if h else fill, stroke_width=stroke, stroke_fill=stroke_fill)
+            x += _piece_w(d, p, emo, font)
 
 
 def _line_w(d, line, font):
-    return d.textlength("".join(c[0] for c in line), font=font)
+    return sum(_piece_w(d, p, emo, font) for p, emo in _pieces("".join(c[0] for c in line)))
+
+
+def _ink_box(d, x0, y, line, font, stroke):
+    """The real glyph box (incl. stroke) of a marked line drawn at (x0, y). CJK fonts put the glyphs
+    well below the nominal line top, so plates must be centred on this, not on y .. y + size."""
+    s = "".join(c[0] for c in line)
+    txt = "".join(p for p, emo in _pieces(s) if not emo) or "国"
+    l, t, r, b = d.textbbox((x0, y), txt, font=font, stroke_width=stroke)
+    if any(emo for _, emo in _pieces(s)):
+        _, gt, _, gb = d.textbbox((x0, y), "国", font=font, stroke_width=stroke)
+        t, b = min(t, gt), max(b, gb)
+    return x0 - stroke, t, max(r, x0 + _line_w(d, line, font) + stroke), b
 
 
 def _shadow(im, radius=10, alpha=150, offset=(0, 6)):
@@ -372,13 +447,18 @@ def punch_caption_png(text, style, cache, bottom=CAPTION_BOTTOM):
         lh = int(size * 1.24)
         y = max(SAFE["top"], int(H * bottom) - lh * len(lines))
         if style == "note":
-            pw = max(_line_w(d, ln, f) for ln in lines) + 60
+            # the plate hugs the real glyph box with equal padding top and bottom (creator, 2026-10-04:
+            # the text sat on the plate's bottom edge -- CJK glyphs start well below the line top)
+            stroke = max(3, size // 16)
+            boxes = [_ink_box(d, cx - _line_w(d, ln, f) / 2, y + k * lh, ln, f, stroke) for k, ln in enumerate(lines)]
+            pad, padx = round(0.4 * size), round(0.5 * size)
+            pw = max(b[2] - b[0] for b in boxes) + 2 * padx
+            top, bot = min(b[1] for b in boxes) - pad, max(b[3] for b in boxes) + pad
             plate = Image.new("RGBA", (W, H), (0, 0, 0, 0))
             ImageDraw.Draw(plate).rounded_rectangle(
-                [cx - pw / 2, y - 20, cx + pw / 2, y + lh * len(lines) + 2], radius=26, fill=(12, 14, 20, 155))
+                [cx - pw / 2, top, cx + pw / 2, bot], radius=min(26, (bot - top) / 2), fill=(12, 14, 20, 155))
             im = Image.alpha_composite(im, plate)
             d = ImageDraw.Draw(im)
-            stroke = max(3, size // 16)
         for ln in lines:
             _draw_marked_line(d, cx - _line_w(d, ln, f) / 2, y, ln, f, stroke)
             y += lh
@@ -437,7 +517,8 @@ def hook_png(hook, cache):
             sw = d.textlength(sub, font=fs) + 64
             y += 22
             d.rounded_rectangle([cx - sw / 2, y, cx + sw / 2, y + 74], radius=37, fill=(0, 0, 0, 150))
-            d.text((cx, y + 37), sub, font=fs, fill=(255, 255, 255, 255), anchor="mm")
+            l_, t_, r_, b_ = d.textbbox((0, 0), sub, font=fs)   # centre the real glyph box in the pill
+            d.text((cx - (l_ + r_) / 2, y + 37 - (t_ + b_) / 2), sub, font=fs, fill=(255, 255, 255, 255))
         return _shadow(im, 10, 140, (0, 6))
     key = f"{json.dumps(hook, ensure_ascii=False, sort_keys=True)}|{W}x{H}"
     return (O._cached(cache, f"hook|{key}", lambda: render("title")),
@@ -445,17 +526,31 @@ def hook_png(hook, cache):
 
 
 def cta_layout(cta):
-    """Geometry shared by the CTA pieces and the caption lift: (top y of the CTA block, pill box)."""
-    y_text = H - SAFE["bottom"] - 250
-    pill = (W / 2 - 170, y_text + 104, W / 2 + 170, y_text + 214)
-    return y_text - 30, pill
+    """Geometry shared by the CTA pieces and the caption lift -> dict: top (y where the CTA block
+    starts; captions on screen then are lifted above it), text_y (top of the text line), pill (box or
+    None), arrow ((x, y) start, (x, y) tip). The text sits above the bottom ~18 % UI zone; only the
+    arrow tip reaches into it, at the upper-right of the Related-video chip (RELATED_CHIP)."""
+    button = cta.get("button", CTA_BUTTON)
+    cx0, cy0, cx1, _ = RELATED_CHIP
+    tip = (W * (cx0 + 0.55 * (cx1 - cx0)), H * cy0 - 6)   # just above the chip, pointing down-left
+    if button:   # optional subscribe-style pill under the line; the arrow then starts at its left side
+        text_y = H * cy0 - 380
+        pill = (W / 2 - 170, text_y + 104, W / 2 + 170, text_y + 214)
+        start = (pill[0] - 24, (pill[1] + pill[3]) / 2 + 12)
+    else:
+        text_y = H * cy0 - 270
+        pill = None
+        start = (tip[0] + 150, text_y + 120)
+    return {"top": text_y - 30, "text_y": text_y, "pill": pill, "arrow": (start, tip)}
 
 
 def cta_pngs(cta, cache):
-    """CTA end overlay: soft bottom scrim, one line of text, a red subscribe-style pill, and a
-    separate arrow layer (animated) pointing down-left at the channel name / subscribe button."""
+    """CTA end overlay: soft bottom scrim, one line of text (default 「完整版👇 点左下角的链接」, emoji
+    allowed), an optional pill, and a separate arrow layer (animated) pointing down-left at the
+    Related-video chip, the link to the long video."""
     text, button = cta.get("text", CTA_TEXT), cta.get("button", CTA_BUTTON)
-    top, pill = cta_layout(cta)
+    lay = cta_layout(cta)
+    top = lay["top"]
 
     def render_main():
         im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -465,38 +560,206 @@ def cta_pngs(cta, cache):
             a = int(150 * min(1.0, (yy - y_s) / 260))
             sc.rectangle([0, yy, W, yy + 4], fill=(0, 0, 0, a))
         d = ImageDraw.Draw(im)
-        size = 64
-        max_w = W - 2 * SAFE["left"]   # full width: the right-hand buttons sit higher than this line
+        size = 70
+        max_w = W - SAFE["left"] - SAFE["right"] - 20   # clear of the right-hand action buttons
+        cx = (SAFE["left"] + W - SAFE["right"]) / 2
         f = O._font(O.TITLE_FONTS, size)
         chars = _parse_marked(text)
         while _line_w(d, chars, f) > max_w and size > 40:
             size -= 2
             f = O._font(O.TITLE_FONTS, size)
-        _draw_marked_line(d, W / 2 - _line_w(d, chars, f) / 2, top + 30, chars, f, 6)
-        x0, y0, x1, y1 = pill
-        d.rounded_rectangle([x0, y0, x1, y1], radius=(y1 - y0) / 2, fill=CTA_RED)
-        fb = O._font(O.TITLE_FONTS, 58)
-        d.text(((x0 + x1) / 2, (y0 + y1) / 2 + 2), f"＋ {button}", font=fb, fill=(255, 255, 255, 255), anchor="mm")
+        _draw_marked_line(d, cx - _line_w(d, chars, f) / 2, lay["text_y"], chars, f, 7)
+        if lay["pill"]:
+            x0, y0, x1, y1 = lay["pill"]
+            d.rounded_rectangle([x0, y0, x1, y1], radius=(y1 - y0) / 2, fill=CTA_RED)
+            fb = O._font(O.TITLE_FONTS, 58)
+            lb = f"＋ {button}"
+            l_, t_, r_, b_ = d.textbbox((0, 0), lb, font=fb)
+            d.text(((x0 + x1 - l_ - r_) / 2, (y0 + y1 - t_ - b_) / 2), lb, font=fb, fill=(255, 255, 255, 255))
         return _shadow(im, 8, 120, (0, 5))
 
     def render_arrow():
         im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
-        x0, y0, x1, y1 = pill
-        sx, sy = x0 - 24, (y0 + y1) / 2 + 12          # from the pill's left side ...
-        ex, ey = 200, H - SAFE["bottom"] + 60          # ... down-left toward the channel row
-        col = (255, 255, 255, 255)
+        (sx, sy), (ex, ey) = lay["arrow"]
         ang = math.atan2(ey - sy, ex - sx)
-        hl, hw = 46, 30
-        bx, by = ex - hl * math.cos(ang), ey - hl * math.sin(ang)
-        d.line([(sx, sy), (bx, by)], fill=col, width=14)
         px, py = -math.sin(ang), math.cos(ang)
-        d.polygon([(ex, ey), (bx + hw * px, by + hw * py), (bx - hw * px, by - hw * py)], fill=col)
+        for col, grow in (((0, 0, 0, 200), 5), (HILITE, 0)):   # dark outline, then the yellow arrow
+            hl, hw = 52 + grow, 34 + grow
+            tx, ty = ex + grow * math.cos(ang), ey + grow * math.sin(ang)
+            bx, by = ex - hl * math.cos(ang), ey - hl * math.sin(ang)
+            d.line([(sx - grow * math.cos(ang), sy - grow * math.sin(ang)), (bx, by)], fill=col, width=16 + 2 * grow)
+            d.ellipse([sx - 8 - grow, sy - 8 - grow, sx + 8 + grow, sy + 8 + grow], fill=col)
+            d.polygon([(tx, ty), (bx + hw * px, by + hw * py), (bx - hw * px, by - hw * py)], fill=col)
         return _shadow(im, 6, 160, (0, 4))
 
     key = json.dumps(cta, ensure_ascii=False, sort_keys=True)
     return (O._cached(cache, f"cta|{key}|{W}x{H}", render_main),
             O._cached(cache, f"cta_arrow|{key}|{W}x{H}", render_arrow))
+
+
+# ---------------------------------------------------------------- CTA audio (bell + spoken line)
+
+def synth_bell(dur=0.8, f0=1318.5, peak_dbfs=-6.0):
+    """A small struck bell (E6), synthesized so there is nothing to license: a strong fundamental
+    with a slightly detuned twin (slow shimmer), the octave, an inharmonic 2.76x bell partial and
+    two quick high partials for the strike, each decaying exponentially; 4 ms attack, cosine tail."""
+    t = np.arange(int(dur * SR)) / SR
+    parts = [(1.0, 1.0, 0.30), (1.0012, 0.35, 0.30), (2.0, 0.32, 0.17), (2.76, 0.22, 0.11),
+             (5.40, 0.08, 0.05), (8.93, 0.03, 0.025), (0.5, 0.06, 0.25)]   # (ratio, amp, decay s)
+    y = sum(a * np.exp(-t / tau) * np.sin(2 * np.pi * f0 * r * t + r) for r, a, tau in parts)
+    y *= 0.5 - 0.5 * np.cos(np.pi * np.clip(t / 0.004, 0, 1))
+    tail = int(0.12 * SR)
+    y[-tail:] *= np.cos(np.linspace(0, np.pi / 2, tail)) ** 2
+    return y * 10 ** (peak_dbfs / 20) / np.abs(y).max()
+
+
+def ensure_bell(path=CTA_BELL):
+    """assets/sfx/cta_bell.wav (48 kHz stereo, peak -6 dBFS); written from synth_bell() if missing."""
+    if not os.path.exists(path):
+        import wave
+        y = synth_bell()
+        pcm = (np.stack([y, y], 1) * 32767).astype("<i2")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with wave.open(path, "wb") as w:
+            w.setnchannels(2)
+            w.setsampwidth(2)
+            w.setframerate(SR)
+            w.writeframes(pcm.tobytes())
+    return path
+
+
+def _read_f32(path):
+    r = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-f", "f32le", "-ac", "2", "-ar", str(SR), "-"],
+                       capture_output=True, check=True)
+    return np.frombuffer(r.stdout, dtype="<f4").reshape(-1, 2)
+
+
+def _write_f32(path, y):
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "f32le", "-ac", "2", "-ar", str(SR), "-i", "-",
+                    "-c:a", "pcm_f32le", path], input=np.ascontiguousarray(y, dtype="<f4").tobytes(), check=True)
+
+
+def tighten_pauses(y, max_gap=0.2, edge=0.03, floor_db=-40.0):
+    """Trim leading/trailing silence and shorten pauses longer than `max_gap` (edge-tts holds a
+    comma for ~0.45 s, too long for a 2.5 s CTA)."""
+    hop = int(0.01 * SR)
+    n = len(y) // hop
+    if n < 3:
+        return y
+    rms = np.sqrt((y[:n * hop].reshape(n, hop, -1) ** 2).mean(axis=(1, 2)))
+    on = rms > rms.max() * 10 ** (floor_db / 20)
+    idx = np.flatnonzero(on)
+    if not len(idx):
+        return y
+    keep, k, e = [], idx[0], int(edge * 100)
+    keep.append(y[max(0, (idx[0] - e) * hop):idx[0] * hop])
+    while k <= idx[-1]:
+        j = k
+        while j <= idx[-1] and on[j] == on[k]:
+            j += 1
+        seg = y[k * hop:j * hop]
+        if not on[k] and (j - k) * 0.01 > max_gap:   # a long pause: keep its two ends
+            h = int(max_gap * SR / 2)
+            seg = np.concatenate([seg[:h], seg[-h:]])
+        keep.append(seg)
+        k = j
+    keep.append(y[(idx[-1] + 1) * hop:min(len(y), (idx[-1] + 1 + e) * hop)])
+    return np.concatenate(keep)
+
+
+def cta_voice_line(spec, vcfg, work):
+    """edge-tts line -> (wav, seconds, line LUFS): cached as MP3 in <project>/02 - Export/edit/tts/,
+    put through the long-form editor's broadcast-VO chain (render.tts_processed), pauses tightened."""
+    import hashlib
+    from src.editor.render import tts_processed
+    text, voice, rate = vcfg["text"], vcfg.get("voice", CTA_VOICE["voice"]), vcfg.get("rate", CTA_VOICE["rate"])
+    key = hashlib.sha1(json.dumps([text, voice, rate], ensure_ascii=False).encode()).hexdigest()[:10]
+    tdir = os.path.join(E.edit_dir(spec["project"]), "tts") if spec.get("project") else os.path.join(work, "tts")
+    os.makedirs(tdir, exist_ok=True)
+    mp3 = os.path.join(tdir, f"short_cta_{key}.mp3")
+    if not os.path.exists(mp3):
+        subprocess.run([EDGE_TTS, "--voice", voice, f"--rate={rate}", "--text", text,
+                        "--write-media", mp3 + ".part.mp3"], capture_output=True, check=True)
+        os.replace(mp3 + ".part.mp3", mp3)
+    wav, line_i = tts_processed(mp3, os.path.join(work, "tts"))
+    y = tighten_pauses(_read_f32(wav))
+    out = os.path.join(work, "cta_voice.wav")
+    _write_f32(out, y)
+    return out, len(y) / SR, line_i
+
+
+def cta_timing(total, cta, speech, voice_dur):
+    """(t_cta, t_voice): the bell and the overlay at t_cta (default total - dur), the spoken line
+    0.35 s later -- both after any speech still running then (never over his words). Raises when the
+    line can't finish before the end: lengthen the last shot by the amount it names."""
+    t_cta = max(0.0, total - float(cta.get("dur", CTA_DUR)))
+    late = [b for a, b in speech if b > t_cta - 0.1 and a < total]
+    if late:
+        t_cta = max(t_cta, max(late) + 0.1)
+    t_voice = t_cta + float(cta.get("voice_delay", 0.35)) if voice_dur else None
+    end = (t_voice + voice_dur) if voice_dur else t_cta + 1.2
+    if end > total - 0.05:
+        raise SystemExit(f"CTA doesn't fit: speech runs until {max(late) if late else t_cta:.2f} s, the CTA "
+                         f"needs until {end:.2f} s but the Short is {total:.2f} s. Lengthen the last shot by "
+                         f"{end - total + 0.05:.2f} s (or shorten the line).")
+    return t_cta, t_voice
+
+
+def mix_cta_audio(mix, out, voice_track, speech, t_cta, t_voice, line, bell_cfg, vcfg, total):
+    """Mix the bell (at t_cta) and the spoken line (at t_voice) into `mix` (pre-master). The line sits
+    at the on-camera speech level (median of the speech captions' loudness), or 1 LU above the mix
+    when nobody speaks; the bed (source + music) ducks under it. The bell's loudest 400 ms sits
+    `bell_lu` (default -5 LU) under that reference and never above its file level (peak -6 dBFS).
+    -> info dict for the report."""
+    from src.editor.render import _measure, _momentary, power_mean_lufs
+    per = []
+    if speech:
+        t, m = _momentary(voice_track)
+        for a, b in speech:
+            v = power_mean_lufs([mm for tt, mm in zip(t, m) if a + 0.4 <= tt <= b + 0.1])
+            if v is not None:
+                per.append(v)
+    if per:
+        per.sort()
+        ref, src = (per[len(per) // 2] + per[(len(per) - 1) // 2]) / 2, "speech"
+    else:
+        ref, src = _measure(mix)["I"] + 1.0, "mix+1"
+    info = {"t_cta": round(t_cta, 2), "ref_lufs": round(ref, 1), "ref": src}
+    args, chain, labels = ["-i", mix], [], []
+    bed = "[0:a]"
+    if line:
+        wav, dur, line_i = line
+        gain = max(-24.0, min(24.0, ref + 0.5 - line_i + float(vcfg.get("gain_db", 0))))
+        g = 10 ** (-float(vcfg.get("duck_db", 8)) / 20)
+        a, b, r = t_voice - 0.05, t_voice + dur + 0.1, 0.15
+        env = f"clip(min((t-{a:.3f}+{r})/{r},({b:.3f}+{r}-t)/{r}),0,1)"
+        chain.append(f"[0:a]volume='1-{1 - g:.4f}*{env}':eval=frame[bed]")
+        bed = "[bed]"
+        args += ["-i", wav]
+        ms = int(round(t_voice * 1000))
+        chain.append(f"[{len(args) // 2 - 1}:a]volume={gain:.2f}dB,afade=t=in:d=0.02,adelay={ms}:all=1[vo]")
+        labels.append("[vo]")
+        info.update(voice_t=round(t_voice, 2), voice_dur=round(dur, 2), voice_gain_db=round(gain, 1))
+    if bell_cfg is not False:
+        bf = (bell_cfg or {}).get("file") or ensure_bell()
+        _, m = _momentary(bf)
+        bell_m = max(m)
+        bgain = min(0.0, ref + float((bell_cfg or {}).get("bell_lu", -5.0)) - bell_m)
+        args += ["-i", bf]
+        ms = int(round(t_cta * 1000))
+        chain.append(f"[{len(args) // 2 - 1}:a]aresample={SR},aformat=sample_fmts=fltp:channel_layouts=stereo,"
+                     f"volume={bgain:.2f}dB,adelay={ms}:all=1[bell]")
+        labels.append("[bell]")
+        info.update(bell_t=round(t_cta, 2), bell_gain_db=round(bgain, 1))
+    if not labels:
+        shutil.copy(mix, out)
+        return info
+    chain.append(f"{bed}{''.join(labels)}amix=inputs={len(labels) + 1}:normalize=0:duration=first,"
+                 f"atrim=0:{total:.3f}[out]")
+    run(["ffmpeg", "-v", "error", "-y", *args, "-filter_complex", ";".join(chain), "-map", "[out]",
+         "-c:a", "pcm_f32le", out])
+    return info
 
 
 # ---------------------------------------------------------------- overlay track
@@ -730,10 +993,14 @@ def build(spec, out, check=False, check_dir=None):
         # overlay track: captions, hook, CTA
         cta = spec.get("cta")
         cta = {} if cta is True else (cta or None)
-        cta_t0 = cta_top = None
+        cta_t0 = cta_top = t_voice = line = vcfg = None
         if cta is not None:
-            cta_t0 = max(0.0, total - float(cta.get("dur", 2.2)))
-            cta_top = cta_layout(cta)[0] / H
+            vcfg = cta.get("voice", True)
+            vcfg = dict(CTA_VOICE, **(vcfg if isinstance(vcfg, dict) else {})) if vcfg is not False else None
+            if vcfg:
+                line = cta_voice_line(spec, vcfg, work)
+            cta_t0, t_voice = cta_timing(total, cta, speech, line[1] if line else 0)
+            cta_top = cta_layout(cta)["top"] / H
         layers = []
         for c in caps:
             bottom = float(c.get("y") or spec.get("caption_bottom", CAPTION_BOTTOM))
@@ -824,6 +1091,12 @@ def build(spec, out, check=False, check_dir=None):
         else:
             run(["ffmpeg", "-v", "error", "-y", "-i", voice, "-af",
                  f"afade=t=in:d={fade},afade=t=out:st={max(0, total - fade):.3f}:d={fade}", "-c:a", "pcm_s24le", mix])
+        cta_info = None
+        if cta is not None:   # bell when the CTA appears + the spoken line, after any speech
+            mix2 = os.path.join(work, "mix_cta.wav")
+            cta_info = mix_cta_audio(mix, mix2, voice, speech, cta_t0, t_voice, line, cta.get("bell"),
+                                     vcfg or {}, total)
+            mix = mix2
         from src.editor.render import _loudnorm
         L = spec.get("loudness", {})
         target = f"I={L.get('I', -14)}:TP={L.get('TP', -1.5)}:LRA=11"
@@ -840,9 +1113,15 @@ def build(spec, out, check=False, check_dir=None):
         if report["longest_shot"] > 3.5:
             report["pace_warning"] = "a shot runs > 3.5 s: cut, punch in or ramp it (target 1-2.5 s)"
         report["captions"] = caps
+        if cta_info:
+            report["cta"] = cta_info
         print(json.dumps(report, ensure_ascii=False, indent=1))
         if check:
-            check_frames(out, report["duration"], d=check_dir)
+            extra = [(f"note_{k}", (c["t0"] + c["t1"]) / 2)
+                     for k, c in enumerate(c for c in caps if c["style"] == "note")]
+            if cta_info:   # the CTA fully drawn (after its rise), and the arrow tip over the chip
+                extra.append(("cta", min(total - 0.4, cta_t0 + 0.9)))
+            check_frames(out, report["duration"], d=check_dir, extra=extra)
         return report
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -863,10 +1142,14 @@ def measure(path):
     return {"output": path, "width": w, "height": h, "duration": round(dur, 2), "lufs": I, "true_peak": TP}
 
 
-def check_frames(path, dur, n=8, d=None):
-    """Full-size frames + a phone-size sheet (~360 px wide each, unsafe zones shaded) + a 1 fps sheet."""
+def check_frames(path, dur, n=8, d=None, extra=()):
+    """Full-size frames + a phone-size sheet (~360 px wide each, unsafe zones shaded) + a 1 fps sheet.
+    `extra` [(name, t)] adds full-size frames named frame_<name>.jpg (each note plate, the CTA)."""
     d = d or os.path.splitext(path)[0] + "_check"
     os.makedirs(d, exist_ok=True)
+    for name, t in extra:
+        run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i", path, "-frames:v", "1", "-q:v", "2",
+             os.path.join(d, f"frame_{name}.jpg")])
     thumbs = []
     for i in range(n):
         t = dur * (i + 0.5) / n
@@ -878,6 +1161,8 @@ def check_frames(path, dur, n=8, d=None):
         for box in ([0, 0, W, SAFE["top"]], [0, H - SAFE["bottom"], W, H],
                     [W - SAFE["right"], SAFE["top"], W, H - SAFE["bottom"]]):
             sd.rectangle(box, fill=(255, 0, 0, 60))
+        x0, y0, x1, y1 = RELATED_CHIP   # where YouTube draws the Related-video link
+        sd.rectangle([W * x0, H * y0, W * x1, H * y1], outline=(0, 255, 255, 200), width=6)
         thumbs.append(Image.alpha_composite(im, shade).convert("RGB").resize((360, 640), Image.LANCZOS))
     sheet = Image.new("RGB", (360 * 4 + 30, 640 * ((n + 3) // 4) + 10 * ((n + 3) // 4)), "white")
     for i, th in enumerate(thumbs):

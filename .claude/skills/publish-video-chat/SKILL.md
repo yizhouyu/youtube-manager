@@ -239,7 +239,8 @@ show a **4:3 centre crop** and every card overlays duration (bottom-right) and p
   - At our view counts most tests end inconclusive. Prefer concept-level variants, and test evergreen videos.
   - Never act on early "winners".
 - **Shorts**
-  - Set the Related video, and add a spoken CTA while pointing at the link.
+  - Set the Related video, and add a spoken CTA while pointing at the link. `make_short.py`'s default CTA does this (creator, 2026-10-04): 「完整版👇 点左下角的链接」 with a yellow arrow at the Related-video chip (bottom-left, just above the channel name), a synthesized bell (`assets/sfx/cta_bell.wav`) when it appears, and the spoken line 「完整版在左下角，点进去看」 (edge-tts Yunxi), placed after any speech. No 「关注」 pill: viewers didn't know the Short links to the full video. Note captions sit centred on their dark plate. Check `_check/frame_cta.jpg` and `frame_note_*.jpg`.
+  - Replacing an already scheduled Short (only with the creator's OK, and only while it is private): save the old video's snippet/status/recordingDetails + playlist position to `<slug>.old_meta.json`; upload the new file with the same title, description, tags, cover, publishAt and recording date; verify it with `videos.list`; only then delete the old one. A deleted video leaves a "Deleted video" placeholder in the playlist: remove it, then put the new id back at the old position and re-check the order.
   - Judge Shorts by engaged views and Related-link clicks, not raw views. Since 2025/2026, views count on start.
 - **Series and 合集:** keep every trip in a playlist and 合集, numbered, so viewers can subscribe to it.
 

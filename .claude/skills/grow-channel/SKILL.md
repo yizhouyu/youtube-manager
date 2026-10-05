@@ -127,9 +127,12 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
      place, the reaction line).
   7. **Loop**: end on footage that leads into the opening shot, plus `loop_xfade` 0.3–0.4, so
      the replay is invisible. Design for the rewatch [S31][S33].
-  8. **CTA in the last ~2.3 s**: spec `cta` (default 「关注我 · 带你看更多美国宝藏景点」, a
-     red 「＋ 关注」 pill and an arrow bobbing toward the channel row). It sits in the lower third,
-     and captions still on screen are lifted above it. Frame the payoff shot so the subject is
+  8. **CTA in the last ~3 s points at the long video** (creator, 2026-10-04): spec `cta: true`
+     gives 「完整版👇 点{左下角}的链接」, a yellow arrow bobbing down-left at the Related-video chip
+     (bottom-left, just above the channel name), a bell when it appears, and the spoken line
+     「完整版在左下角，点进去看」 right after, all placed after any speech (the build stops and
+     names the extra seconds needed if the line can't fit). No 「关注」 pill. It sits in the lower
+     third, and captions still on screen are lifted above it. Frame the payoff shot so the subject is
      in the upper half there. No on-screen 评论区 prompts: the question goes in the description.
   9. **Length 15–35 s** *(h)*. Under 15 s tends to loop more, but gives no room for a payoff
      plus the CTA [S31]; beyond 35 s, cut.
