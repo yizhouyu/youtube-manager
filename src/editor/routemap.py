@@ -772,8 +772,9 @@ class RouteMap:
             d.ellipse([x, y, x + 2 * r, y + 2 * r], fill=a(col["panel_dot"]))
             d.text((x + r, y + r + 2 * k), str(i + 1), font=self.F("heavy", 50), fill=a(col["panel_number"]), anchor="mm")
             d.text((x + 120 * k, y - 6 * k), st["cn"], font=self.F("heavy", 70), fill=a(col["text"]))
-            if st.get("sub"):
-                d.text((x + 122 * k, y + 76 * k), st["sub"], font=self.F("sans", 50), fill=a(col["subtext"]))
+            if st.get("sub"):   # under the name's real ink box (heavy CJK faces run past their nominal size)
+                sy = max(y + 76 * k, d.textbbox((x + 120 * k, y - 6 * k), st["cn"], font=self.F("heavy", 70))[3] + 12 * k)
+                d.text((x + 122 * k, sy), st["sub"], font=self.F("sans", 50), fill=a(col["subtext"]))
         if cfg["credit"]:
             d.text((x, H * 0.958), cfg["credit"], font=self.F("sans", 40), fill=a(col["credit"]))
         out = im.convert("RGBA")

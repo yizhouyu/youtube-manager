@@ -51,6 +51,11 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
       "enabled": true,                         # false = cut from the video (kept for undo)
       "grade": "default",                      # key into grades
       "audio": "voice",                        # voice (1.0) | ambient (0.35) | mute
+      "audio_src": "stems/GX015929_vocals.wav",  # optional: play this edit/ audio file instead of the
+                                               # clip's own sound, on the SAME source timeline (t = 0 at
+                                               # the clip start), e.g. a source-separated voice stem when a
+                                               # car stereo / PA song is under the speech (Content ID);
+                                               # in/out, skips, gain, levelling all apply as usual
       "gain_db": 0,                            # optional per-shot level (dB, -24..+12): lift a quiet/distant
                                                # speaker (e.g. a guide) before the final master; applied before
                                                # dialogue levelling, which then only corrects what's left
@@ -154,6 +159,14 @@ def save(project, edl):
 
 def clip_path(edl, clip):
     return os.path.join(project_dir(edl["project"]), edl.get("source_dir", "01 - Unedited"), clip + ".MP4")
+
+
+def audio_path(edl, shot):
+    """Where a shot's own sound comes from: its `audio_src` (an edit/ file on the clip's timeline, e.g. a
+    voice stem with a background song separated out) or else the raw clip."""
+    if shot.get("audio_src"):
+        return os.path.join(edit_dir(edl["project"]), shot["audio_src"])
+    return clip_path(edl, shot["clip"])
 
 
 def input_args(edl, clip):

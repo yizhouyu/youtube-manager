@@ -245,14 +245,17 @@ def measure_shot_speech(edl, shot, cache, exclude_local=()):
         return None, secs
     manual = max(-24.0, min(12.0, float(shot.get("gain_db", 0) or 0)))
     filt = _shot_filters(edl, shot) + [f"volume={manual}dB"]
-    key = json.dumps([shot["clip"], shot["in"], shot["out"], wins, filt, LEVEL_VERSION])
+    src = E.audio_path(edl, shot)
+    key = json.dumps([shot["clip"], shot["in"], shot["out"], wins, filt, LEVEL_VERSION]
+                     + ([shot["audio_src"], os.path.getmtime(src) if os.path.exists(src) else "missing"]
+                        if shot.get("audio_src") else []))
     path = os.path.join(cache, "_level", f"{shot['id']}_{hashlib.sha1(key.encode()).hexdigest()[:12]}.json")
     if os.path.exists(path):
         with open(path) as f:
             r = json.load(f)
         return r["I"], r["secs"]
     t0 = wins[0][0]
-    inputs = ["-ss", f"{t0:.3f}", "-t", f"{wins[-1][1] - t0 + 0.2:.3f}", "-i", E.clip_path(edl, shot["clip"])]
+    inputs = ["-ss", f"{t0:.3f}", "-t", f"{wins[-1][1] - t0 + 0.2:.3f}", "-i", src]
     n = len(wins)
     graph = [f"[0:a]{','.join(filt)},asplit={n}" + "".join(f"[w{i}]" for i in range(n))]
     graph += [f"[w{i}]atrim={a - t0:.3f}:{b - t0:.3f},asetpts=PTS-STARTPTS[c{i}]" for i, (a, b) in enumerate(wins)]
@@ -550,6 +553,9 @@ def render_segment_audio(edl, shot, fps_str, cache):
     dur = frames_of(shot, fps) / fps
     fx_files = [os.path.join(E.edit_dir(edl["project"]), fx["file"]) for fx in shot.get("sfx", [])]
     extra = [os.path.getmtime(f) if os.path.exists(f) else "missing" for f in fx_files]
+    if shot.get("audio_src"):   # a replaced sound source: re-render when that file changes
+        asrc = E.audio_path(edl, shot)
+        extra.append(os.path.getmtime(asrc) if os.path.exists(asrc) else "missing")
     key = json.dumps([shot, fps_str, AUDIO_CACHE_VERSION, edl.get("denoise_voice", False), _tts_chain_on(edl),
                       XF_CUT, XF_SKIP] + extra, sort_keys=True, ensure_ascii=False)
     hid = hashlib.sha1(key.encode()).hexdigest()[:12]
@@ -622,7 +628,7 @@ def _shot_sound(edl, shot, gain, L):
     t0 = max(0.0, shot["in"] - HANDLE)
     src_pre = int(round((shot["in"] - t0) * SR))           # handle samples that exist before `in`
     span = shot["out"] - shot["in"]
-    inputs = ["-ss", f"{t0:.4f}", "-t", f"{span + 2 * HANDLE + 0.3:.4f}", "-i", E.clip_path(edl, shot["clip"])]
+    inputs = ["-ss", f"{t0:.4f}", "-t", f"{span + 2 * HANDLE + 0.3:.4f}", "-i", E.audio_path(edl, shot)]
     af = _shot_filters(edl, shot) + [f"volume={gain}"]
     if shot_gain_db(shot) > 0:
         af += peak_guard(_measure_span(inputs, f"[0:a]asetpts=PTS-STARTPTS,{','.join(af)}")["I"])

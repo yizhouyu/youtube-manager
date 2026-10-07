@@ -65,7 +65,7 @@ def main():
     for shot in edl["shots"]:
         if shot.get("audio", "voice") != "voice" or not shot.get("subs"):
             continue
-        segs = speech_segments(E.clip_path(edl, shot["clip"]), shot["in"], shot["out"])
+        segs = speech_segments(E.audio_path(edl, shot), shot["in"], shot["out"])
         skips = plan_skips(shot, segs, a.min_gap)
         cut = sum(b - x for x, b in skips)
         saved += cut if shot.get("enabled", True) else 0
