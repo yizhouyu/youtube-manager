@@ -30,6 +30,26 @@ and tone rules, and the new technique to try. Track every project in
 `sessions/QUEUE.md` (local, gitignored). When he returns, per video: start the raw-footage player
 → re-render the preview → review page → apply his notes → final render → publish.
 
+## Checkpoints — mandatory for every episode (creator, 2026-10-07)
+
+「每个重要的步骤做完以后就可以 checkpoint，这样以后如果有 agent 重新来看，又知道从哪儿开始了」. Usage limits and
+context overflows cut agents off mid-edit (all five Texas directors stopped at once on 2026-10-07). So every agent
+must be resumable from disk alone:
+- **Start (and after any reset):** `./venv/bin/python -m src.editor.checkpoint "<project>"` prints the status table
+  and **Next**. Read its notes and the HANDOFF, then continue at Next. Never redo a step whose evidence exists.
+- **After each step, mark it:** `... checkpoint "<project>" done C<n> "one line: what was decided + where to look"`.
+  The steps are C0 brief read → C1 footage watched → C2 research → C3 beat sheet → C4 assets → C5 first-cut EDL →
+  C6 music → C7 captions proofread → C8 questions → C9 preview → C10 QA r1 → C11 QA r2 (raw restore) →
+  C12 thumbnails → C13 HANDOFF → C14 cleanup. State lives in `edit/checkpoint.json`; `edit/CHECKPOINT.md` is regenerated.
+- **Gotchas and half-finished work go in as notes:** `... checkpoint "<project>" note "…"`. Examples: a background
+  render still running, which clips were muted and why, a decision that's waiting on the creator.
+- Long single steps (QA, a big card) get a note at each sub-milestone, so a resume doesn't start the step over.
+- **Master director (multi-episode trips):** keep the trip brief (`sessions/<trip>_brief.md`) and the music pools on
+  disk, and add a `sessions/STATE.md` line after each phase: split/staged, directors launched, each episode verified,
+  commits. Each resumed director gets one line: "check `checkpoint` status, continue at Next".
+- **Publishing** has its own checklist in publish-video-chat (P-steps). Record those in the same file with `note`
+  lines ("P4 YouTube uploaded <id>"), and in STATE.md, so an interrupted publish never re-uploads.
+
 ## One ASR at a time
 
 `src/editor/transcribe.py` takes the machine-wide ASR lock itself. Wrap any other ASR run

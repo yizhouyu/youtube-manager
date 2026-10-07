@@ -22,6 +22,28 @@ treat that as *the example*, not a hard requirement.
 Resolve the repo root as two levels up from this file:
 `REPO="$(cd "$(dirname SKILL.md)/../.." && pwd)"`. Run everything from `$REPO`.
 
+## Publish checkpoints — mandatory (creator, 2026-10-07)
+
+A publish can be cut off by a usage limit or a context overflow, so it must be resumable from disk without double uploads.
+After each P-step, record it right away. Record it as `./venv/bin/python -m src.editor.checkpoint "<project>" note "P<n> … <ids>"` plus a `sessions/STATE.md` line.
+**Before any upload, check those notes and `videos.list`.** An id already recorded means: don't upload again, continue from the next step.
+
+| Step | What it covers |
+|---|---|
+| P1 | Final render. Note the master path and LUFS/dBTP. |
+| P2 | English SRT plus its critic pass. |
+| P3 | Metadata plus its critic pass. |
+| P4 | YouTube upload, scheduled. Note the video id and publishAt. |
+| P5 | zh-CN and en caption tracks. |
+| P6 | English localization. |
+| P7 | Playlist position. |
+| P8 | Bilibili upload, 审核 and dtime. Note the BV id. |
+| P9 | Bilibili 合集. |
+| P10 | Short(s), each with its own id. |
+| P11 | Studio: location, end screen and A/B. |
+| P12 | MANUAL_TODO section and the QUEUE row. |
+| P13 | Cleanup. |
+
 ## Prerequisites
 
 - **ffmpeg / ffprobe** on PATH. This build typically has **no `drawtext`** filter — build
