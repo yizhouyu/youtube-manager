@@ -89,6 +89,18 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   ranges, music pools (no overlap) and "no commits, report code changes". Forks can't spawn sub-agents, so run the
   independent art-director check from the parent afterwards (it overturned 103's pick).
 
+- **Five parallel directors on one trip (Texas 108–112, 2026-10-07).** What worked:
+  - The master sorts the clips into days and places, using GPSU and GPS fixes. The GoPro date was exactly one day behind.
+  - It stages scan + ASR once in a symlinked folder, moves the clips into the projects, writes one trip brief (`sessions/texas_brief.md`) and fetches disjoint music pools (`sessions/texas_music.md`).
+  - Each director gets a short prompt pointing at the brief.
+
+  What hurt:
+  - All five hit the usage limit at once. Resume with SendMessage; it keeps their context. The C0–C14 checkpoints are the fallback.
+  - The ASR lock queued for 45–90 min. Request word-level dumps for all speech clips once, at the start.
+  - WebSearch's shared budget ran out (WebFetch on known official pages still works).
+  - Directors' "round 2" was often a self-review. Run an independent strong-model QA on every episode before review.
+- **Sonnet reviewers miss things** (111 round 1): QA judgment stays on the strongest model ([[model tiering]]).
+
 ## Speech → subtitles
 
 - **Model choice matters more than prompt tricks.** Qwen3-ASR-1.7B (MLX) with a `--context` list of
@@ -132,6 +144,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   `return_timestamps=True` on that span (under the ASR lock) instead of guessing from line cues. The
   same data can drive word-by-word Shorts captions (idea from Deedy Das's video-workflow post, LinkedIn
   2026-09: https://lnkd.in/p/g34Cz6pf).
+
+- **Qwen word timestamps (`return_timestamps=True`) make retake/stumble cuts one-step** (108, 112). Cut on word boundaries, then test-join and re-transcribe. Inside a repeated word pair (摆社团摆摊) only one of five candidate joins read clean.
+- **whisper large-v3 loops on long music-only stretches** of a mix, and so does whisper-cli with a long `--prompt` on a whole-episode file. For QA re-transcription use per-shot or talk-segment cuts, `-mc 0` and no prompt.
+- **都/就-type single-character flips between models:** decide on tight snippets with both models plus the onset sound.
+- **Qwen echoes the `--context` list on near-silent stems and music clips** (GX013225 came back as the whole list; 110 stems as 「鸵鸟斑马鸸鹋…」). Drop lines made only of context words.
 
 ## Picking and cutting shots
 
@@ -224,6 +241,10 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   higher, or split the caption so its words land on the next shot.
 - **Note captions over a shot where someone is audibly saying something else confuse viewers** (102: the docent's
   next sentence under an Amur-leopard number note): mute those shots (`audio: mute`) and let the music carry.
+
+- **`tighten` replaces hand-made skips, and its spans can swallow a caption's first or last word** (111). Re-merge the manual spans, clamp auto spans to caption edges, and compute PiP times *after* tighten (111's `tighten_merge.py`; a generic `--keep-manual` is on the to-do list).
+- **When you mute a talking shot, say why in its note** (109). Lines muted "for no reason" were real content.
+- **Overpass on a 70 km metro box times out at `major` (down to tertiary)** (108). Fetch motorway–secondary for the whole box plus minor roads around the stops. **One-way tags on a drive-through safari road don't chain** (110), so route that leg in `walk` mode.
 
 ## Audio & music
 
@@ -485,3 +506,8 @@ analytics (retention graphs) once available.
 | 102–104 | Trip-series day marker instead: 「红杉 & 国王峡谷 · 第 N/3 天」 as a `tag` pill, top-right (`"tag_pos": "tr"`, new), first 3 s of each episode's route-map card; cards can now carry a `tag` (renderer change, `scripts/test_card_tag.py`). One field to remove: clear 左上角地名 on the review page | Small, calm, readable at 1080p; it doesn't touch the cards' own titles (top-left). 102 spans days 1–2, so its tag says 第 1/3 天 at the opening and the existing 第二天 title card covers day 2 | Pending review — yes for multi-episode trips if he likes it |
 | 104 | Trip-finale coda: (a) a 3.4 s hold on the last SF night frame (gentle push-in) with one plain closing line as a note (「这三天，从桃园、大猫到巨杉林，最后开进了国王峡谷」, no question); (b) a 9.1 s **photo-print slideshow** (R8): 6 graded 4K video stills from all three days drop in as white-bordered prints with handwritten date/place labels (HanziPen SC), slight tilt, Ken Burns on the top print, slow push on the stack (`scripts/photo_coda.py`, generic, `--stills` animatic first); then the 14 s end screen. The last track is back-timed (`in` = 95.44) so the slideshow sits on its last-but-one phrase (dip at 136.0 s) and the end screen gets the final phrase + its natural ending | Animatic caught one real problem: an alpha **fade-in made the incoming print translucent**, ghosting the print below (two labels overlapping). Prints now slide in opaque from below the frame. No photo exports exist for this trip (only DJI clips), so the "photos" are video frames; the windshield afterglow shot needed a crop above the dashboard | Pending review — for trip finales. Ask him for phone photos next time (R8 wants real stills) |
 | 95 | **Live review via the page chat (2026-10-02):** about 45 notes in one sitting, mostly captions (ASR words, pronouns, fillers, long cues), takes (keep the best), restored unique shots, no obvious arrows, no dates, outside material that confused (cast photo, an unfamiliar US show), and music mood. Raw-page captions regenerate from `scan/srt` + the EDL, so fix the *raw* srt, not `srt_clean`. Stumble cuts were verified by re-transcribing the joined audio. | All folded into SKILL §2c "Lessons from the 95 live review". |
+| 108 | **8-second ride ring timer** (`cards/timer.mp4`, the episode's `make_cards.py` `ring_timer()`, no renderer change): a real bull ride punched in 2×, a top-right ring fills toward the 8 s qualified-ride line from the gate opening and **freezes red when the rider is thrown (≈3.7 s, measured on 10 fps crops)**, then one sourced bar (about a third of pro rides reach 8 s); sets up his own line about the 8 seconds | Reviewer 10/10 for that window; turns a 7 s ride he can't explain on camera into a rule + a result | Pending review — yes for any timed feat (rides, holds, sprints, dives); reuse `ring_timer()` |
+| 109 | **Split-flap departure board end screen** (`scripts/splitflap.py`, generic, JSON spec, `--stills` animatic, synthesized flap clicks): rows flap to FROM DALLAS / TO SAN ANTONIO / 约 5 小时 / 下一集 … over the bus-window view, series line under it, lower right kept free | Reads instantly as "departure → next stop"; animatic caught thin Latin glyphs (→ DIN Condensed Bold) and the board hiding the landmark | Pending review — default candidate for any episode that ends on a bus/train/flight hand-off |
+| 110 | **Collection tally 动物图鉴 1→13** (`src/editor/tally.py`, via `pip` PNG-in-MOV alpha): each species' first good appearance pops a card (real 4K round crop, No.k/13, CN/EN name, one sourced fact, soft chime), which folds into a riding 「动物图鉴 k/13」 badge; a recap grid closes the section. Plus **voice-stem rescue**: shot field `audio_src` plays a gated Demucs vocal stem so in-car reactions survive without the car-stereo song | Safari windows 9–10/10: 7 min of "another animal" gets a count and a destination. Stems: clean while the song is instrumental; the stem keeps the singer while he sings → ASR the stems and mute those spans | Pending review — tally for any collect-them day (animals, dishes, landmarks); stems whenever music under speech is a Content-ID risk |
+| 111 | **Queue clock inset** (`cards/queue_*.mp4` via `pip`): analog clock + digital time + 已经排了 X + a 排队 → 进门 → 点餐 → 开吃 bar, animating between the four Franklin shots' own clip times (labelled 按镜头时间) | A 90-minute wait reads in 35 s with no waiting footage; legible, no caption/face overlap | Pending review — yes for any wait (queues, ferries, lifts, timed tours) |
+| 112 | **Speech-synced reveal strip** (transparent 3840×760 PNG-in-MOV via `pip`, w 1.0, border 0): six empty slots; each real floor seal (cropped from his own 4K footage, perspective-squared) pops in on the word he says it, CN/EN name + years; all six glow on "Six Flags" with a one-line origin pill | 1:00 window 10/10; keeps his live talk on screen while adding the information | Pending review — yes whenever someone lists N things the camera can show |
