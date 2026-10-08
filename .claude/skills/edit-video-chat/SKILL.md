@@ -190,7 +190,11 @@ see LESSONS.md for sources). Treat them as the bar every cut must clear:
    episode, but ONLY if the next episode is from the same trip. For the last episode of a trip,
    point to that region's playlist/合集 instead. No separate outro card.
 10. **Chapters = location names** (first at 0:00, ≥ 3, each ≥ 10 s) — written into publish metadata.
-11. **Shorts:** note 1–3 self-contained peak moments (≤ 60 s each) in HANDOFF.md for later cut-downs.
+11. **Shorts: two per long video (creator, 2026-10-08).** Their job is to send viewers to the long video. 81–89 Shorts each got about 1.1–1.4k views, but only 2 subscribers between them and almost no lift for the long videos. In HANDOFF.md, propose 2 (plus a backup), each ≤ 60 s:
+    - **Cut as open loops:** show the setup and the tension, and stop before the payoff (the ostrich at the window, but not what happens next; the queue, but not the first bite). The payoff must really be in the long video; never fake a cliffhanger.
+    - **Make the two different:** one a moment (an animal, a reaction, a reveal), the other a question the long video answers.
+    - **Name the series and episode on screen** (「德州 · 第 3 集」).
+    - The success number is Related-video clicks, not views.
     Leave ~3 s after the last spoken line of each moment: `scripts/make_short.py`'s CTA (creator,
     2026-10-04) sends viewers to the long video through the Short's bottom-left Related-video link
     (「完整版👇 点左下角的链接」 + an arrow at that link, a bell, and the spoken 「完整版在左下角，点进去看」).

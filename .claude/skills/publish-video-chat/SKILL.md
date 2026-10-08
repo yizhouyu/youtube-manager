@@ -531,6 +531,8 @@ If the 合集 doesn't exist yet, the script creates it. A video can be in only o
 
 **Schedule slot (creator, 2026-10-02):** one video per day, from 96 on. 96 goes out 10/5 and each next episode the following day (97 → 10/6, …). Use 09:00 creator-local (ET), which is 21:00 Beijing prime time. Before 96 the cadence was two a day (09:00 / 21:00). Keep the list of slots in `sessions/QUEUE.md`. Use the same time on YouTube (`publishAt`) and Bilibili (`--dtime`).
 
+**Cadence update (creator, 2026-10-08):** from the episode after 99, long videos go out **every two days** at 09:00 ET (99 → 10/8, the next → 10/10, then 10/12, …), same time on both platforms. **Two Shorts per long video**: Short 1 the same day at 15:00 ET (set its Related video in that day's chores after the 09:00 go-live), Short 2 the next day at 15:00 ET. Cut them as open loops that send viewers to the long video (see edit-video-chat §2b item 11). Shorts scheduled before this change stay as they are.
+
 ## Step 7.9 — Clean up review renders
 Once both uploads are verified, delete this episode's review renders:
 - `02 - Export/edit/preview.mp4`
