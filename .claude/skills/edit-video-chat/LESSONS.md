@@ -99,7 +99,7 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   - The ASR lock queued for 45–90 min. Request word-level dumps for all speech clips once, at the start.
   - WebSearch's shared budget ran out (WebFetch on known official pages still works).
   - Directors' "round 2" was often a self-review. Run an independent strong-model QA on every episode before review.
-- **Sonnet reviewers miss things** (111 round 1): QA judgment stays on the strongest model ([[model tiering]]).
+- **Sonnet reviewers miss things** (111 round 1): QA judgment stays on the strongest model.
 
 ## Speech → subtitles
 
