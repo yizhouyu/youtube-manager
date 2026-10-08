@@ -148,7 +148,7 @@ Write the EDL (a small build script is fine). Craft rules that make it comfortab
 - **Tighten speech**: `./venv/bin/python -m src.editor.tighten "<project>"` runs the Silero VAD
   (whisper fills in 嗯/啊 silently and wind noise defeats loudness-based silence detection) and
   writes `skip` spans: pauses ≥0.55 s shrink to ~0.3 s, isolated voice blips with no subtitle
-  (fillers) go. Set `skip_on: false` on shots where the pause IS the content (pans, animals).
+  (fillers) go. Set `skip_on: false` on shots where the pause IS the content (pans, animals). Hand-made skips (retakes, stumbles) survive re-runs (tighten tracks its own spans in `skip_auto`), auto spans never eat a caption's first/last word, and `"tighten": false` on a shot opts it out; `--replace` = old behaviour. Re-check `pip` times on shots whose skips changed.
 - **Ken Burns** (`zoom: {from, to, x, y}`): slow eased push-in toward what the speaker points
   at when it's far away (boats, islands, ships), pull-out on the ending shot.
 - **Time cards** for jumps in time/place ("一小时后……", "第二天……"): a shot with `card:

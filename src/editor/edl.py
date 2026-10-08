@@ -71,6 +71,9 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
                                                # `dur` s while this shot's audio keeps playing
       "skip": [[3.1, 3.7]], "skip_on": true,   # source spans jump-cut out (pauses / 嗯啊);
                                                # skip_on=false restores them
+      "skip_auto": [[3.1, 3.7]],               # (written by tighten) which skip spans are its own;
+                                               # the rest of `skip` is hand-made and survives re-runs
+      "tighten": false,                        # optional: tighten leaves this shot alone
       "sfx": [{"file": "sfx/whoosh.mp3", "at": 0.0, "gain": 0.8}],   # sound effects (shot-local s)
       "speed": 4,                              # timelapse factor (audio muted when > 1)
       "marks": [{"t0": 3.0, "t1": 5.0, "x": 0.8, "y": 0.5, "label": "虎鲸"}],  # labelled arrows
