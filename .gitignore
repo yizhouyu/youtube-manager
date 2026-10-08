@@ -73,3 +73,6 @@ asrvenv/
 
 # project template ships its (empty) json files
 !templates/**/*.json
+
+# third-party tool venvs/binaries (scouting 2026-10-08)
+.tools/

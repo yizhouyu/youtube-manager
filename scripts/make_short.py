@@ -949,7 +949,7 @@ def render_segment(spec, seg, idx, work):
     vout, aout = os.path.join(work, f"seg{idx}.mp4"), os.path.join(work, f"seg{idx}.wav")
     # -reinit_filter 0: keep the graph if frame properties change mid-stream (hw -> sw decode fallback)
     tail = ["-reinit_filter", "0", "-ss", f"{seg['in']:.3f}", "-t", f"{dur:.3f}", "-i", path, *extra_in,
-            "-filter_complex_script", script,
+            "-/filter_complex", script,
             "-map", "[v]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "12",
             "-frames:v", str(nfr), vout, "-map", "[a]", "-c:a", "pcm_s16le", aout]
     try:  # hardware HEVC decode is much faster; retry in software if it fails
@@ -1051,7 +1051,7 @@ def build(spec, out, check=False, check_dir=None):
         with open(vscript, "w") as f:
             f.write(";".join(chain))
         video = os.path.join(work, "video.mp4")
-        run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex_script", vscript, "-map", "[v]",
+        run(["ffmpeg", "-v", "error", "-y", *inputs, "-/filter_complex", vscript, "-map", "[v]",
              "-c:v", "libx264", "-preset", "medium", "-crf", "17", "-profile:v", "high", "-pix_fmt", "yuv420p",
              "-r", str(FPS), "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
              "-g", str(FPS), "-movflags", "+faststart", video])
@@ -1087,7 +1087,7 @@ def build(spec, out, check=False, check_dir=None):
             with open(ascript, "w") as f:
                 f.write(ms)
             run(["ffmpeg", "-v", "error", "-y", "-i", voice, "-stream_loop", "-1", "-ss", f"{float(m.get('in', 0)):.3f}",
-                 "-i", mf, "-filter_complex_script", ascript, "-t", f"{total:.3f}", "-c:a", "pcm_s24le", mix])
+                 "-i", mf, "-/filter_complex", ascript, "-t", f"{total:.3f}", "-c:a", "pcm_s24le", mix])
         else:
             run(["ffmpeg", "-v", "error", "-y", "-i", voice, "-af",
                  f"afade=t=in:d={fade},afade=t=out:st={max(0, total - fade):.3f}:d={fade}", "-c:a", "pcm_s24le", mix])

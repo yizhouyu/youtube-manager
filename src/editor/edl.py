@@ -90,7 +90,9 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
                                                # picture-in-picture inset (white frame, alpha fades) for
                                                # [t0, t1] shot-local s: an edit/ still/animation (live
                                                # mini-map) or {"clip", "in", "grade", "speed"} = a second
-                                               # angle / reaction; optional aspect, border, fade
+                                               # angle / reaction; optional aspect, border, fade;
+                                               # "under_subs": true = drawn below titles/tags/captions
+                                               # (full-frame illustration while someone keeps talking)
       "zoom": {"from": 1.0, "to": 1.3, "x": 0.5, "y": 0.5},   # Ken Burns push/pull toward
                                                # focal point (x, y as 0-1 of the frame)
       "note": "why this shot"                  # agent's rationale, shown in review

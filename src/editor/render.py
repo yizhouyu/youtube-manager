@@ -335,7 +335,7 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
     norot = set(edl.get("noautorotate", []))
     used = {shot.get("clip")} | {b.get("clip") for b in shot.get("broll", [])} | {p.get("clip") for p in shot.get("pip", [])}
     if norot & used:  # decoding without the display matrix changes the picture: re-render
-        extra.append(["noautorotate", sorted(norot & used)])
+        extra.append(["noautorotate", sorted(norot & used), "dm-strip-1"])
     for pp in shot.get("pip", []):  # re-render when a pip file (e.g. a mini-map animation) changes
         if pp.get("file"):
             fp = os.path.join(E.edit_dir(edl["project"]), pp["file"])
@@ -399,6 +399,12 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
         chains.append(f"[{k}:v]trim=0:{bd:.3f},setpts=PTS-STARTPTS+{at:.3f}/TB,{','.join(bvf)},format={_pixfmt(preset)}[b{k}]")
         chains.append(f"[{last}][b{k}]overlay=0:0:eof_action=pass:enable='between(t,{at:.3f},{at + bd:.3f})'[vb{k}]")
         last = f"vb{k}"
+    # a pip marked "under_subs" sits below the title/tag/caption overlays (e.g. a full-frame illustration
+    # held while someone keeps talking: their captions stay readable); other pips stay on top
+    for j, pp in enumerate([p for p in shot.get("pip", []) if p.get("under_subs")] if not clean else []):
+        got = _pip_chain(edl, pp, f"u{j}", dur, fps_str, preset, inputs, inputs.count("-i"), last, chains)
+        if got:
+            last = got
     base_inputs = inputs.count("-i")
 
     ovs = []  # (png, t0, t1, fade)
@@ -472,15 +478,18 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
         chains.append(f"[{last}][g{gi}]overlay={gx}:{gy}:eof_action=repeat[vg]")
         last = "vg"
         ovs.append(None)  # keeps the pip input index below in step
-    for j, pp in enumerate(shot.get("pip", []) if not clean else []):
+    for j, pp in enumerate([p for p in shot.get("pip", []) if not p.get("under_subs")] if not clean else []):
         got = _pip_chain(edl, pp, j, dur, fps_str, preset, inputs, base_inputs + len(ovs), last, chains)
         if got:
             last = got
             ovs.append(None)
 
+    # ffmpeg >= 9 copies an input's display matrix to the output when it was decoded with -noautorotate,
+    # so players would rotate our already-upright segment again: drop it (a no-op for other inputs)
+    chains.append(f"[{last}]sidedata=mode=delete:type=DISPLAYMATRIX[vout]")
     tmpv = vpath + ".part.mp4"
     _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
-          "-map", f"[{last}]", "-frames:v", str(n), "-an", *_venc(preset), tmpv])
+          "-map", "[vout]", "-frames:v", str(n), "-an", *_venc(preset), tmpv])
     os.replace(tmpv, vpath)
     return vpath
 
@@ -1090,7 +1099,8 @@ def music_bed(edl, total, workdir, out_wav):
     script = os.path.join(workdir, "music_filter.txt")
     with open(script, "w") as f:
         f.write(";".join(chain))
-    _run(["ffmpeg", "-v", "error", "-y", *args, "-filter_complex_script", script, "-map", "[out]",
+    # `-/filter_complex <file>` (ffmpeg >= 7); ffmpeg 9 removed `-filter_complex_script`
+    _run(["ffmpeg", "-v", "error", "-y", *args, "-/filter_complex", script, "-map", "[out]",
           "-c:a", "pcm_s16le", out_wav])
     return True
 
