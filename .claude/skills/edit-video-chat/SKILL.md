@@ -201,6 +201,23 @@ see LESSONS.md for sources). Treat them as the bar every cut must clear:
     It never talks over speech, and the build stops if the line can't fit. No 「关注」 pill. Note
     labels sit centred on their dark plate.
 
+### 2b-data. What our own retention curves say (YouTube Analytics, pulled 2026-10-08)
+Source: `sessions/research/2026-10-08/retention.md`. The samples are small (11–63 effective viewers per recent curve), but 81–86, 91 and about 70 back-catalogue curves agree on where people leave. These rules **override** the conflicting lines in §2b and §2b+ below. Re-check around 10/20, once 92–99 and the moved-map cuts have curves.
+1. **0:08–0:30 is live content only.**
+   - After the hook, go straight into the first place's best live moment: someone talking in the moment, an animal, a bite.
+   - The route map, the postcard title, title-over-B-roll, a sped-up drive and setup talk ("我们今天参加了一个团…") all move after the first scene, about 0:30–1:00, as the bridge into place 2.
+   - The creator loves the map and the postcard, so this is placement, not removal. If one must stay up front, keep it ≤ 3 s.
+   - Evidence: 85's map at 0:09 cost −22 pts in 7 s; 86 lost −41 pts in 8 s over the title road plus a 6× drive. The same beats mid-video cost nothing. Recent cuts keep a median 38% at 0:30; the back catalogue keeps 53%.
+2. **No drives, speed-ups or logistics before about 1:00.** Mid-video they're harmless.
+3. **The hook is live voice plus the moment itself.** A mute 2-s highlight reel bleeds. If a montage stays: ≤ 3 clips, each with live sound or a person in frame. 82 (voice + the fish at 0:00) held 65% at 0:30.
+4. **Show a slice of the promised payoff in the first minute.** Viewers scrub forward to it.
+5. **End soon after the final payoff.**
+   - The like/subscribe line goes in the last seconds or nowhere. On 86, a 三连 line right after the answer lost ~80% of the remaining viewers within 8 s.
+   - The outro (recap + teaser + end-screen card) is ≤ 10 s, with the end-screen elements (they need ≥ 5 s) over the last real shot or the themed card.
+   - End screens sent 1 view to 81–99.
+6. **Keep the freeze-frame question cards; use them as mid-video re-hooks.** They show bumps and never drops.
+7. **Mid-video talk length shows no measurable effect.** Spend trimming effort on the first minute.
+
 ### 2b+. Craft rules from the 2026-10-01 research (Chinese and English creators, retention, audio)
 Sources and evidence: `docs/`-style reports kept locally (zh-creators, en-creators, retention-packaging,
 audio). Our own Bilibili data shows 35–48% of viewers leave almost at once. These rules are starting
