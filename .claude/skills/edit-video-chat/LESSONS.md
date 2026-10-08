@@ -101,6 +101,8 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   - Directors' "round 2" was often a self-review. Run an independent strong-model QA on every episode before review.
 - **Sonnet reviewers miss things** (111 round 1): QA judgment stays on the strongest model.
 
+- **ffmpeg 9 (Homebrew upgraded it mid-session on 2026-10-08) broke two things.** `-filter_complex_script` is gone (use `-/filter_complex <file>`). Decoding with `-noautorotate` now copies the display matrix into the output, so players rotated DJI segments again; the renderer strips `DISPLAYMATRIX` side data. Run `scripts/test_*.py` after any ffmpeg upgrade. Installs that pull in brew dependents can upgrade shared tools: use `HOMEBREW_NO_AUTO_UPDATE=1`, and prefer isolated venvs.
+
 ## Speech → subtitles
 
 - **Model choice matters more than prompt tricks.** Qwen3-ASR-1.7B (MLX) with a `--context` list of
