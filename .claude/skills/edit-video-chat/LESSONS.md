@@ -145,7 +145,7 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   same data can drive word-by-word Shorts captions (idea from Deedy Das's video-workflow post, LinkedIn
   2026-09: https://lnkd.in/p/g34Cz6pf).
 
-- **Qwen word timestamps (`return_timestamps=True`) make retake/stumble cuts one-step** (108, 112). Cut on word boundaries, then test-join and re-transcribe. Inside a repeated word pair (摆社团摆摊) only one of five candidate joins read clean.
+- **Qwen word timestamps (`return_timestamps=True`) make retake/stumble cuts one-step** (108, 112). Since 2026-10-08 `transcribe` saves them to `scan/words/<clip>.json`; `python -m src.editor.words "<project>" <clip> [phrase]` lists words or finds a phrase's span. Cut on word boundaries, then test-join and re-transcribe. Inside a repeated word pair (摆社团摆摊) only one of five candidate joins read clean.
 - **whisper large-v3 loops on long music-only stretches** of a mix, and so does whisper-cli with a long `--prompt` on a whole-episode file. For QA re-transcription use per-shot or talk-segment cuts, `-mc 0` and no prompt.
 - **都/就-type single-character flips between models:** decide on tight snippets with both models plus the onset sound.
 - **Qwen echoes the `--context` list on near-silent stems and music clips** (GX013225 came back as the whole list; 110 stems as 「鸵鸟斑马鸸鹋…」). Drop lines made only of context words.

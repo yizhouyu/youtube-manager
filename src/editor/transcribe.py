@@ -11,12 +11,14 @@ where whisper hallucinates broadcaster sign-offs. Always pass --context: without
 names degrade badly. (whisper.cpp large-v3 remains the fallback: see the skill.)
 
 Writes <project>/02 - Export/edit/scan/srt/<clip>.srt (raw; proofread later by
-captions_clean.py). Lines are cut at punctuation, pauses > 0.6 s, or ~16 characters, and
+captions_clean.py) and the model's word timestamps to scan/words/<clip>.json (for exact retake /
+stumble cuts: `python -m src.editor.words "<project>" <clip> [phrase]`). Lines are cut at punctuation, pauses > 0.6 s, or ~16 characters, and
 their text is sliced from the model's own transcript so English word spacing survives
 (the package's SRT writer glues English words together).
 """
 import argparse
 import glob
+import json
 import os
 import subprocess
 import tempfile
@@ -91,7 +93,9 @@ def main():
 
         src = os.path.join(E.project_dir(a.project), "01 - Unedited")
         out = os.path.join(E.edit_dir(a.project), "scan", "srt")
+        wout = os.path.join(E.edit_dir(a.project), "scan", "words")
         os.makedirs(out, exist_ok=True)
+        os.makedirs(wout, exist_ok=True)
         clips = sorted(os.path.join(src, f) for f in os.listdir(src) if f.upper().endswith(".MP4"))  # phone clips are .mp4
         if a.only:
             clips = [c for c in clips if os.path.basename(c)[:-4] in a.only.split(",")]
@@ -101,7 +105,12 @@ def main():
                 subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", c, "-vn", "-ac", "1", "-ar", "16000", f.name],
                                check=True)
                 r = transcribe(f.name, model=model, context=a.context, return_timestamps=True)
-            lines = _lines(t2s(r.text or ""), [dict(w, text=t2s(w["text"])) for w in (r.segments or [])])
+            words = [dict(w, text=t2s(w["text"])) for w in (r.segments or [])]
+            lines = _lines(t2s(r.text or ""), words)
+            with open(os.path.join(wout, name + ".json"), "w", encoding="utf-8") as fh:
+                json.dump({"text": t2s(r.text or ""), "words": [{"t0": round(w["start"], 3), "t1": round(w["end"], 3),
+                                                                  "w": w["text"]} for w in words]},
+                          fh, ensure_ascii=False, indent=0)
             with open(os.path.join(out, name + ".srt"), "w", encoding="utf-8") as fh:
                 fh.write(E.to_srt(lines))
             print(f"{name}: {len(lines)} lines", flush=True)
