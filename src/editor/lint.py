@@ -58,6 +58,17 @@ def check(edl):
         for x in E.shot_subs(s):
             if x["kind"] != "note" and x["t1"] - x["t0"] < MIN_CAPTION_S:
                 warns.append(f"{sid}: caption 「{x['text']}」 on screen only {x['t1'] - x['t0']:.2f} s")
+        # overlay collisions (creator, ep 100 review): a top note shown while the top-left tag is up, or two
+        # captions on screen at once in the same slot. (Title vs bottom caption is avoided by the renderer.)
+        subs_l = E.shot_subs(s)
+        if s.get("tag") and s.get("tag_pos", "tl") in ("tl", "tr"):
+            for x in subs_l:
+                if x.get("pos") == "top" and x["t0"] < min(3.0, E.shot_dur(s)):
+                    warns.append(f"{sid}: top note 「{x['text'][:12]}…」 overlaps the place tag in the first 3 s: move one")
+        for i, a_ in enumerate(subs_l):
+            for b_ in subs_l[i + 1:]:
+                if (a_.get("pos") == "top") == (b_.get("pos") == "top") and min(a_["t1"], b_["t1"]) - max(a_["t0"], b_["t0"]) > 0.15:
+                    warns.append(f"{sid}: 「{a_['text'][:10]}…」 and 「{b_['text'][:10]}…」 overlap on screen in the same slot")
         for a, b in E.kept_ranges(s):
             used.append((s["clip"], a, b, sid))
         for b in s.get("broll") or []:

@@ -256,6 +256,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **When you mute a talking shot, say why in its note** (109). Lines muted "for no reason" were real content.
 - **Overpass on a 70 km metro box times out at `major` (down to tertiary)** (108). Fetch motorway–secondary for the whole box plus minor roads around the stops. **One-way tags on a drive-through safari road don't chain** (110), so route that leg in `walk` mode.
 
+- **Overlays must never overlap (creator, ep 100 review: 「以后你也要着重关心，要把这种事情不要再发生」).** A title's sub-line ran into a two-line caption. Since 2026-10-08:
+  - The renderer lifts every title block clear of any bottom caption shown while the title is up (`overlays.title_card(limit=…)`, `scripts/test_title_clear.py`).
+  - `lint` warns when a top note overlaps the place tag, and when two captions share a slot at the same moment.
+  - QA must still check every title, tag, note and card frame where text meets text.
+
 ## Audio & music
 
 - YouTube Audio Library "no attribution required" tracks are the only claim-safe music. Record

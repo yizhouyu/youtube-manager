@@ -330,6 +330,8 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
     brg = {b.get("grade", "default"): edl.get("grades", {}).get(b.get("grade", "default"), "")
            for b in shot.get("broll", [])}
     extra = ["zoomfix"] if shot.get("zoom") else []
+    if shot.get("title"):
+        extra.append("title-clear-1")  # titles now lift clear of bottom captions
     if any(m.get("track") for m in shot.get("marks", [])):
         extra.append("track-smooth-1")  # tracked arrows: renderer version
     norot = set(edl.get("noautorotate", []))
@@ -412,7 +414,11 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
         if shot.get("title"):
             t = shot["title"]
             td = min(t.get("dur", 3.0), dur)
-            ovs.append((overlays.title_card(t["text"], t.get("sub", ""), w, h, ov_dir), 0, td, 0.4))
+            # keep the title block clear of any bottom caption shown while it is up
+            tops = [overlays.subtitle_top(c["text"], w, h, c.get("kind", "speech")) for c in E.shot_subs(shot)
+                    if c.get("pos") != "top" and c["t0"] < td and c["t1"] > 0]
+            limit = min(tops) - int(h * 0.015) if tops else None
+            ovs.append((overlays.title_card(t["text"], t.get("sub", ""), w, h, ov_dir, limit), 0, td, 0.4))
         if shot.get("tag"):
             ovs.append((overlays.place_tag(shot["tag"], w, h, ov_dir, shot.get("tag_pos", "tl")), 0, min(3.0, dur), 0.3))
         for sp in shot.get("spots", []):  # spotlight: dim all but a circle on a hidden subject

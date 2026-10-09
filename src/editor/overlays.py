@@ -131,8 +131,18 @@ def subtitle(text, w, h, cache_dir, kind="speech", pos="bottom"):
     return _cached(cache_dir, f"sub|{kind}|{text}|{w}x{h}" + ("|top" if pos == "top" else ""), render)
 
 
-def title_card(text, sub, w, h, cache_dir):
-    """Big lower-left title with a soft shadow, e.g. 'Day 1' / '圣约翰岛 St. John'."""
+def subtitle_top(text, w, h, kind="speech"):
+    """Top y (px) of a bottom caption's first line, as `subtitle` lays it out (same font, wrap and spacing)."""
+    d = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
+    size = int(h * (0.046 if kind == "note" else 0.052))
+    lines = _wrap(d, text, _font(SUB_FONTS, size, text), w * 0.84)
+    return h - int(h * 0.07) - int(size * 1.3) * len(lines)
+
+
+def title_card(text, sub, w, h, cache_dir, limit=None):
+    """Big lower-left title with a soft shadow, e.g. 'Day 1' / '圣约翰岛 St. John'.
+    `limit` (px): the title block's ink must end above it, e.g. the top of a two-line caption shown at the
+    same time; the block moves up when needed (creator, ep 100 review: title sub-line ran into the caption)."""
     def render():
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         big, small = int(h * 0.12), int(h * 0.045)
@@ -148,10 +158,18 @@ def title_card(text, sub, w, h, cache_dir):
             small = int(small * 0.94)
             fs = _font(SUB_FONTS, small, sub or "")
         # Lay out from the glyphs' real ink box — heavy CJK faces run well below the nominal size.
-        bottom = ImageDraw.Draw(im).textbbox((x, y), text, font=fb)[3]
         gap, bar_h = int(h * 0.022), max(3, h // 300)
-        bar_y = bottom + gap
-        sub_y = bar_y + bar_h + gap
+
+        def layout(y):
+            bottom = probe.textbbox((x, y), text, font=fb)[3]
+            bar_y = bottom + gap
+            sub_y = bar_y + bar_h + gap
+            end = probe.textbbox((x, sub_y), sub, font=fs)[3] if sub else bar_y + bar_h
+            return bar_y, sub_y, end
+        bar_y, sub_y, end = layout(y)
+        if limit is not None and end > limit:  # lift the whole block clear of the caption below it
+            y = max(int(h * 0.12), y - (end - int(limit)))
+            bar_y, sub_y, end = layout(y)
         shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         sd = ImageDraw.Draw(shadow)
         sd.text((x + 4, y + 4), text, font=fb, fill=(0, 0, 0, 170))
@@ -166,7 +184,7 @@ def title_card(text, sub, w, h, cache_dir):
             d.text((x, sub_y), sub, font=fs, fill="white", stroke_width=max(2, small // 18),
                    stroke_fill=(0, 0, 0, 200))
         return im
-    return _cached(cache_dir, f"title|{text}|{sub}|{w}x{h}", render)
+    return _cached(cache_dir, f"title|{text}|{sub}|{w}x{h}" + (f"|lim{int(limit)}" if limit is not None else ""), render)
 
 
 def place_tag(text, w, h, cache_dir, pos="tl"):
