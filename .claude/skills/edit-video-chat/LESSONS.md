@@ -152,6 +152,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **都/就-type single-character flips between models:** decide on tight snippets with both models plus the onset sound.
 - **Qwen echoes the `--context` list on near-silent stems and music clips** (GX013225 came back as the whole list; 110 stems as 「鸵鸟斑马鸸鹋…」). Drop lines made only of context words.
 
+- **Tool scouting 2026-10-08** (`sessions/research/2026-10-08/tools.md`):
+  - **Adopt:** RIFE slow-mo (`src.editor.interp`; SSIM 0.967 vs 0.902 for plain frame repeat). MOSS-Transcribe-Diarize as the second ASR, in place of whisper. vhs for terminal recordings, rendered on an idle machine.
+  - **Rejected:** FireRedASR2, SenseVoice, PySceneDetect on raw GoPro takes, auto-editor (it cuts captioned speech), DeepFilterNet (denoised wind still isn't transcribable). Real-ESRGAN only rarely.
+  - **whisper large-v3 silently drops words** (「三个 learning center」 vanished). Its low raw error rate flatters it, so it's a weak cross-check.
+
 ## Picking and cutting shots
 
 - **Use a fraction of the footage, by taste.** Drop silent + repetitive clips (sand-only underwater,

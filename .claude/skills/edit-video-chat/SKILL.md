@@ -149,6 +149,7 @@ Write the EDL (a small build script is fine). Craft rules that make it comfortab
   (whisper fills in 嗯/啊 silently and wind noise defeats loudness-based silence detection) and
   writes `skip` spans: pauses ≥0.55 s shrink to ~0.3 s, isolated voice blips with no subtitle
   (fillers) go. Set `skip_on: false` on shots where the pause IS the content (pans, animals). Hand-made skips (retakes, stumbles) survive re-runs (tighten tracks its own spans in `skip_auto`), auto spans never eat a caption's first/last word, and `"tighten": false` on a shot opts it out; `--replace` = old behaviour. Re-check `pip` times on shots whose skips changed.
+- **Slow motion on anything that moves → `src.editor.interp`** (RIFE frame interpolation, 2026-10-08), never plain `speed < 1`: 30 fps footage at 0.5× repeats frames and looks steppy (ep 83). `./venv/bin/python -m src.editor.interp "<project>" <clip> <in> <out> --slow 0.5` writes a graded, slowed clip and prints the EDL shot. Check thin fast edges frame by frame.
 - **Ken Burns** (`zoom: {from, to, x, y}`): slow eased push-in toward what the speaker points
   at when it's far away (boats, islands, ships), pull-out on the ending shot.
 - **Time cards** for jumps in time/place ("一小时后……", "第二天……"): a shot with `card:
