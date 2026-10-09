@@ -530,6 +530,8 @@ preference in memory.
 - **When:** after the director's own QA rounds, run one more QA as a **fresh agent on the strongest model** (brief: `templates/briefs/qa_brief.md`). Before 2026-10-08 the "round 2" was often the director reviewing its own cut, or a cheaper-model reviewer, and both missed real errors.
 - **What it must do:**
   - **Full-mix whisper diff:** whisper large-v3 on the rendered talk segments. Also run Demucs on the mix and transcribe its vocal stem, so a song under the speech can't hide.
+  - **Second-model cross-check with speaker labels:** run `./venv/bin/python -m src.editor.xcheck "<project>" preview` (MOSS-Transcribe-Diarize). It diffs every caption against what MOSS hears, flags a voice change inside one caption, and lists uncaptioned speech; decide each flag by listening.
+  - **Pronouns: 他 / 她 match the person in frame** (100's guide was a woman, but the captions said 他).
   - **Who speaks, judged by pitch and faces.** It was wrong on 104, 108 and 109.
   - **Names checked against official rosters and sources.** Animals, places and dishes were wrong on 102 and 111.
   - **Timers and counts re-measured on full-frame-rate crops.**
