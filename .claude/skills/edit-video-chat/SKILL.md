@@ -526,6 +526,29 @@ neither has substantive issues. Then hand the review page (port 8766, plain-lang
 saved back to the EDL (with history in `edit/history/`); every recurring correction becomes a
 preference in memory.
 
+**Independent strong-model QA, then upgrade passes (since 2026-10-08).**
+- **When:** after the director's own QA rounds, run one more QA as a **fresh agent on the strongest model** (brief: `templates/briefs/qa_brief.md`). Before 2026-10-08 the "round 2" was often the director reviewing its own cut, or a cheaper-model reviewer, and both missed real errors.
+- **What it must do:**
+  - **Full-mix whisper diff:** whisper large-v3 on the rendered talk segments. Also run Demucs on the mix and transcribe its vocal stem, so a song under the speech can't hide.
+  - **Who speaks, judged by pitch and faces.** It was wrong on 104, 108 and 109.
+  - **Names checked against official rosters and sources.** Animals, places and dishes were wrong on 102 and 111.
+  - **Timers and counts re-measured on full-frame-rate crops.**
+  - **A raw-restore pass:** compare the raw footage with the cut and bring back what was dropped by mistake.
+  - **The §2b-data opening and ending.**
+- **Unreviewed rough cuts that fall behind a newer bar get an "upgrade pass" with the same brief.** It must never undo what the creator or earlier QA decided.
+
+**A permission check refused an action?** (The auto-mode classifier blocked 109's EDL reorder on 2026-10-08.)
+- Don't retry or work around it, and don't hand it to another agent.
+- Write the planned change and the backup path into HANDOFF and a checkpoint note.
+- The creator approves it.
+
+**Prepare publishing before the review.** Draft these in `edit/publish_prep/` while the creator hasn't reviewed yet; they make publishing fast once he says 「可以上传」:
+- metadata zh/en, with a critic pass;
+- zh/en SRT from the current timeline;
+- both Shorts, rendered, with covers.
+
+If the cut changes at review, regenerate them.
+
 The final render also writes `edit/captions.srt` (timeline-mapped) for upload as the CC track.
 Then continue with the publish-video-chat skill. After publishing: delete `edit/preview.mp4` and
 `/tmp/yt-editor/<project>` (the master + EDL are the source of truth), and update LESSONS.md.
