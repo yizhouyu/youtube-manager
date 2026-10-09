@@ -32,7 +32,7 @@ After each P-step, record it right away. Record it as `./venv/bin/python -m src.
 |---|---|
 | P1 | Final render. Note the master path and LUFS/dBTP. |
 | P2 | English SRT plus its critic pass. |
-| P3 | Metadata plus its critic pass. |
+| P3 | Metadata plus its critic pass. Titles come from a **3-agent title debate**, not one agent alone (creator, 2026-10-09). Three seats: a Bilibili viewer/editor, a YouTube packaging/CTR strategist, and a channel-voice guardian (calm, accurate). They propose, critique and rank each other's titles, then converge on the pick plus one A/B title alternative. Log it in `edit/publish_prep/title_debate.md`. |
 | P4 | YouTube upload, scheduled. Note the video id and publishAt. |
 | P5 | zh-CN and en caption tracks. |
 | P6 | English localization. |
