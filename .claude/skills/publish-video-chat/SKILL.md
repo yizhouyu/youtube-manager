@@ -359,6 +359,12 @@ Add it in Studio right after upload (scheduled videos accept it): Editor → End
 Studio immediately (Details → thumbnail/title "A/B Testing" → "Thumbnail only" or "Title only";
 avoid the combined mode, which confounds). Default: thumbnail-only, the creator's pick vs 1–2
 alternates; title-only on a few episodes. Save the page afterwards. No browser → add a MANUAL_TODO line.
+Uploading the challenger via claude-in-chrome `file_upload`: the page has 4 `input[type=file]`; index 0 is
+the Details page's MAIN thumbnail uploader (off-screen), 1–3 are the dialog's slots. Uploading to index 0
+silently replaces the main thumbnail draft (the dialog's slot 1 then shows it). Tag index 2 (slot 2) with an
+aria-label via JS and `find` it; switch to "Thumbnail only" only after the dialog has finished opening.
+If slot 1 shows the wrong image, reload the page without saving. Copy the image to the scratchpad first
+(file_upload only accepts session-readable paths).
 Heads-up: several Chrome instances may be connected; make sure the Studio page shows the main
 channel before changing anything.
 
