@@ -42,7 +42,7 @@ After each P-step, record it right away. Record it as `./venv/bin/python -m src.
 | P10 | Short(s), each with its own id. |
 | P11 | Studio: location, end screen and A/B. |
 | P12 | MANUAL_TODO section and the QUEUE row. |
-| P13 | Cleanup. |
+| P13 | Cleanup, right after the upload is verified: delete `edit/preview.mp4`, `edit/previews/` and `/tmp/yt-editor/<project>`. Keep the master and the EDL. |
 
 ## Prerequisites
 
