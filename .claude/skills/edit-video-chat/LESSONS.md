@@ -157,6 +157,9 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   - **Rejected:** FireRedASR2, SenseVoice, PySceneDetect on raw GoPro takes, auto-editor (it cuts captioned speech), DeepFilterNet (denoised wind still isn't transcribable). Real-ESRGAN only rarely.
   - **whisper large-v3 silently drops words** (「三个 learning center」 vanished). Its low raw error rate flatters it, so it's a weak cross-check.
 
+- **Check zoo, sanctuary and safari animal names against the official roster** (102: ASR heard 「Buraku」 for Barafu and 「Cora」 for Caipora). Guides' numbers too (102: the cheetah's "72 mph in 10 s" came from one ASR pass only).
+- **One loud word at a shot's start can make dialogue levelling bury the quiet sentence after it** (102: a shouted "Cheetahs!" hid her line). Re-transcribing the rendered mix catches it. Trim the shout, or split the shot.
+
 ## Picking and cutting shots
 
 - **Use a fraction of the footage, by taste.** Drop silent + repetitive clips (sand-only underwater,
