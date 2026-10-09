@@ -12,6 +12,18 @@ and it:
 
 > This started as a Flask web app + CLI (see the original write-up: [vibe-coding with Claude Code](https://yizhouyu.dev/blog/posts/vibe-coding-with-claude-code/)). It has since been rebuilt around conversational **skills**, and the UI was deleted on purpose ([here is why](https://yizhouyu.dev/blog/posts/deleted-the-ui/)). A UI can only expose the buttons you thought to build. An agent you talk to isn't capped that way.
 
+**What it feels like (2026-10):**
+- The creator drops a trip's footage into a folder and points the agent at it, with the trip plan in Notion.
+- The agent splits the trip into episodes and runs one director per episode in parallel. It cuts, captions, scores, maps and packages each one.
+- When the creator says 「审片」, three local pages open:
+  - the cover picker;
+  - the raw-footage page;
+  - the cut page.
+- He types notes into a chat box on either page. Each note is tagged with the clip and second he was looking at; the agent hears it instantly, edits and re-renders.
+- On 「可以上传」 it publishes to YouTube and Bilibili, Shorts included.
+
+No editing software is involved. The repo *is* the harness, and anyone can build their own the same way.
+
 **For any editing agent:** start with [`AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md), then read the relevant edit/publish skill and its `LESSONS.md`. These repository rules apply regardless of which agent performs the work.
 
 ## The two skills
@@ -62,12 +74,27 @@ into video.
    - checks loudness and scores each 30 s window as a viewer would;
    - proposes improvements.
 
-   Rounds continue until the reviewer reports no further issues.
+   Rounds continue until the reviewer reports no further issues. After the director's rounds, a **fresh strongest-model reviewer** does an independent pass:
+   - `src/editor/xcheck.py`: a second ASR (MOSS-Transcribe-Diarize) with speaker labels. It diffs every caption and flags a voice change inside a caption or speech with no caption.
+   - **Who is speaking:** checked by pitch and faces.
+   - **Names:** checked against official rosters.
+   - **Song lyrics:** a Demucs voice stem plus ASR finds lyrics under speech. These are removed through the shot field `audio_src`.
+   - **Overlap:** text must never overlap text. The renderer lifts titles clear of captions, and lint flags the rest.
+7. **Retention-data rules**: the creator's own YouTube Analytics curves set the opening and ending (§2b-data): live content in 0:08–0:30, route maps after the first scene, short outros.
+8. **Checkpoints**: `src/editor/checkpoint.py` (steps C0–C14) and publish steps P1–P13. Any agent can resume after a usage limit or a context overflow without redoing work or uploading twice.
+9. **Tools that came out of tool scouting**:
+   - `src/editor/interp.py`: RIFE frame-interpolated slow motion.
+   - `src/editor/words.py`: word timestamps for exact stumble cuts.
+   - `src/editor/tally.py` and `scripts/splitflap.py`: experiment cards.
 
-Two local pages help the human:
-- **Review page** (`src/editor/review_server.py`): play the cut, adjust shots, see what changed.
-- **Footage player** (`src/editor/footage_player.py`): watch all raw clips back-to-back at
-  1.5×/2×, with proofread captions.
+Local pages for the human (Claude Code built them; the creator and the agent iterated on them together):
+- **Raw-footage page** (`src/editor/footage_player.py`, port 8765): every clip back-to-back at 1–3×, with proofread captions. An in-cut lamp shows whether the current moment made the cut.
+- **Cut page** (`src/editor/review_server.py`, port 8766): the rendered preview with 1/1.5/2/3× presets and a shot list.
+- **Cover picker** (`thumbnail/editorial.html`, `scripts/cover_picker.py`): click to pick the main thumbnail and the A/B set.
+- **Review chat** (`src/editor/chat.py`), built into both video pages:
+  - Enter hands a note to the agent; Shift+Enter keeps it pending while you collect more.
+  - Every note carries its clip and second.
+  - The agent watches the chat live (`chat … watch`), replies in place, and re-renders.
 
 **Batch mode.** Many trips can be rough-cut unattended:
 - A "master director" agent dispatches one "episode director" per video, in parallel, as
@@ -95,8 +122,12 @@ Two local pages help the human:
    viewers can binge a place.
 6. **Bilibili mirror**: uploaded and scheduled with [biliup](https://github.com/biliup/biliup-rs).
    `scripts/bili_season.py` then puts it into the matching regional **合集**.
-7. **Manual steps**: anything the APIs can't do (Studio location, thumbnail A/B test) goes on a
-   manual checklist.
+7. **Shorts**: two per long video (`scripts/make_short.py`). Each is cut as an open loop that sends viewers to the long video through the Related-video link: a bell, an arrow and a spoken line.
+8. **Studio chores**: the agent does location, end screen, the A/B thumbnail test, pinned comments and the Shorts' Related video in the creator's browser. Anything left goes on a checklist.
+9. **Copyright**:
+   - Recorded music under speech (car stereos, shops, DJs, PA) is removed or separated out.
+   - Street sound stays.
+   - Unclear cases are flagged for the creator.
 
 ## Repo layout
 
@@ -141,8 +172,8 @@ A project is a folder `NN - Place/`:
 
 ## Notes
 
-- The agent makes the editing decisions. You review once, and your notes become rules, both in
-  `LESSONS.md` and in the creator-preference memory the agent keeps.
+- The agent makes the editing decisions. You review once, and your notes become its memory: `LESSONS.md` (with an Experiments table), the skills, and the creator-preference memory it keeps. Every episode tries one new technique, and every conversation leaves the skills a little better for the next video.
+- `templates/briefs/` holds the master director's brief templates: splitting a trip across parallel directors, and the independent-QA / upgrade pass.
 - Music comes from the YouTube Audio Library (no attribution required). Each project keeps its
   tracks and a `LICENSES.md`.
 - A comparison delivery keeps its `.edl.json` as the source of truth, plus an `.srt`,
