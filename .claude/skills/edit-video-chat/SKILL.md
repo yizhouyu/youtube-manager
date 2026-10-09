@@ -264,6 +264,14 @@ values to test, not laws.
   - trip-series day markers (「…· 第 1/3 天」);
   - one plain reflective closing line at a trip finale.
 
+## 2b-copyright. Copyright risk in clip audio (creator, 2026-10-08)
+Every episode keeps `edit/copyright_risk.md`: one line per shot that has audible music, with its class and what was done.
+- **Certain risk → fix it without asking:** recorded music, especially with vocals: car stereos, shop or restaurant speakers, a DJ, arena or PA songs.
+  - Mute the shot, or use a Demucs voice stem (`audio_src`) when the speech must stay.
+  - Verify with whisper on the stem *and* the mix that no lyrics remain.
+- **Street and ambient → keep, just list it:** traffic, crowds, buskers, a street barrel organ, music drifting from somewhere. The creator: 「路上的、街上的声音，不消的话也没关系」.
+- **Unclear → flag for the creator** in `questions.json`: staged live performances, or long stretches of a recognisable tune.
+
 ## 2c. The creator's review checklist (what he asks for when he reviews)
 
 Distilled from his live reviews of 83 and 84. Check the cut against this list *before* QA, and
