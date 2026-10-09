@@ -295,6 +295,10 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   library's "mood" tags don't say). Ep 85's "When It Ends" (Cosplay) is a breakup song sung end to end
   and "Sky Is The Limit" (Anno Domini Beats) starts singing at ~27.7 s — QA caught lyrics over the
   finale. Instrumental-only under narration and note captions, or stop the section before the vocals.
+  Full-library audit 2026-10-08 (whisper turbo, no VAD, whole track): clear sung vocals in Ancient History
+  (Bosley), Magnolia Town (Patrick Jordan-Patrikios), Our Last Night (Televisions), Sky Is The Limit. It
+  MISSED When It Ends (known sung), so a "clean" result is a lower bound: still listen or run Demucs
+  vocals + whisper on any track you place under speech.
 - **GoPro clips end with the camera's stop-button click**; in a quiet mix (or after a `gain_db` lift)
   it lands 10–20 dB above its surroundings. Trim out-points ~0.1–0.3 s before the clip end.
 - **Synthetic sfx transients beat the limiter:** a white-noise shutter click at gain 0.6 pushed true
