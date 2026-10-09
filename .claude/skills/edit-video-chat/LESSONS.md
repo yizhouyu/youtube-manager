@@ -299,6 +299,12 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   (Bosley), Magnolia Town (Patrick Jordan-Patrikios), Our Last Night (Televisions), Sky Is The Limit. It
   MISSED When It Ends (known sung), so a "clean" result is a lower bound: still listen or run Demucs
   vocals + whisper on any track you place under speech.
+- **Copyright sweep method (101–112, 2026-10-09):** scan each audible shot's OWN source audio over its kept
+  ranges (not the preview mix — the licensed bed trips every music detector). Demucs two-stems → whisper
+  large-v3 on the vocal stem behind a silero VAD gate (ungated whisper invents lyrics on silence) + a tonal
+  check on the no-vocals stem calibrated on known car-stereo/PA clips. Found recorded music in 9 of 12
+  episodes (taxi/car radio, shop, restaurant, bar, entrance speakers) that earlier passes missed → gated
+  stems via `audio_src` or mute; residual music −49…−72 dBFS. A choir under speech can't be stemmed: mute or ask.
 - **GoPro clips end with the camera's stop-button click**; in a quiet mix (or after a `gain_db` lift)
   it lands 10–20 dB above its surroundings. Trim out-points ~0.1–0.3 s before the clip end.
 - **Synthetic sfx transients beat the limiter:** a white-noise shutter click at gain 0.6 pushed true
