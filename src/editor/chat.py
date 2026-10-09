@@ -102,6 +102,8 @@ def _new(ms, role, text, ctx=None, st=None):
         msg["ctx"] = ctx
     if st:
         msg["status"] = st
+    if role == "claude":  # which agent wrote it (more than one session can reach a project's chat)
+        msg["by"] = os.environ.get("CHAT_SENDER") or f"pid {os.getppid()} · {os.path.basename(os.getcwd())}"
     return msg
 
 
