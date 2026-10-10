@@ -355,6 +355,11 @@ retry the first insert.
 (e.g. 7:11–7:31 on a 7:31 video). The edit already reserves 15–20 s of calm B-roll/end card for it.
 Add it in Studio right after upload (scheduled videos accept it): Editor → End screen + → Apply template → **"1 video, 1 subscribe"** (the default template; its video element is "Best for viewer"), save. Shorts can't have end screens.
 
+**English audio tracks (multi-language audio) are NOT available on this channel yet (checked 2026-10-10):**
+Studio → Languages shows the English row with no "Add" under Audio (the only file input is for captions).
+YouTube gives it to a subset of channels with Advanced features. Until it appears, ship English as captions
++ localized title/description; keep `audio_en.wav` for later. Re-check the Audio column occasionally.
+
 **A/B test right after upload (creator, 2026-09-29):** if browser access is available, set it up in
 Studio immediately (Details → thumbnail/title "A/B Testing" → "Thumbnail only" or "Title only";
 avoid the combined mode, which confounds). Default: thumbnail-only, the creator's pick vs 1–2
