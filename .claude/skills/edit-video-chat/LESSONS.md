@@ -299,6 +299,7 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   (Bosley), Magnolia Town (Patrick Jordan-Patrikios), Our Last Night (Televisions), Sky Is The Limit. It
   MISSED When It Ends (known sung), so a "clean" result is a lower bound: still listen or run Demucs
   vocals + whisper on any track you place under speech.
+- **Never rewrite a shell script in place while it runs** (`cat > x.sh`): bash reads scripts lazily, so running copies execute garbage (2026-10-09: rewriting `render_lock.sh` killed 113's queued assemble step). Write a new file and `mv` it over (new inode).
 - **Copyright sweep method (101–112, 2026-10-09):** scan each audible shot's OWN source audio over its kept
   ranges (not the preview mix — the licensed bed trips every music detector). Demucs two-stems → whisper
   large-v3 on the vocal stem behind a silero VAD gate (ungated whisper invents lyrics on silence) + a tonal
@@ -463,6 +464,20 @@ storytelling: https://1of10.com/blog/storytelling-techniques-top-youtubers-use-t
 Travel-vlog-specific data is scarce; treat numbers as targets, and learn from the channel's own
 analytics (retention graphs) once available.
 
+## Explainer / workflow videos (ep 113, 2026-10-08/09)
+
+A narrated explainer is a different job from a travel cut. What made 113 work, and what the creator corrected:
+- **Plan → script → critics → revise before any asset.** Two independent critics on the script (viewer/language + facts/privacy) caught a late hook, ~60 s of repetition, undefined terms and a wrong visual before anything was rendered. Then two brevity editors per revision; keep the creator's own wording and metaphors (像魔术师一样, 磨合) — editors may shorten, never paraphrase his quotes.
+- **Structure he asked for: overview first, then each step, then the tools.** Show the whole workflow as one diagram, walk one real video through the steps, and only then introduce the pages as tools serving those steps (not as standalone segments).
+- **Claim → show the real clip.** Whenever the narration says the agent did something (researched X, added Y), cut to that exact moment of the finished video, labelled 「成片里」. Viewers who never saw the trip are lost otherwise.
+- **Every rule gets one real example** (a real caption merge, real ASR background lines, a real date that was removed, a real push-in clip). "画面上不写日期" alone is too vague.
+- **His framing, not ours:** the agent has *memory* worked out in conversation (skills + LESSONS + memory), not "rules it follows"; no episode numbers anywhere (he doesn't number videos publicly — scrub "98 - " from page titles on the fly); don't explain Claude Code / agents; call unpublished examples 「接下来几个视频里的」; no time figures he didn't state ("好几个小时", not "1–2 小时").
+- **Screen recordings without touching his desktop:** headless Chrome against a sandbox copy of an episode (raw clips symlinked read-only, edit files copied), time-dilated ×14 (page clock, timers, media playbackRate and CSS animations all slowed; screenshots stamped with page time) → smooth 30 fps at 3840×2160. Chat demos post real (name-free) notes and real reply excerpts into the sandbox chat; simulate render progress by routing `/api/render*`. Type with `insert_text` and re-focus the textbox each keystroke (stretched timers steal focus). Blur anything private in footage **at the source** (replace the sandbox symlink with a blurred copy that keeps the source metadata, and blur the same shots in the sandbox preview) before recording: per-frame blurring of the page recordings missed frames, and the same sign showed up in two more clips (a second bus, the edge of another shot), so scan every clip the pages can show.
+- **Web pages for the video:** GitHub/blog pages captured logged-out; blur the author's full name and any prices; hide third-party images; for a long README take one full-page screenshot and pan over it in the stage instead of recording a scroll (headless scroll captures came out blank).
+- **Burned narration captions must fit one line;** split long sentences at the clause comma nearest the middle (recursive), keep page recordings above the caption band (window bottom ≤ ~78 % of the frame).
+- **Never overwrite the preview the creator is watching** — write new versions to `edit/previews/`.
+- **Bilingual:** an English narration track (edge-tts en-US-AndrewMultilingualNeural, one line per Chinese line, rate raised up to +25 % to fit the slot) mixed with the same music/sfx, plus captions_en.srt aligned to it; YouTube's API can't add audio tracks (Studio → Languages).
+
 ## Experiments (one or more new techniques per video — keep what works)
 
 | Video | Technique | Result | Default from now on? |
@@ -542,3 +557,4 @@ analytics (retention graphs) once available.
 | 104 up | Closing line baked onto the first 5 s of the photo-print slideshow (`cards/slideshow_line.mp4`) instead of a separate 3.4 s held frame, so the finale ending fits ≤ 15 s | Same words, 3.4 s shorter, end-screen space kept | Yes for trip finales |
 | 105 up | **"Who is that" portrait inset:** a ring on a portrait on the façade plus a pip naming her (Josefa Ortiz) and one sourced line (her role in 1810), over the creator's own Palacio talk | Weakest window 7 → 9–10/10 | Pending review — yes when a face/statue/portrait in frame has a story |
 | 102–112 | **Live-first openings (§2b-data):** the first scene runs live from 0:08, and the postcard and route map follow it at ~0:30–1:00 as the bridge to the next place. The maps' leg animation must still read in order: 112's map moved to 3:05, where its first leg actually starts | Retention data for the new placement is due ~10/20 | Default now, pending the data re-check |
+| 113 | **Workflow explainer built as an HTML "keynote stage" rendered frame by frame** (headless Chrome, 2560×1440, `renderAt(t)` pure function of time; scenes keyed to TTS line starts so re-voicing a line re-times its visuals) + time-dilated page recordings + real-clip callbacks + synthesized UI sfx (ticks on step changes, key taps on typing, a chime when the lamp lights) | Two critic rounds + creator review (53 notes) + four independent reviewers; see ep 113 HANDOFF | Yes for any narrated explainer; the stage/recorder scripts live in 113's `edit/scripts` + `edit/stage` |
