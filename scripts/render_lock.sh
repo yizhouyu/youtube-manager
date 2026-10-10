@@ -10,7 +10,8 @@ mkdir -p "$WAITDIR"
 ME="$WAITDIR/$PRIO.$$"
 touch "$ME"
 cleanup() { rm -f "$ME"; [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ] && rm -rf "$LOCK"; }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 143' INT TERM
 higher_waiting() {
   for f in "$WAITDIR"/*; do
     [ -e "$f" ] || continue
