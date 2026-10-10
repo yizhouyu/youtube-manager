@@ -1,15 +1,32 @@
 #!/bin/bash
 # Run a heavy job (render / bake / Demucs / whisper) only when no other heavy job is running.
-# Usage: scripts/render_lock.sh <command> [args...]
-# Waits for the machine-wide lock (a directory, atomic mkdir), runs the command, releases on exit.
-# A lock left by a dead process (pid file gone stale) is cleared automatically.
+# Usage: [PRIO=1|2|3] scripts/render_lock.sh <command> [args...]
+# PRIO 1 = most important (default 2). A waiting job never takes the lock while a more important
+# job is waiting. Lock = atomic mkdir; a lock or wait marker left by a dead process is cleared.
 LOCK=/tmp/yt-heavy-job.lock
-while ! mkdir "$LOCK" 2>/dev/null; do
-  pid=$(cat "$LOCK/pid" 2>/dev/null)
-  if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then rm -rf "$LOCK"; continue; fi
+WAITDIR=/tmp/yt-heavy-job.wait
+PRIO=${PRIO:-2}
+mkdir -p "$WAITDIR"
+ME="$WAITDIR/$PRIO.$$"
+touch "$ME"
+cleanup() { rm -f "$ME"; [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ] && rm -rf "$LOCK"; }
+trap cleanup EXIT INT TERM
+higher_waiting() {
+  for f in "$WAITDIR"/*; do
+    [ -e "$f" ] || continue
+    b=$(basename "$f"); p=${b%%.*}; pid=${b#*.}
+    kill -0 "$pid" 2>/dev/null || { rm -f "$f"; continue; }
+    [ "$p" -lt "$PRIO" ] && return 0
+  done
+  return 1
+}
+while :; do
+  if [ -d "$LOCK" ]; then
+    pid=$(cat "$LOCK/pid" 2>/dev/null)
+    if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then rm -rf "$LOCK"; fi
+  fi
+  if ! higher_waiting && mkdir "$LOCK" 2>/dev/null; then break; fi
   sleep 15
 done
-echo $$ > "$LOCK/pid"
-echo "$*" > "$LOCK/cmd"
-trap 'rm -rf "$LOCK"' EXIT INT TERM
+echo $$ > "$LOCK/pid"; echo "P$PRIO $*" > "$LOCK/cmd"; rm -f "$ME"
 "$@"
