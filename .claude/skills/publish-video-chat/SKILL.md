@@ -355,6 +355,12 @@ retry the first insert.
 (e.g. 7:11–7:31 on a 7:31 video). The edit already reserves 15–20 s of calm B-roll/end card for it.
 Add it in Studio right after upload (scheduled videos accept it): Editor → End screen + → Apply template → **"1 video, 1 subscribe"** (the default template; its video element is "Best for viewer"), save. Shorts can't have end screens.
 
+**Tell English viewers the subtitles exist (creator, 2026-10-10):** viewers whose YouTube UI is English see
+the `en` localization, but nothing tells them an English caption track exists. So the `en` localized title ends
+with ` [English Subtitles]` (keep ≤ 100 chars) and the `en` description starts with
+`English subtitles available: turn on CC (or ⚙ Settings → Subtitles → English).` + a blank line. The Chinese
+default title/description stay unchanged. (The API may take ~20 s to show the update.)
+
 **English audio tracks (multi-language audio) are NOT available on this channel yet (checked 2026-10-10):**
 Studio → Languages shows the English row with no "Add" under Audio (the only file input is for captions).
 YouTube gives it to a subset of channels with Advanced features. Until it appears, ship English as captions
