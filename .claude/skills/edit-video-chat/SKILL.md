@@ -50,6 +50,12 @@ must be resumable from disk alone:
 - **Publishing** has its own checklist in publish-video-chat (P-steps). Record those in the same file with `note`
   lines ("P4 YouTube uploaded <id>"), and in STATE.md, so an interrupted publish never re-uploads.
 
+
+**One heavy job at a time (creator, 2026-10-09: the CPU maxed out with three parallel renders).** Renders,
+stage renders, sim bakes, Demucs and whisper batches run one at a time machine-wide, ≤2 workers, under
+`nice -n 10`, wrapped in `scripts/render_lock.sh <cmd…>` (waits for the lock). Parallel agents are fine;
+their heavy compute queues through the lock. Put this rule in every director/QA brief.
+
 ## One ASR at a time
 
 `src/editor/transcribe.py` takes the machine-wide ASR lock itself. Wrap any other ASR run
