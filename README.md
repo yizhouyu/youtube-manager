@@ -96,6 +96,31 @@ Local pages for the human (Claude Code built them; the creator and the agent ite
   - Every note carries its clip and second.
   - The agent watches the chat live (`chat … watch`), replies in place, and re-renders.
 
+### Turn on “和 Agent 聊” listening
+
+The chat panel is part of the review page, but opening the page does **not** start its listener.
+Run one `watch` process for the episode in a persistent terminal/Monitor whose output is visible
+to the same Claude Code or Codex agent that is reviewing the video:
+
+```bash
+cd /path/to/youtube-manager
+./venv/bin/python -u -m src.editor.chat "/absolute/path/to/NN - Place Name" watch
+```
+
+Keep that process running while reviewing. The page should switch to **Agent 在听** within a few
+seconds; if it says **Agent 没在听**, check that the watcher is still running and that its terminal
+output is attached to the agent (a separate, unobserved shell only prints the notes—it cannot
+notify the agent). The watcher prints handed-over notes as `CHAT #…` / `CHAT BATCH …`; it updates
+the heartbeat every two seconds, and the UI considers it stale after eight seconds.
+
+- **评论** (Shift+Enter) saves a pending draft only. **交给 Agent** (Enter or Cmd+Enter) hands over
+  the current text and all pending drafts; only then will `watch` print them.
+- To reply in the panel, run `./venv/bin/python -m src.editor.chat "NN - Place Name" reply "…"`
+  from the agent's session. Replies are labeled Claude Code/Codex from the active runtime; set
+  `CHAT_AGENT=claude-code` or `CHAT_AGENT=codex` only if automatic detection needs an override.
+- A watcher is per episode. Start a new one when switching episodes; restart it if the terminal
+  session or Monitor stops.
+
 **Batch mode.** Many trips can be rough-cut unattended:
 - A "master director" agent dispatches one "episode director" per video, in parallel, as
   sub-agents or Orca workers.
