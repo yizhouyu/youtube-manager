@@ -526,9 +526,12 @@ def pin(d, x, y, num, cn, sub, side, s, fonts, colors=None, halo=None, scale=1.0
         "left": ((-66, -4), "rs", (-66, 10), "rt"),
     }
     (cx, cy), ca, (sx, sy), sa = pos.get(side, pos["down"])
-    d.text((x + cx * k, y + cy * k), cn, font=fc, fill=col["text"], anchor=ca, **sw)
+    name_xy = (x + cx * k, y + cy * k)
+    d.text(name_xy, cn, font=fc, fill=col["text"], anchor=ca, **sw)
     if sub:
-        d.text((x + sx * k, y + sy * k), sub, font=fe, fill=col["subtext"], anchor=sa, **sw)
+        name_box = d.textbbox(name_xy, cn, font=fc, anchor=ca, stroke_width=sw["stroke_width"])
+        sub_y = max(y + sy * k, name_box[3] + 40 * k)
+        d.text((x + sx * k, sub_y), sub, font=fe, fill=col["subtext"], anchor=sa, **sw)
 
 
 def flight_arc(d, p, start, end, lift=380, color=None, width=14, style="plane", label=None, label_font=None,
@@ -771,9 +774,11 @@ class RouteMap:
             y = H * 0.33 + i * H * 0.105
             d.ellipse([x, y, x + 2 * r, y + 2 * r], fill=a(col["panel_dot"]))
             d.text((x + r, y + r + 2 * k), str(i + 1), font=self.F("heavy", 50), fill=a(col["panel_number"]), anchor="mm")
-            d.text((x + 120 * k, y - 6 * k), st["cn"], font=self.F("heavy", 70), fill=a(col["text"]))
+            name_xy = (x + 120 * k, y - 6 * k)
+            name_font = self.F("heavy", 70)
+            d.text(name_xy, st["cn"], font=name_font, fill=a(col["text"]))
             if st.get("sub"):   # under the name's real ink box (heavy CJK faces run past their nominal size)
-                sy = max(y + 76 * k, d.textbbox((x + 120 * k, y - 6 * k), st["cn"], font=self.F("heavy", 70))[3] + 12 * k)
+                sy = d.textbbox(name_xy, st["cn"], font=name_font)[3] + 40 * k
                 d.text((x + 122 * k, sy), st["sub"], font=self.F("sans", 50), fill=a(col["subtext"]))
         if cfg["credit"]:
             d.text((x, H * 0.958), cfg["credit"], font=self.F("sans", 40), fill=a(col["credit"]))
