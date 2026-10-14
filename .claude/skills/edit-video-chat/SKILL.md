@@ -390,7 +390,9 @@ back into the file (poll it; add questions any time, the pages pick them up with
 ./venv/bin/python -m src.editor.render "<project>" --package   # clean numbered clips + SRT for CapCut
 ```
 
-**Review chat (creator, 2026-10-01).** Both pages have a "和 Claude 聊" box.
+**Review chat (creator, 2026-10-01).** Both pages have a "和 Agent 聊" box. Its `chat watch` heartbeat
+is runtime-neutral and works from Claude Code or Codex; `chat reply` detects the active runtime and
+labels replies accordingly (`CHAT_AGENT=claude-code|codex` overrides detection when needed).
 - **What it carries:** each message he sends records where he was (raw clip + time, or cut time). The messages are stored in `edit/chat.jsonl`.
 - **Open all three pages yourself (creator, 2026-10-03; order set 2026-10-08).** When review starts or moves to the next episode, `open` these right away, in this order:
   1. the episode's cover page, `thumbnail/editorial.html` or `review.html`;

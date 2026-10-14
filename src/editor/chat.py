@@ -14,7 +14,7 @@ Messages without `status` (older ones, Agent replies, posts from an old page) co
                                                            #   CHAT BATCH b3 (3 条): #5 [..] a ‖ #6 [..] b ‖ ...
                                                            # pending notes print nothing until handed over;
                                                            # while it runs it keeps a heartbeat in edit/chat.listening
-    python -m src.editor.chat "<project>" reply "text"     # post Claude's answer
+    python -m src.editor.chat "<project>" reply "text"     # post this agent's answer (Claude Code / Codex auto-detected)
     python -m src.editor.chat "<project>" tail [N]         # print the last N messages
 
 Pages: register(app, get_project) adds GET/POST /api/chat and GET /api/chat/status; inject(page) adds the
@@ -48,6 +48,22 @@ def path(project):
 
 
 LISTEN_FRESH = 8.0   # s: a heartbeat older than this means nobody is listening
+
+
+def agent_role(env=None):
+    """Identify the replying agent from its runtime environment, with an explicit override."""
+    env = os.environ if env is None else env
+    override = (env.get("CHAT_AGENT") or "").strip().lower().replace(" ", "-")
+    if override in {"claude", "claude-code"}:
+        return "claude"
+    if override == "codex":
+        return "codex"
+    if any(env.get(k) for k in ("CODEX_SESSION_ID", "CODEX_THREAD_ID", "CODEX_VERSION")):
+        return "codex"
+    if any(env.get(k) for k in ("CLAUDECODE", "CLAUDE_CODE", "CLAUDE_CODE_ENTRYPOINT",
+                                "CLAUDE_SESSION_ID", "CLAUDE_CODE_SESSION_ID")):
+        return "claude"
+    return "agent"
 
 
 def heartbeat_path(project):
@@ -102,8 +118,8 @@ def _new(ms, role, text, ctx=None, st=None):
         msg["ctx"] = ctx
     if st:
         msg["status"] = st
-    if role == "claude":  # which agent wrote it (more than one session can reach a project's chat)
-        msg["by"] = os.environ.get("CHAT_SENDER") or f"pid {os.getppid()} · {os.path.basename(os.getcwd())}"
+    if role in {"claude", "codex", "agent"}:
+        msg["by"] = os.environ.get("CHAT_SENDER") or f"{role} · pid {os.getppid()} · {os.path.basename(os.getcwd())}"
     return msg
 
 
@@ -253,7 +269,7 @@ WIDGET = r"""
 .cbm .bub{padding:7px 11px;border-radius:12px;white-space:pre-wrap;word-break:break-word}
 .cbm.creator{margin-left:auto;align-items:flex-end}
 .cbm.creator .bub{background:var(--accent-soft);color:#1b3a7a;border-bottom-right-radius:4px}
-.cbm.claude .bub{background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:4px}
+.cbm.claude .bub,.cbm.codex .bub,.cbm.agent .bub{background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:4px}
 .cbm .w{font-size:11px;color:var(--text-3);margin:0 4px 3px;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 /* 「评论」 drafts wait for 「交给 Agent」: dashed bubble + a calm amber pill; handed-over notes get a small ✓ */
 .cbm .w .pend{font-size:10.5px;line-height:16px;padding:0 7px;border-radius:999px;background:var(--q-soft);color:var(--q-ink);white-space:nowrap}
@@ -362,14 +378,16 @@ WIDGET = r"""
       if(t){let r=t.querySelector('.react');if(!r){r=document.createElement('span');r.className='react';t.appendChild(r)}r.textContent=m.text}return}
     const d=document.createElement('div');d.className='cbm '+m.role;d.dataset.mid=m.id;
     const w=document.createElement('span');w.className='w';
-    const wt=document.createElement('span');wt.textContent=(m.id?'#'+m.id+' · ':'')+(m.role==='claude'?'Agent':'我')+' · '+String(m.ts||'').slice(11,16)+(m.ctx&&where(m.ctx)?' · '+where(m.ctx):'');w.appendChild(wt);
+    const fromAgent=m.role==='claude'||m.role==='codex'||m.role==='agent';
+    const sender=({claude:'Claude Code',codex:'Codex',agent:'Agent'})[m.role]||'我';
+    const wt=document.createElement('span');wt.textContent=(m.id?'#'+m.id+' · ':'')+sender+' · '+String(m.ts||'').slice(11,16)+(m.ctx&&where(m.ctx)?' · '+where(m.ctx):'');w.appendChild(wt);
     const b=document.createElement('div');b.className='bub';b.textContent=m.text;
     d.appendChild(w);d.appendChild(b);list.appendChild(d);
     if(m.role==='creator'){if(m.status==='pending'){d.classList.add('pending');const p=document.createElement('span');p.className='pend';p.textContent='待交给 Agent';w.appendChild(p);pend.add(m.id)}
       else markSent(d)}   // no status (older messages) = sent
     if(pinned||m.role==='creator')list.scrollTop=list.scrollHeight;
-    if(m.role==='claude'&&box.classList.contains('min'))dot.style.display='inline-block';
-    if(m.role==='claude'&&loaded&&FS.hidden())FS.unread()}
+    if(fromAgent&&box.classList.contains('min'))dot.style.display='inline-block';
+    if(fromAgent&&loaded&&FS.hidden())FS.unread()}
   let loaded=false;   // the first poll is history, not news
   const pend=new Set(), sendBtn=document.getElementById('cbSend');
   function markSent(d){d.classList.remove('pending');const p=d.querySelector('.w .pend');if(p)p.remove();
@@ -557,10 +575,10 @@ def main():
         sys.exit(__doc__)
     project, cmd = sys.argv[1], sys.argv[2]
     if cmd == "reply":
-        print(post(project, "claude", " ".join(sys.argv[3:])))
+        print(post(project, agent_role(), " ".join(sys.argv[3:])))
     elif cmd == "react":  # react <id> [emoji]: a small badge on the creator's message, e.g. 👍 = received
         mid = int(sys.argv[3]); emoji = sys.argv[4] if len(sys.argv) > 4 else "👍"
-        m = post(project, "claude", emoji)
+        m = post(project, agent_role(), emoji)
         _set_react(project, m["id"], mid)
         print(m)
     elif cmd == "tail":
