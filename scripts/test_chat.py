@@ -9,6 +9,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from flask import Flask  # noqa: E402
 from src.editor import chat as C  # noqa: E402
 
+assert C.agent_role({"CODEX_SESSION_ID": "test"}) == "codex"
+assert C.agent_role({"CLAUDECODE": "1"}) == "claude"
+assert C.agent_role({"CHAT_AGENT": "claude-code", "CODEX_SESSION_ID": "test"}) == "claude"
+assert C.agent_role({}) == "agent"
+
 with tempfile.TemporaryDirectory() as proj:
     os.makedirs(os.path.join(proj, "02 - Export", "edit"))
     # an existing thread from before the two-mode send: no status field = sent
@@ -108,4 +113,5 @@ with tempfile.TemporaryDirectory() as proj:
     # the injected widget has both buttons and the keyboard hint
     page = C.inject("<html><body></body></html>", "cut")
     assert 'id="cbNote"' in page and "交给 Agent" in page and "'comment'" in page and "'handoff'" in page
+    assert "cbm.codex" in page and "Claude Code" in page and "Codex" in page
 print("ok")
