@@ -405,6 +405,7 @@ Opening the URLs does not start either server or the chat listener.
 is runtime-neutral and works from Claude Code or Codex; `chat reply` detects the active runtime and
 labels replies accordingly (`CHAT_AGENT=claude-code|codex` overrides detection when needed).
 - **What it carries:** each message he sends records where he was (raw clip + time, or cut time). The messages are stored in `edit/chat.jsonl`.
+- **Brief yourself before every 审片 (creator, 2026-10-15):** the rough cut is often made by another agent, so the agent who chats with him may not know the video. Before opening the pages: read the episode's `HANDOFF.md` (structure table, cards, open questions), then look at a coarse contact sheet of the preview (`ffmpeg -vf fps=1/20,scale=320:-1,tile=6x5`, ~30 frames; not every frame), and write 5–8 lines to `edit/review_brief.md` (spine, key sections with timestamps, cards, what's unresolved). Then start the chat watcher (`Monitor` on `chat … watch`). Re-read the brief when he asks about a moment.
 - **Open all three pages yourself (creator, 2026-10-03; order set 2026-10-08).** When review starts or moves to the next episode, `open` these right away, in this order:
   1. the episode's cover page, `thumbnail/editorial.html` or `review.html`;
   2. the raw page, 8765;
