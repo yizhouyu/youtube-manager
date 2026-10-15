@@ -390,6 +390,17 @@ back into the file (poll it; add questions any time, the pages pick them up with
 ./venv/bin/python -m src.editor.render "<project>" --package   # clean numbered clips + SRT for CapCut
 ```
 
+After both local review servers are running, open the first-look/raw-footage page (8765) and
+then the cut page (8766) in the creator's visible Chrome window on macOS instead of relying on
+a browser-automation tab:
+
+```bash
+open -a "Google Chrome" "file://<project>/02 - Export/thumbnail/editorial.html" "http://127.0.0.1:8765/" "http://127.0.0.1:8766/"
+```
+
+Creator order (2026-10-09): cover/thumbnail page first, then 8765, then 8766. Use the exact port assignments in that episode's `edit/HANDOFF.md` if they override the defaults.
+Opening the URLs does not start either server or the chat listener.
+
 **Review chat (creator, 2026-10-01).** Both pages have a "和 Agent 聊" box. Its `chat watch` heartbeat
 is runtime-neutral and works from Claude Code or Codex; `chat reply` detects the active runtime and
 labels replies accordingly (`CHAT_AGENT=claude-code|codex` overrides detection when needed).

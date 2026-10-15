@@ -90,6 +90,11 @@ into video.
 Local pages for the human (Claude Code built them; the creator and the agent iterated on them together):
 - **Raw-footage page** (`src/editor/footage_player.py`, port 8765): every clip back-to-back at 1–3×, with proofread captions. An in-cut lamp shows whether the current moment made the cut.
 - **Cut page** (`src/editor/review_server.py`, port 8766): the rendered preview with 1/1.5/2/3× presets and a shot list.
+- **Open the review pages on macOS:** once both servers are running, open the first-look/raw-footage page on 8765, then the cut page on 8766, directly in Chrome from Terminal. Use the ports listed in that episode's `edit/HANDOFF.md` if they override the defaults:
+  ```bash
+  open -a "Google Chrome" "http://127.0.0.1:8765/" "http://127.0.0.1:8766/"
+  ```
+  This opens the pages only; it does not start the servers or the review-chat listener.
 - **Cover picker** (`thumbnail/editorial.html`, `scripts/cover_picker.py`): click to pick the main thumbnail and the A/B set.
 - **Review chat** (`src/editor/chat.py`), built into both video pages:
   - Enter hands a note to the agent; Shift+Enter keeps it pending while you collect more.
