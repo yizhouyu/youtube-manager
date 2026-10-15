@@ -651,6 +651,8 @@ at the top for this episode, with checkboxes and clickable links: Studio locatio
 Test & compare thumbnail/title variants (once public), Bilibili 审核/live check, and anything else
 left for the creator. Never leave these only in the chat reply.
 
+- **Title length (2026-10-15 research):** YouTube allows 100 characters, but phones show only ~40–50 width units on Home (~50–60 in search; no official figure). A Chinese character counts 2 units, so **the place name + hook must fit in the first ~20 Chinese characters**, and the whole title should stay ≤ ~70 units. Don't spend the visible part on an English duplicate ("墨西哥城 Mexico City：" burns half of it) — English goes in the localization. Secondary keywords go after 「｜」 (search only). Check every candidate with `python -m src.editor.title_check "<title>" …` (shows the phone-visible part).
+
 ## Growth decisions from the 2026-10-15 analytics review (creator approved: 「少做/停掉的 听你的」「你说的那几条我都同意」)
 Report: `sessions/research/2026-10-15/analytics.md` (private). These override older lines in this file where they conflict.
 - **Playlists:** series playlists (加州, 美东, 墨西哥, …) hold **long videos only**. Every Short goes to **「短视频 | Shorts」 `PLLqVh7Q9mERY`** (playlist views watch longest, so keep series lists clean for binge-watching).
