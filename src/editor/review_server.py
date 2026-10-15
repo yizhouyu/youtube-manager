@@ -863,9 +863,9 @@ $('#pv').addEventListener('click',e=>{const b=e.target.closest('#pvtools button'
   if(b.id==='pvfs') pvToggleFs(); else if(b.dataset.r) pvSetSpeed(+b.dataset.r)});
 // speed presets, like the raw-footage page; remembered across reloads and new previews
 const PV_SPEEDS=[1,1.5,2,3];
-let pvSpeed=1; try{const r=parseFloat(localStorage.getItem('rv_speed')); if(PV_SPEEDS.includes(r)) pvSpeed=r}catch(e){}
+let pvSpeed=1;   // every page load starts at 1x (creator, 2026-10-15); the chosen speed carries over to new preview versions in this session
 function pvMarkSpeed(r){document.querySelectorAll('#pvspeeds button').forEach(b=>b.classList.toggle('on',+b.dataset.r===r))}
-function pvSetSpeed(r){pvSpeed=r; try{localStorage.setItem('rv_speed',String(r))}catch(e){}
+function pvSetSpeed(r){pvSpeed=r;
   const v=document.getElementById('pvv'); if(v) v.playbackRate=r; pvMarkSpeed(r)}
 window.addEventListener('cbfs',()=>{const b=document.getElementById('pvfs'); if(b) fsIcon(b)});
 const IC_FS='<svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
