@@ -614,3 +614,16 @@ Contact sheets: `./venv/bin/python -m src.editor.scan "<project>"` → `edit/sca
   - `captions_clean` drops these on the raw page (the INTERJECTION regex and the ≤3-character rule). In the cut, leave them out of `subs`.
   - Keep short lines that mean something: 很大, 好美啊, 哇，好吃.
 
+## Pre-review pass: the creator's review patterns (from his 105–107 notes, 2026-10-15)
+Run this on every episode BEFORE he reviews it (an "upgrade pass"); each item is something he asked for at least twice.
+1. **Keep his live moments.** He often says 「这个clip可以留着 / 这段可以多留一点」: restore unused or trimmed clips where he talks, reacts, or something is happening (food being made, a vendor, a street detail, transport like a 小巴士). Check `scan/clip_index.md` **未用** rows and long gaps inside kept clips. Processes (food prep, a performance) get their full arc, not a 3 s cut.
+2. **Explain what we see — fully.** Museums, murals, monuments, performances, street figures (e.g. organillero): identify each exhibit from labels in frame + sources, then add short yellow notes / TTS in his pauses. Confirm or gently correct his on-camera guesses. Name every dish and shop on screen (shop tag with address via `tag`/`tag_at`, dish names as notes), and put shop names + addresses in the description.
+3. **Facts are stated plainly:** no 「资料说」, no hedged citations on screen; unverifiable → leave it out.
+4. **Subtitles:** standard Mandarin in notes/cards/TTS (no 北方口语 like 棒子), Arabic digits (`src.editor.digits`), 他/她/它 checked against the picture (president = 她, insects/animals = 它们), filler words like 「然后呢」「又」 removed when they read oddly; re-transcribe clip tails flagged ⚠ in clip_index (ASR stops early under music; English guides go untranscribed — translate guide talk he finds interesting).
+5. **His face:** he doesn't want accidental shots of himself (e.g. in crowd/audience shots). Cut or shift those ranges unless he is clearly the subject.
+6. **Performances / recorded music:** each show segment ≤ 10 s (Content ID); several short segments are fine.
+7. **Structure:** the route map goes right after the opening montage, before the first location; the cover's promise appears within 5 s and the title's hook is under way by 0:30 (analytics 10/15). Drop redundant cards (he cut the 「今天的小票」 receipt card as 多余). Dead air before a line (rain-street B-roll before speech) gets cut.
+8. **Tags/labels appear when the subject is on screen** (`tag_at`, `tag_dur`).
+9. **Titles/tags/description:** no 第X天; standard Chinese place name first + one nameable hook (search + suggested); no bargain words; description names shops/places with addresses.
+10. **Covers:** dynamic multi-place (publish skill "Every cover needs motion"); no insects; no bargain words.
+After the pass: re-render the preview, update HANDOFF ("Pre-review pass" section listing every change with 成片 times), so his review starts from a better cut.
