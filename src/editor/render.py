@@ -420,7 +420,12 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
             limit = min(tops) - int(h * 0.015) if tops else None
             ovs.append((overlays.title_card(t["text"], t.get("sub", ""), w, h, ov_dir, limit), 0, td, 0.4))
         if shot.get("tag"):
-            ovs.append((overlays.place_tag(shot["tag"], w, h, ov_dir, shot.get("tag_pos", "tl")), 0, min(3.0, dur), 0.3))
+            # tag_at: source second the tag appears (creator, ep 106: show the dish tag once the dish is on screen);
+            # default = the shot start. tag_dur: how long it stays (default 3 s).
+            ta = E.src_to_local(shot, shot["tag_at"]) if shot.get("tag_at") is not None else 0.0
+            ta = max(0.0, min(ta, dur - 0.5))
+            ovs.append((overlays.place_tag(shot["tag"], w, h, ov_dir, shot.get("tag_pos", "tl")), ta,
+                        min(ta + float(shot.get("tag_dur", 3.0)), dur), 0.3))
         for sp in shot.get("spots", []):  # spotlight: dim all but a circle on a hidden subject
             a0, a1 = E.src_to_local(shot, sp["t0"]), min(E.src_to_local(shot, sp["t1"]), dur)
             if a1 - a0 > 0.6:
