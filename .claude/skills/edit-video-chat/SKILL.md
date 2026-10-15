@@ -113,6 +113,7 @@ As soon as the creator hands over a folder, start these side by side (subagents)
   convert to **Simplified Chinese** (OpenCC `t2s`), fix proper nouns from what the frames show
   (signs, menus) + a web search for dishes/places. Never name a dish or place you can't see or
   verify.
+- **Standard Mandarin, no northern colloquialisms (creator, 2026-10-15: 「不要用北方的这种语言」).** In notes, cards and TTS write 玉米穗 not 棒子, 东西 not 玩意儿, avoid 咋/啥/得劲/倍儿 and 儿化 words. (His own speech captions stay as he said them.)
 - **Numbers in Arabic digits (creator, 2026-10-15: 「能用数字的地方，你就用数字」).** In captions, notes and cards
   write years, dates, ages, counts, prices, durations and centuries as digits: 1844年、9月15号、15岁、99年、
   买了4个、72个比索、0.06、19世纪. Keep Chinese only where a digit reads wrong: set phrases (一路、一下、
