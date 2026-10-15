@@ -20,6 +20,9 @@ faster ways of working — and prune lessons the code now enforces.
 Do the whole first cut + QA + thumbnails yourself; don't wait on him. Render the 1080p preview only
 for QA, then write `edit/HANDOFF.md` (template in the project template: status, structure with
 timestamps, decisions, drops, music, thumbnail links, QA summary, open questions, how to review)
+plus `edit/scan/clip_index.md`: one line per raw clip, the rough-cutter's job since it already watched
+everything (creator, 2026-10-15). Format: `0485 | 0:00–0:12 | 士兵列队走过广场 | 未用：和 s022 重复`, or
+`→ s022 @2:21`. Unused clips need a reason; the 105 review notes were mostly "keep this unused bit".
 and **keep `edit/preview.mp4`** so the creator can review right away (creator, 2026-09-29); delete
 `edit/previews/` and `/tmp/yt-editor/<project>`. Once the creator approves and the final render is
 done, delete the preview right away; don't wait for the upload. The EDL stays the source of truth. No final render, no upload. Projects parked in a batch folder (e.g.
@@ -405,7 +408,7 @@ Opening the URLs does not start either server or the chat listener.
 is runtime-neutral and works from Claude Code or Codex; `chat reply` detects the active runtime and
 labels replies accordingly (`CHAT_AGENT=claude-code|codex` overrides detection when needed).
 - **What it carries:** each message he sends records where he was (raw clip + time, or cut time). The messages are stored in `edit/chat.jsonl`.
-- **Brief yourself before every 审片 (creator, 2026-10-15):** the rough cut is often made by another agent, so the agent who chats with him may not know the video. Before opening the pages: read the episode's `HANDOFF.md` (structure table, cards, open questions), then look at a coarse contact sheet of the preview (`ffmpeg -vf fps=1/20,scale=320:-1,tile=6x5`, ~30 frames; not every frame), and write 5–8 lines to `edit/review_brief.md` (spine, key sections with timestamps, cards, what's unresolved). Then start the chat watcher (`Monitor` on `chat … watch`). Re-read the brief when he asks about a moment.
+- **Brief yourself before every 审片 (creator, 2026-10-15):** the rough cut is often made by another agent, so the agent who chats with him may not know the video. Before opening the pages: read the episode's `HANDOFF.md` (structure table, cards, open questions), then read `scan/clip_index.md` and skim the rough-cutter's existing `scan/sheets/grid_*.jpg` (already low-res, ~320 px/frame; never regenerate raw sheets), plus a coarse contact sheet of the preview (`ffmpeg -vf fps=1/20,scale=320:-1,tile=6x5`, ~30 frames), and write 5–8 lines to `edit/review_brief.md` (spine, key sections with timestamps, cards, what's unresolved). Then start the chat watcher (`Monitor` on `chat … watch`). Re-read the brief when he asks about a moment.
 - **Open all three pages yourself (creator, 2026-10-03; order set 2026-10-08).** When review starts or moves to the next episode, `open` these right away, in this order:
   1. the episode's cover page, `thumbnail/editorial.html` or `review.html`;
   2. the raw page, 8765;
