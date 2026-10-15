@@ -44,6 +44,8 @@ After each P-step, record it right away. Record it as `./venv/bin/python -m src.
 | P12 | MANUAL_TODO section and the QUEUE row. |
 | P13 | Cleanup, right after the upload is verified: delete `edit/preview.mp4`, `edit/previews/` and `/tmp/yt-editor/<project>`. Keep the master and the EDL. |
 
+**Parallelize (creator, 2026-10-15: 「short 这种也不需要等到上传结束再做，确实是可以 parallelize 的」).** The numbers are for checkpoints, not a strict order. Cut and render the Shorts (from raw clips, by a separate sub-agent) while the long video is still in review or uploading; only their *upload* (P10) needs the long video's id for the Related link, which can also be set later. Likewise P2 (English SRT) and P3 (metadata + title debate) can run alongside P1's render. Keep heavy work serialized through `render_lock.sh`, and never run a YouTube upload in parallel with a biliup upload on a slow link.
+
 ## Prerequisites
 
 - **ffmpeg / ffprobe** on PATH. This build typically has **no `drawtext`** filter — build
