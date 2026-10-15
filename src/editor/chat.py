@@ -345,6 +345,11 @@ WIDGET = r"""
 #cbIn{width:100%;resize:none;min-height:36px;max-height:110px;border:1px solid var(--line-2);border-radius:var(--r-sm);
   padding:7px 10px;font:inherit;line-height:1.45;background:var(--surface);overflow-y:auto}
 #cbRow{display:flex;align-items:center;gap:6px}
+/* quick phrases (creator, 2026-10-15): one click puts a phrase he says often into the box; Enter sends */
+#cbQuick{display:flex;flex-wrap:wrap;gap:5px}
+#cbQuick button{height:24px;padding:0 9px;border-radius:999px;border:1px solid var(--line-2);background:var(--surface-2);
+  color:var(--text-2);font:12px/22px var(--font);cursor:pointer;white-space:nowrap}
+#cbQuick button:hover{border-color:var(--accent-line);color:var(--accent);background:var(--accent-soft)}
 #cbKeys{flex:1;min-width:0;font-size:11px;line-height:1.35;color:var(--text-3)}
 #cbKeys b{font-weight:500;color:var(--text-2)}
 #cbKeys span{white-space:nowrap}
@@ -417,7 +422,7 @@ WIDGET = r"""
   <button id="cbTog" type="button" tabindex="-1" aria-label="收起/展开"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg></button>
  </div>
  <div id="cbBody"><div id="cbList" class="scroll"><div id="cbEmpty">还没有消息。边看边写意见，Agent 会在这里回复。</div></div>
-  <form id="cbForm"><textarea id="cbIn" rows="1" placeholder="边看边写意见…（自动带上当前位置）"></textarea>
+  <form id="cbForm"><div id="cbQuick"></div><textarea id="cbIn" rows="1" placeholder="边看边写意见…（自动带上当前位置）"></textarea>
    <div id="cbRow"><span id="cbKeys"></span>
     <button id="cbNote" type="button" title="先存着，不叫 Agent（Shift+回车）">评论</button>
     <button id="cbSend" type="submit" class="pri" title="连同待交的评论一起交给 Agent">交给 Agent<span class="n"></span></button></div></form>
@@ -508,6 +513,13 @@ WIDGET = r"""
   keys.innerHTML=KEYS;
   keys.title='评论：先存着，不叫 Agent；交给 Agent：连同所有待交的评论一起交过去。Option+回车换行，自动带上当前视频位置。';
   const grow=()=>{inp.style.height='auto';inp.style.height=Math.min(110,inp.scrollHeight+2)+'px'};
+  // quick phrases: click = put it in the box (appended if something is typed), caret at the end, Enter sends
+  const QUICK=__QUICK__;
+  const qb=document.getElementById('cbQuick');
+  QUICK.forEach(t=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.title='放进输入框（回车发出）';
+    b.onmousedown=e=>e.preventDefault();   // keep the video's focus/selection logic out of it
+    b.onclick=e=>{e.stopPropagation();const v=inp.value.trim();inp.value=v?(v+(/[，。！？,.!?]$/.test(v)?'':'，')+t):t;grow();inp.focus();
+      inp.setSelectionRange(inp.value.length,inp.value.length)};qb.appendChild(b)});
   const ctxNow=()=>{try{return (window.chatCtx&&window.chatCtx())||{}}catch(e){return {}}};
   let busy=false;
   async function postChat(mode){if(busy)return;const t=inp.value.trim();
@@ -614,9 +626,14 @@ WIDGET = r"""
 """
 
 
+# Phrases he types again and again in review (edit freely; the first one is his own, 2026-10-15).
+QUICK_PHRASES = ["这个clip可以留着", "这段可以多留一点", "这段可以删掉", "字幕改成：", "这里可以加一点讲解"]
+
+
 def inject(page, kind):
     """kind: 'raw' (footage page) or 'cut' (review page)."""
-    return page.replace("</body>", WIDGET.replace("__CHAT_PAGE__", kind).replace("__DARK__", theme.DARK) + "</body>", 1)
+    w = WIDGET.replace("__CHAT_PAGE__", kind).replace("__DARK__", theme.DARK).replace("__QUICK__", json.dumps(QUICK_PHRASES, ensure_ascii=False))
+    return page.replace("</body>", w + "</body>", 1)
 
 
 def _line(m):
