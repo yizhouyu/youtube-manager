@@ -248,9 +248,32 @@ def api_srt(name):
     return jsonify(parse_srt(srt_path(name)))
 
 
+def norot():
+    return set((load_edl() or {}).get("noautorotate", []))
+
+
+def upright(name, src):
+    """Clips in the EDL's `noautorotate` carry a bogus display matrix, so the browser would play them
+    sideways / upside down. Serve a stream-copied file with the matrix zeroed (seconds, no re-encode)."""
+    out = os.path.join(cache_dir("upright"), name + ".mp4")
+    if not os.path.isfile(out) or os.path.getmtime(out) < os.path.getmtime(src):
+        with _thumb_sem:
+            tmp = out + ".tmp.mp4"
+            r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-display_rotation:v:0", "0", "-i", src,
+                                "-map", "0:v:0", "-map", "0:a?", "-c", "copy", "-movflags", "+faststart", tmp],
+                               capture_output=True, timeout=600)
+            if r.returncode != 0:
+                return src
+            os.replace(tmp, out)
+    return out
+
+
 @app.get("/clip/<name>")
 def clip(name):
-    return send_file(clip_file(name), mimetype="video/mp4", conditional=True)
+    src = clip_file(name)
+    if name in norot():
+        src = upright(name, src)
+    return send_file(src, mimetype="video/mp4", conditional=True)
 
 
 @app.get("/thumb/<name>")
@@ -264,7 +287,8 @@ def thumb(name):
                 tmp = out + ".tmp.jpg"
                 for tt in (dur * 0.25, 0.0):
                     subprocess.run(
-                        ["ffmpeg", "-v", "error", "-y", "-ss", f"{tt:.2f}", "-i", src,
+                        ["ffmpeg", "-v", "error", "-y", *(["-noautorotate"] if name in norot() else []),
+                         "-ss", f"{tt:.2f}", "-i", src,
                          "-frames:v", "1", "-vf", "scale=240:-2", "-q:v", "5", tmp],
                         capture_output=True, timeout=60)
                     if os.path.isfile(tmp) and os.path.getsize(tmp) > 0:
