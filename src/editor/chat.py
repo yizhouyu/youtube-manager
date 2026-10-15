@@ -649,12 +649,30 @@ def watch(project):
     signal.signal(signal.SIGHUP, lambda *_: sys.exit(0))
     since = time.time()
     seen = set()
-    announce(load(project), seen)   # history is not news; pending notes stay unseen until handed over
+    # Notes handed over while no watcher ran must still be announced (a restart once skipped three of them).
+    # The last announced id is kept next to chat.jsonl; with no record yet, history is not news.
+    mark = path(project) + ".announced"
+    try:
+        last = int(open(mark).read().strip() or 0)
+    except (OSError, ValueError):
+        last = None
+    ms = load(project)
+    if last is None:
+        announce(ms, seen)
+    else:
+        seen.update(m["id"] for m in ms if m["id"] <= last)
     try:
         while True:
             beat(project, since)
-            for line in announce(load(project), seen):
+            ms = load(project)
+            for line in announce(ms, seen):
                 print(line, flush=True)
+            top = max([m["id"] for m in ms if m["id"] in seen] or [0])
+            if top != last:
+                with open(mark + ".tmp", "w") as f:
+                    f.write(str(top))
+                os.replace(mark + ".tmp", mark)
+                last = top
             time.sleep(2)
     except KeyboardInterrupt:
         pass
