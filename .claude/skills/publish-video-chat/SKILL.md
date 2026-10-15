@@ -650,3 +650,13 @@ Anything the APIs can't do goes into `sessions/MANUAL_TODO.md` (local, gitignore
 at the top for this episode, with checkboxes and clickable links: Studio location string,
 Test & compare thumbnail/title variants (once public), Bilibili 审核/live check, and anything else
 left for the creator. Never leave these only in the chat reply.
+
+## Growth decisions from the 2026-10-15 analytics review (creator approved: 「少做/停掉的 听你的」「你说的那几条我都同意」)
+Report: `sessions/research/2026-10-15/analytics.md` (private). These override older lines in this file where they conflict.
+- **Playlists:** series playlists (加州, 美东, 墨西哥, …) hold **long videos only**. Every Short goes to **「短视频 | Shorts」 `PLLqVh7Q9mERY`** (playlist views watch longest, so keep series lists clean for binge-watching).
+- **A/B (Test & Compare): one test at a time, not every episode.** Only on an episode that gets a Home push (Studio Reach: impressions climbing) or on the old search earners. Log every result in `sessions/growth/experiments.md` (100 and 113 both ended "no clear winner", 54.6/45.4 and 55.9/44.1).
+- **End screens: keep, but only apply the standard template** ("1 video, 1 subscribe") — no per-episode hand-building. The in-video outro keeps its empty lower-right area.
+- **Pinned comments: stop pinning question comments** (22 pinned, 0 replies). No pinned comment is needed.
+- **English:** keep the English localization (title + description) and the English .srt — cheap and harmless (creator: 「英文的文字内容还是可以放在简介里面」). No further English work.
+- **Language field:** Chinese videos must have `defaultAudioLanguage: zh-CN` (and defaultLanguage zh-CN). 56 old videos had en-US; 28 fixed on 10/15 as an experiment (`sessions/research/2026-10-15/raw/lang_experiment.json`, check 11/12; if search+suggested improve, fix the other 28).
+- **Shorts gate:** open-loop Shorts must reach ≥ 5 Related-video clicks per 1k Short views (now 0.3). Check 10/25 and 11/1; if both miss, go to 1 Short per episode (the best "why/fact" moment).
