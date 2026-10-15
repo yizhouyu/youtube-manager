@@ -117,7 +117,8 @@ As soon as the creator hands over a folder, start these side by side (subagents)
   write years, dates, ages, counts, prices, durations and centuries as digits: 1844年、9月15号、15岁、99年、
   买了4个、72个比索、0.06、19世纪. Keep Chinese only where a digit reads wrong: set phrases (一路、一下、
   一个人 as "someone", 百年老店、四成) and ordinal sequences (第一天、第二道菜). ASR writes numbers in
-  Chinese, so sweep every episode's `subs` for 一…十/百/千 before review.
+  Chinese, so run `python -m src.editor.digits "<project>"` (list) / `--apply` before review; it skips
+  articles, ranges like 三四个, fractions, clock times and spoken prices (四块九五) — check what it lists.
 
 ## 2. Make the cut (judgment layer)
 

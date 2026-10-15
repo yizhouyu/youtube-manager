@@ -737,9 +737,11 @@ class RouteMap:
         sw = dict(stroke_width=max(1, round(10 * k)), stroke_fill=col["land"])
         if cfg["title"] and not cfg["panel"]:
             tx, ty = cfg["title_xy"][0] * self.W, cfg["title_xy"][1] * self.H
-            d.text((tx, ty), cfg["title"], font=self.F("heavy", cfg["title_size"]), fill=col["text"], **sw)
-            if cfg["sub_title"]:
-                d.text((tx + 4 * k, ty + (cfg["title_size"] + 40) * k), cfg["sub_title"],
+            tf = self.F("heavy", cfg["title_size"])
+            d.text((tx, ty), cfg["title"], font=tf, fill=col["text"], **sw)
+            if cfg["sub_title"]:   # 40 px under the title's real ink box, like pin and panel sub-lines
+                sy = max(ty + (cfg["title_size"] + 40) * k, d.textbbox((tx, ty), cfg["title"], font=tf)[3] + 40 * k)
+                d.text((tx + 4 * k, sy), cfg["sub_title"],
                        font=self.F("sans", cfg["sub_title_size"]), fill=col["subtext"], **sw)
         if cfg["credit"] and not cfg["panel"]:
             xy = (0.06 * self.W + 6 * k, self.H * 0.955)
