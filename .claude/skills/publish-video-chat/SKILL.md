@@ -33,7 +33,7 @@ After each P-step, record it right away. Record it as `./venv/bin/python -m src.
 | P1 | Final render. Note the master path and LUFS/dBTP. |
 | P2 | English SRT plus its critic pass. |
 | P3 | Metadata plus its critic pass. **No 「第一天/第二天/第X天」 in titles (creator, 2026-10-15): viewers watch episodes independently**; the series day lives in the video's pill and the description. Titles come from a **3-agent title debate**, not one agent alone (creator, 2026-10-09). Three seats: a Bilibili viewer/editor, a YouTube packaging/CTR strategist, and a channel-voice guardian (calm, accurate). They propose, critique and rank each other's titles, then converge on the pick plus one A/B title alternative. Log it in `edit/publish_prep/title_debate.md`. |
-| P4 | YouTube upload, scheduled. **Upload a ~40 Mbps 4K HEVC copy, not the master** (2026-10-15: masters run 100–170 Mbps, 7–14 GB; the home link does ~2.8 GB/h, a 105 upload took 3 h and dropped once; YouTube re-encodes anyway; B站 has a per-file size cap). Make it under the render lock while waiting for the link. Note the video id and publishAt. |
+| P4 | YouTube upload, scheduled. **Upload the master itself — never a re-encoded copy (creator, 2026-10-15: 「不要转 如果网速限制的话 我可以等到网速好点的地方继续传」).** Masters are 7–14 GB; on a slow link keep the upload resumable (persist the resumable URI, checkpoint) and let him continue on a better network. Note the video id and publishAt. |
 | P5 | zh-CN and en caption tracks. |
 | P6 | English localization. |
 | P7 | Playlist position. |
