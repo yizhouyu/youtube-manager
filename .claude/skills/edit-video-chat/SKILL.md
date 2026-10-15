@@ -429,7 +429,7 @@ labels replies accordingly (`CHAT_AGENT=claude-code|codex` overrides detection w
 - **Quick phrases (creator, 2026-10-15):** chips above the chat box put a phrase he says often into the box (Enter sends). The list is `QUICK_PHRASES` in `src/editor/chat.py`; add a phrase when he repeats one across reviews.
 - **Pending 评论 can be edited/deleted** (编辑 / 删除 on the note) until 「交给 Agent」; deleted notes stay in chat.jsonl as `status: deleted` tombstones and never reach `watch`. After changing chat.py, restart the watcher (an old watcher process announces tombstones).
 - **Replying:** answer with `python -m src.editor.chat "<project>" reply "…"`, so he never has to switch back to the terminal.
-- **Acting on notes:** apply a note, re-render, then reply with what changed and the 成片 timestamps.
+- **Acting on notes:** apply a note, re-render, then reply with what changed and the 成片 timestamps. **Re-render right away after each note or batch (creator, 2026-10-15: 「我觉得你预览可以直接更新」)** — don't hold changes back to batch them; he checks a fix in the preview right after you say it's done. Say "渲染中" until the new preview is up.
 
 
 Segments are cached by content hash (video and audio separately), so a re-render after edits
