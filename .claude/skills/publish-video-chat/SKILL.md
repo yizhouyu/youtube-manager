@@ -361,6 +361,17 @@ with ` [English Subtitles]` (keep ≤ 100 chars) and the `en` description starts
 `English subtitles available: turn on CC (or ⚙ Settings → Subtitles → English).` + a blank line. The Chinese
 default title/description stay unchanged. (The API may take ~20 s to show the update.)
 
+**Bilibili pinned comments (2026-10-15):** the API route is unreliable (the first `reply/add` for 100 was silently filtered;
+`reply/top` returned -404). In the creator's Chrome the comment area loads (wait ~5 s, scroll down): click the box, type,
+click 发布 (it sits below the box and shifts when the video autoplays: take a screenshot first). Pin through JS because the
+comments are nested shadow DOM: collect every `bili-comment-menu`, pick the one that contains my comment's thread, and
+click its `<li>` whose text is `设为置顶` (menus on others' comments also list 举报/加入黑名单 — mine does not). Verify with
+`GET x/v2/reply/main?oid=<aid>&type=1&mode=3` → `data.top.upper`.
+
+**YouTube Studio A/B (thumbnail only), reliable sequence:** open the A/B dialog → click "Thumbnail only" → tag file input #2
+via JS → `file_upload` the challenger → "Set test" → **click the page's "Save"** (it turns active; without it nothing is
+created) → reopen the A/B dialog and confirm "Test running…".
+
 **English audio tracks (multi-language audio) are NOT available on this channel yet (checked 2026-10-10):**
 Studio → Languages shows the English row with no "Add" under Audio (the only file input is for captions).
 YouTube gives it to a subset of channels with Advanced features. Until it appears, ship English as captions
