@@ -608,6 +608,12 @@ memory so the skill personalizes over time.
   After any failed upload, list the channel's uploads for the title. An item stuck at `P0D` an hour later is
   an incomplete upload, not the video. Re-upload, verify the new id, then delete the stuck one. Don't run a
   YouTube upload in parallel with biliup on a slow link: the shared bandwidth caused the timeouts.
+- **Several publish agents on one slow link (105–107, 2026-10-15: ~2.8 GB/h):** upload the master as is (creator: 「不要转」,
+  no re-encoded upload copy). Persist the resumable session URI (`req.resumable_uri` → a JSON file; on restart set it back
+  and `req._in_error_state = True`) so a drop resumes the same video instead of leaving a P0D duplicate. Serialize across
+  agents with a detached gate script (`nohup … & disown`): wait until the previous episode's `youtube_ids.json` has both
+  `long` and `bili` and no upload process has run for a minute, then YouTube → Bilibili → captions/localization/合集/Shorts
+  → verify → cleanup. Finish every non-upload step (SRT, metadata, Shorts) before the queue reaches you.
 - **Bilibili cuts `--desc` at 250 characters** (biliup's APP 投稿 interface). It cuts silently, mid-sentence.
   Keep the B站 desc ≤ 250 chars, counted with Python `len`, and put credits before the comment question if space is tight.
   To fix one after submitting, re-send the full archive payload with a new `desc` (same approach as
