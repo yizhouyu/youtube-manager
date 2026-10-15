@@ -257,6 +257,7 @@ show a **4:3 centre crop** and every card overlays duration (bottom-right) and p
   - No sticker rings or drop-shadow medallions; keep the photos retouched "natural".
   - Process that worked: two designers with different briefs (an editorial art director "小A" and an energy/CTR designer "小D") each draft 2, then critique each other's at 168/320 px; the director shows the creator the top 4 side by side.
   - Keep a single-landmark editorial cover as the A/B control.
+  - No bargain words on covers (免费、便宜、只要…元): 「这样掉价」 (creator, 2026-10-15, 107 H1). Name the place instead.
   - Reference: 106 `thumbnail/multi/multi.py` (M4–M7), `multi/BRAINSTORM.md`, `multi/CRITIQUE.md` (episode folder).
 - **Thumbnail review is mandatory and strict.** A separate reviewer subagent, not the one who made the thumbnail:
   - compares each option side by side with the creator-picked references (94 G, 93 G, 92 G, 88 E in `sessions/archive/*/thumbnail/`);
