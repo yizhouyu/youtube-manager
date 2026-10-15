@@ -657,8 +657,9 @@ def watch(project):
     except (OSError, ValueError):
         last = None
     ms = load(project)
-    if last is None:
-        announce(ms, seen)
+    if last is None:   # first watch for this project: history is not news, except notes handed over in the last hour
+        recent = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() - 3600))
+        announce([m for m in ms if (m.get("sent_ts") or m.get("ts", "")) < recent], seen)
     else:
         seen.update(m["id"] for m in ms if m["id"] <= last)
     try:
