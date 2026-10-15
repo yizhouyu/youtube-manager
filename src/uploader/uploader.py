@@ -192,7 +192,7 @@ def _upload_worker(upload_id, video_path, thumbnail_path, title, description,
         last_bytes_uploaded = 0
         last_progress_change_time = time.time()
         retry_count = 0
-        max_retries = 5
+        max_retries = 10  # with the 60 s cap below: survives ~6.5 min of network outage (ep 104 lost a 4.5 GB upload at 19% to a ~2 min one)
         stall_timeout = 60
         progress_stall_timeout = 120
 
@@ -222,7 +222,7 @@ def _upload_worker(upload_id, video_path, thumbnail_path, title, description,
 
                 retry_count += 1
                 if is_recoverable and retry_count <= max_retries:
-                    backoff_seconds = 2 ** retry_count
+                    backoff_seconds = min(2 ** retry_count, 60)
                     print(f"[UPLOAD] Recoverable error, retry {retry_count}/{max_retries} "
                           f"(backoff: {backoff_seconds}s)")
                     upload_progress[upload_id]["stage"] = (

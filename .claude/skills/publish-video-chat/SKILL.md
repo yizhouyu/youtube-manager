@@ -592,6 +592,16 @@ memory so the skill personalizes over time.
   cost nothing. When `quotaExceeded` hits, finish the Bilibili side, write the remaining YouTube
   steps into the session state, and resume after the reset.
 
+- **A failed YouTube upload can still leave a video behind (ep 104, 2026-10-15).** The resumable session creates
+  the video resource at the start: a private video with the title and publishAt, `uploadStatus: uploaded`,
+  duration `P0D`, `processingStatus: processing` forever. The uploader reports `error` with no `video_id`.
+  After any failed upload, list the channel's uploads for the title. An item stuck at `P0D` an hour later is
+  an incomplete upload, not the video. Re-upload, verify the new id, then delete the stuck one. Don't run a
+  YouTube upload in parallel with biliup on a slow link: the shared bandwidth caused the timeouts.
+- **Bilibili cuts `--desc` at 250 characters** (biliup's APP 投稿 interface). It cuts silently, mid-sentence.
+  Keep the B站 desc ≤ 250 chars, counted with Python `len`, and put credits before the comment question if space is tight.
+  To fix one after submitting, re-send the full archive payload with a new `desc` (same approach as
+  `scripts/bili_cover.py`, which keeps dtime, cover and tags; it goes back to 审核中).
 - **Never touch `01 - Unedited/`.** **Never delete the source** (`cleanup=False`).
 - **Verify before destroying**: never delete/rename an export until confirmed correct & intact.
 - This ffmpeg has **no `drawtext`** — label-free contact sheets, order by filename.

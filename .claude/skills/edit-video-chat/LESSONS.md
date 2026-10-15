@@ -450,6 +450,16 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - Keep title claims literally true (the stingrays were at Salt Pond Bay, not Trunk Bay — don't put
   them side by side in a title).
 - Never print cookie/token contents to output (redirect verbose CLI logs to a file, grep results).
+- **edge-tts dies with `WSServerHandshakeError: 403` when Microsoft rotates the Sec-MS-GEC client
+  version** (2026-10-14/15: 102 and 103 Shorts shipped with `"cta": {"voice": false}` because of it,
+  silently dropping the spoken CTA). Fix: `./venv/bin/pip install -U edge-tts` (7.2.8 → 7.3.1 fixed it),
+  then delete the stale `edit/tts/short_cta_*.part.mp3`. Don't work around it by turning the voice off.
+- **Shorts covers (ep 104):** vertical 1080×1920 from a retouched 4K frame, 2-line heavy title + small
+  grey pill, centred in the 4:5 safe area; the art director rejected a frame whose title covered the
+  walker/tunnel exit, and asked to zoom 14 % from the top to drop a car dashboard. Script:
+  104's `edit/scripts/make_short_covers.py`.
+- **Title vs A/B thumbnail (ep 104):** if a Studio thumbnail challenger carries a claim (「比大峡谷还深」),
+  keep that claim out of the title, or one A/B arm says it twice; the 3-seat debate caught it.
 
 ## Sources behind the retention rules (research 2026-09-28)
 
