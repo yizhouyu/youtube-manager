@@ -35,6 +35,7 @@ page's own fullscreen icon). `cbFs.sim(true)` fakes fullscreen for screenshots.
 from . import theme
 import fcntl
 import json
+import re
 import os
 import signal
 import sys
@@ -90,12 +91,18 @@ def listening(project):
     return {"listening": live, "since": since if live else None, "last": last}
 
 
-PENDING, SENT = "pending", "sent"
+PENDING, SENT, DELETED = "pending", "sent", "deleted"
 
 
 def status(m):
-    """'pending' = a 评论 not handed over yet; anything else (incl. messages without the field) = 'sent'."""
-    return PENDING if m.get("status") == PENDING else SENT
+    """'pending' = a 评论 not handed over yet; 'deleted' = a pending note he deleted (kept as a tombstone so ids are
+    never reused); anything else (incl. messages without the field) = 'sent'."""
+    st = m.get("status")
+    return st if st in (PENDING, DELETED) else SENT
+
+
+def visible(ms):
+    return [m for m in ms if status(m) != DELETED]
 
 
 def load(project):
@@ -168,6 +175,25 @@ def pending_ids(ms):
     return [m["id"] for m in ms if m.get("role") == "creator" and status(m) == PENDING]
 
 
+def edit_pending(project, msg_id, text=None, delete=False):
+    """Edit or delete one of his pending 评论 (creator, 2026-10-15). Notes already handed over can't change:
+    the agent may have read them. Returns the message, or None if it is not pending."""
+    text = (text or "").strip()
+
+    def fn(ms):
+        for m in ms:
+            if m.get("id") == msg_id and m.get("role") == "creator" and status(m) == PENDING:
+                if delete:
+                    m.update(status=DELETED, deleted_ts=_now())
+                elif text:
+                    m.update(text=text, edited_ts=_now())
+                else:
+                    return False, None
+                return True, m
+        return False, None
+    return _rewrite(project, fn)
+
+
 def handoff(project, text="", ctx=None):
     """「交给 Agent」: every pending creator note, plus `text` as a new note if given, becomes one batch.
     Returns {"batch": n | None, "ids": [...], "count": k, "message": the new note | None}."""
@@ -209,12 +235,39 @@ def register(app, get_project):
     @app.get("/api/chat")
     def api_chat():
         after = request.args.get("after", type=int, default=0)
-        return jsonify([m for m in load(get_project()) if m["id"] > after])
+        return jsonify([m for m in visible(load(get_project())) if m["id"] > after])
 
     @app.get("/api/chat/status")
     def api_chat_status():
         project = get_project()
-        return jsonify(dict(listening(project), pending=pending_ids(load(project))))
+        ms = load(project)
+        return jsonify(dict(listening(project), pending=pending_ids(ms),
+                            deleted=[m["id"] for m in ms if status(m) == DELETED],
+                            texts={m["id"]: m["text"] for m in ms if status(m) == PENDING and m.get("role") == "creator"}))
+
+    @app.post("/api/chat/edit")
+    def api_chat_edit():
+        body = request.get_json(silent=True) or {}
+        mid, text = body.get("id"), body.get("text")
+        if not isinstance(mid, int) or (text is not None and (not isinstance(text, str) or len(text) > 4000)):
+            return jsonify({"ok": False}), 400
+        m = edit_pending(get_project(), mid, text, delete=bool(body.get("delete")))
+        return jsonify({"ok": m is not None, "message": m})
+
+    @app.get("/api/chat/locate")
+    def api_chat_locate():
+        from .locate import locate
+        mid = request.args.get("id", type=int)
+        m = next((x for x in load(get_project()) if x.get("id") == mid), None)
+        if not m:
+            return jsonify({"t": None, "how": "missing"}), 404
+        target = request.args.get("preview") or None
+        if target and not re.fullmatch(r"preview-\d{8}-\d{6}\.mp4", target):
+            target = None
+        try:
+            return jsonify(locate(get_project(), m, target))
+        except Exception as e:
+            return jsonify({"t": None, "how": "error", "error": str(e)[:200]}), 500
 
     @app.post("/api/chat")
     def api_chat_post():
@@ -275,6 +328,19 @@ WIDGET = r"""
 .cbm .w .pend{font-size:10.5px;line-height:16px;padding:0 7px;border-radius:999px;background:var(--q-soft);color:var(--q-ink);white-space:nowrap}
 .cbm .w .sent{color:var(--ok);font-size:11px;line-height:1}
 .cbm.pending .bub{background:transparent;border:1px dashed var(--accent-line)}
+/* the note's time: click = jump to that moment in the current video (mapped onto the newest cut) */
+.cbm .w .loc{cursor:pointer;color:var(--accent);text-decoration:underline dotted;text-underline-offset:2px}
+.cbm .w .loc:hover{text-decoration-style:solid}
+.cbm .w .locnow{color:var(--text-2)}
+/* pending notes can still be edited or deleted */
+.cbm .w .act{border:0;background:transparent;color:var(--text-3);font:inherit;font-size:11px;padding:0 3px;border-radius:5px;cursor:pointer}
+.cbm .w .act:hover{color:var(--text);background:var(--surface-3)}
+.cbm .w .act.warn{color:var(--danger)}
+.cbm .edbox{display:flex;flex-direction:column;gap:5px;align-items:flex-end;width:100%}
+.cbm .edbox textarea{width:100%;min-width:220px;resize:vertical;min-height:54px;border:1px solid var(--accent-line);border-radius:10px;
+  padding:6px 9px;font:inherit;line-height:1.45;background:var(--surface);color:var(--text)}
+.cbm .edbox .row{display:flex;gap:6px}
+.cbm .edbox button{height:26px;padding:0 10px;font-size:12px}
 #cbForm{display:flex;flex-direction:column;gap:6px;padding:8px 8px 6px;border-top:1px solid var(--line);flex:none}
 #cbIn{width:100%;resize:none;min-height:36px;max-height:110px;border:1px solid var(--line-2);border-radius:var(--r-sm);
   padding:7px 10px;font:inherit;line-height:1.45;background:var(--surface);overflow-y:auto}
@@ -380,17 +446,43 @@ WIDGET = r"""
     const w=document.createElement('span');w.className='w';
     const fromAgent=m.role==='claude'||m.role==='codex'||m.role==='agent';
     const sender=({claude:'Claude Code',codex:'Codex',agent:'Agent'})[m.role]||'我';
-    const wt=document.createElement('span');wt.textContent=(m.id?'#'+m.id+' · ':'')+sender+' · '+String(m.ts||'').slice(11,16)+(m.ctx&&where(m.ctx)?' · '+where(m.ctx):'');w.appendChild(wt);
+    const wt=document.createElement('span');wt.textContent=(m.id?'#'+m.id+' · ':'')+sender+' · '+String(m.ts||'').slice(11,16)+(m.ctx&&where(m.ctx)?' · ':'');w.appendChild(wt);
+    if(m.ctx&&where(m.ctx)){const lc=document.createElement('span');lc.textContent=where(m.ctx);
+      if(window.chatSeek&&m.role==='creator'){lc.className='loc';lc.title='点一下：跳到当前视频里的这个位置（剪辑改过也会对上）';
+        lc.onclick=async e=>{e.stopPropagation();const r=await window.chatSeek(m);
+          let n=w.querySelector('.locnow');if(!n){n=document.createElement('span');n.className='locnow';lc.after(n)}
+          n.textContent=r&&r.label?'→ '+r.label:'→ 找不到了'}}
+      w.appendChild(lc)}
     const b=document.createElement('div');b.className='bub';b.textContent=m.text;
     d.appendChild(w);d.appendChild(b);list.appendChild(d);
-    if(m.role==='creator'){if(m.status==='pending'){d.classList.add('pending');const p=document.createElement('span');p.className='pend';p.textContent='待交给 Agent';w.appendChild(p);pend.add(m.id)}
+    if(m.role==='creator'){if(m.status==='pending'){d.classList.add('pending');const p=document.createElement('span');p.className='pend';p.textContent='待交给 Agent';w.appendChild(p);pend.add(m.id);addActs(d,m)}
       else markSent(d)}   // no status (older messages) = sent
     if(pinned||m.role==='creator')list.scrollTop=list.scrollHeight;
     if(fromAgent&&box.classList.contains('min'))dot.style.display='inline-block';
     if(fromAgent&&loaded&&FS.hidden())FS.unread()}
   let loaded=false;   // the first poll is history, not news
   const pend=new Set(), sendBtn=document.getElementById('cbSend');
-  function markSent(d){d.classList.remove('pending');const p=d.querySelector('.w .pend');if(p)p.remove();
+  // pending 评论: 编辑 / 删除 until handed over (the agent never saw them)
+  async function editReq(id,body){try{const r=await fetch('/api/chat/edit',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(Object.assign({id},body))});return (await r.json()).ok}catch(e){return false}}
+  function dropMsg(id){pend.delete(id);const d=list.querySelector('.cbm.creator[data-mid="'+id+'"]');if(d)d.remove();count()}
+  function addActs(d,m){const w=d.querySelector('.w'),eb=document.createElement('button'),db=document.createElement('button');
+    eb.className='act';eb.textContent='编辑';db.className='act';db.textContent='删除';eb.type=db.type='button';
+    eb.onclick=e=>{e.stopPropagation();if(d.querySelector('.edbox'))return;const b=d.querySelector('.bub');
+      const box=document.createElement('div');box.className='edbox';const ta=document.createElement('textarea');ta.value=b.textContent;
+      const row=document.createElement('div');row.className='row';const ok=document.createElement('button');ok.textContent='保存';ok.className='primary';
+      const no=document.createElement('button');no.textContent='取消';row.append(no,ok);box.append(ta,row);b.style.display='none';b.after(box);ta.focus();
+      const close=()=>{box.remove();b.style.display=''};no.onclick=close;
+      const save=async()=>{const t=ta.value.trim();if(!t){close();return}
+        if(await editReq(m.id,{text:t})){b.textContent=t;close();flash('已改')}else{close();flash('改不了：已经交给 Agent 了')}};
+      ok.onclick=save;ta.onkeydown=ev=>{ev.stopPropagation();if(ev.key==='Enter'&&!ev.shiftKey&&!ev.altKey){ev.preventDefault();save()}else if(ev.key==='Escape')close()}};
+    let armed=0;db.onclick=async e=>{e.stopPropagation();
+      if(Date.now()-armed>3000){armed=Date.now();db.textContent='确认删除？';db.classList.add('warn');
+        setTimeout(()=>{if(Date.now()-armed>=3000){db.textContent='删除';db.classList.remove('warn')}},3100);return}
+      if(await editReq(m.id,{delete:true})){dropMsg(m.id);flash('已删除')}else flash('删不了：已经交给 Agent 了')};
+    w.append(eb,db)}
+  function markSent(d){d.classList.remove('pending');const p=d.querySelector('.w .pend');if(p)p.remove();d.querySelectorAll('.w .act,.edbox').forEach(x=>x.remove());
+    const bb=d.querySelector('.bub');if(bb)bb.style.display='';
     if(!d.querySelector('.w .sent')){const s=document.createElement('span');s.className='sent';s.textContent='✓';s.title='已交给 Agent';d.querySelector('.w').appendChild(s)}}
   function setSent(id){pend.delete(id);const d=list.querySelector('.cbm.creator[data-mid="'+id+'"]');if(d)markSent(d)}
   function count(){const n=pend.size;sendBtn.classList.toggle('has',n>0);sendBtn.querySelector('.n').textContent=n;
@@ -405,6 +497,9 @@ WIDGET = r"""
     st.lastChild.textContent=on?'Agent 在听':'Agent 没在听';st.title=on?'Agent 在听，交给它的消息马上会看到':OFF;
     hint.textContent=on?'':OFF;hint.classList.toggle('off',!on)}
   async function status(){try{const j=await (await fetch('/api/chat/status',{cache:'no-store'})).json();showStatus(!!j.listening);
+    const del=new Set(j.deleted||[]);[...pend].forEach(id=>{if(del.has(id))dropMsg(id)});   // deleted on the other page
+    if(j.texts)Object.entries(j.texts).forEach(([id,t])=>{const d=list.querySelector('.cbm.creator[data-mid="'+id+'"]');   // edited there
+      if(d&&!d.querySelector('.edbox')){const b=d.querySelector('.bub');if(b&&b.textContent!==t)b.textContent=t}});
     if(Array.isArray(j.pending)){const sp=new Set(j.pending);[...pend].forEach(id=>{if(!sp.has(id))setSent(id)});count()}}catch(e){}}  // handed over elsewhere (the other page)
   const MOD=/Mac|iPhone|iPad/.test(navigator.platform)?'⌘':'Ctrl+', keys=document.getElementById('cbKeys'),
         KEYS=`<span><b>回车</b> 交给 Agent ·</span> <span><b>Shift+回车</b> 评论</span>`;
@@ -583,7 +678,7 @@ def main():
         print(m)
     elif cmd == "tail":
         n = int(sys.argv[3]) if len(sys.argv) > 3 else 20
-        for m in load(project)[-n:]:
+        for m in visible(load(project))[-n:]:
             tag = "[待交] " if m["role"] == "creator" and status(m) == PENDING else (f"[b{m['batch']}] " if m.get("batch") else "")
             print(f"#{m['id']} {m['role']} {m['ts']} {tag}{_where(m.get('ctx'))}{m['text']}")
     elif cmd == "watch":

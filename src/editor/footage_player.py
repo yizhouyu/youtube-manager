@@ -733,7 +733,12 @@ const set=o=>{open=o;L.classList.toggle('closed',!o);b.textContent=o?'收起 ▴
 set(open);b.addEventListener('click',e=>{e.stopPropagation();set(!open)});
 document.querySelectorAll('.tabs .tab[data-tab]').forEach(t=>t.addEventListener('click',()=>{if(!open)set(true)}));})();</script></body></html>
 """
-PAGE = CHAT.inject(QS.inject(PAGE.replace("__THEME_CSS__", THEME.CSS)).replace("</body>", "<script>window.chatCtx=()=>({clip:(clips[idx]||{}).clip,clip_t:Math.round((cur.currentTime||0)*10)/10})</script></body>", 1), "raw")
+PAGE = CHAT.inject(QS.inject(PAGE.replace("__THEME_CSS__", THEME.CSS)).replace("</body>", "<script>window.chatCtx=()=>({clip:(clips[idx]||{}).clip,clip_t:Math.round((cur.currentTime||0)*10)/10});"
+    # click a note's time in the chat: open that raw clip at that second (a cut-page note: the raw moment under it)
+    "window.chatSeek=async m=>{const c=m.ctx||{};let clip=c.clip,t=c.clip_t;"
+    "if(!clip){try{const r=await (await fetch('/api/chat/locate?id='+m.id)).json();clip=r.clip;t=r.clip_t}catch(e){}}"
+    "const i=clips.findIndex(x=>x.clip===clip);if(i<0)return null;show(i,Math.max(0,(+t||0)-2),true);"
+    "return {label:'原片 '+clip.slice(-6,-2)+' @ '+(+t||0).toFixed(1)+'s'}}</script></body>", 1), "raw")
 
 
 def main():

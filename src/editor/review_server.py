@@ -1088,7 +1088,12 @@ __QA_JS__
 
 # Chat messages carry where he is: the preview's cut time, plus the raw clip/time while a shot's own player is open.
 CHAT_CTX = r"""<script>window.chatCtx=()=>{const v=document.getElementById('pvv'),c={cut_t:v?Math.round((v.currentTime||0)*10)/10:null};
-  if(modalShot>=0&&D&&D.shots[modalShot]){c.clip=D.shots[modalShot].clip;c.clip_t=Math.round((mv.currentTime||0)*10)/10}return c}</script></body>"""
+  if(PVNAME)c.preview=PVNAME;   // which version he was watching, so the note can be placed on later versions
+  if(modalShot>=0&&D&&D.shots[modalShot]){c.clip=D.shots[modalShot].clip;c.clip_t=Math.round((mv.currentTime||0)*10)/10}return c};
+// click a note's time in the chat: the same moment in the preview on screen now (see locate.py)
+window.chatSeek=async m=>{try{const r=await (await fetch('/api/chat/locate?id='+m.id+(PVNAME?'&preview='+encodeURIComponent(PVNAME):''))).json();
+  if(r.t==null)return null; seekPreview(Math.max(0,r.t-2));   // 2 s lead-in
+  return {label:'现在 '+fmt(r.t)+({near:'（这段改过，附近）',gone:'（这段已删，下一段）'}[r.how]||'')}}catch(e){return null}}</script></body>"""
 PAGE = CHAT.inject(QS.inject(PAGE.replace("__THEME_CSS__", THEME.CSS)).replace("</body>", CHAT_CTX, 1), "cut")
 
 

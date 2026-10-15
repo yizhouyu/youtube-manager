@@ -1220,7 +1220,12 @@ def render(project, mode):
               "-f", "mov" if out.endswith(".mov") else "mp4", tmp])
         os.replace(tmp, out)
         if mode != "final":
-            _version_preview(edit, out)
+            name = _version_preview(edit, out)
+            try:   # the shot list this preview was cut from, so review notes can be placed on later previews
+                from .locate import write_meta
+                write_meta(edit, name, shots)
+            except Exception as e:  # never fail a render over it
+                print(f"[render] preview meta not written: {e}", flush=True)
         with open(os.path.join(edit, "captions.srt"), "w", encoding="utf-8") as f:
             f.write(E.to_srt(E.timeline_subs(dict(edl, shots=shots))))
         status.set(state="done", step=f"完成 {int(total // 60)}:{int(total % 60):02d}", progress=1.0,
