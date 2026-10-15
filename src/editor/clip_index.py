@@ -59,6 +59,8 @@ def main(project):
         left = [x for a, b, x in lines if not any(a < kb - 0.2 and b > ka + 0.2 for ka, kb in kept)]
         lo = "；".join(left)
         lo = lo[:60] + "…" if len(lo) > 60 else lo
+        if lines and m["dur"] - lines[-1][1] > 4:  # ASR often stops early under music; 105 #22 lost a line this way
+            lo = (lo + " " if lo else "") + f"⚠ 转写止于 {lines[-1][1]:.0f}s/{m['dur']:.0f}s"
         L.append(f"| {i} | {clip} | {m['dur']:.0f}s | {', '.join(u) or '**未用**'} | {lo} | {old.get(clip, '')} |")
     open(out, "w", encoding="utf-8").write("\n".join(L) + "\n")
     print(out, f"{len(meta)} clips, {sum(1 for c in meta if c not in used)} unused")
