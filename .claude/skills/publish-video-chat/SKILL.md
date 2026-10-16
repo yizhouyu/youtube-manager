@@ -44,6 +44,8 @@ After each P-step, record it right away. Record it as `./venv/bin/python -m src.
 | P12 | MANUAL_TODO section and the QUEUE row. |
 | P13 | Cleanup, right after the upload is verified: delete `edit/preview.mp4`, `edit/previews/` and `/tmp/yt-editor/<project>`. Keep the master and the EDL. |
 
+**Upload gates: match exact script names, never a generic pattern (2026-10-16).** A "link busy?" check using `grep upload_` matched Google Drive's crash-reporter arguments (`upload_folder`, `…pending_uploads`) and the director's own watcher (`upload_watch.py`), so 107's queue sat idle for 7 h. Match only `upload_long|upload_shorts|upload_bili|biliup`, exclude `crashpad|Google Drive`, and name watchers without "upload". Check a waiting gate's log within an hour of the previous upload finishing.
+
 **Parallelize (creator, 2026-10-15: 「short 这种也不需要等到上传结束再做，确实是可以 parallelize 的」).** The numbers are for checkpoints, not a strict order. Cut and render the Shorts (from raw clips, by a separate sub-agent) while the long video is still in review or uploading — but only once the cut's *content* is settled: if a content pass (new explanations, cards, restored footage) is still running, wait for it to merge, since it may give better Short hooks (creator, 2026-10-15); only their *upload* (P10) needs the long video's id for the Related link, which can also be set later. Likewise P2 (English SRT) and P3 (metadata + title debate) can run alongside P1's render. Keep heavy work serialized through `render_lock.sh`, and never run a YouTube upload in parallel with a biliup upload on a slow link.
 
 ## Prerequisites
