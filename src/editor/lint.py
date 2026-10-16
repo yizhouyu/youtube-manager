@@ -24,6 +24,8 @@ TALK_MAX_S = 60.0          # s of talk (speech captions + narration) before a br
 TALK_BREAK_S = 4.0         # s without speech that counts as a music-only / natural-sound break
 SFX_MAX_PER_MIN = 3
 MIN_CAPTION_S = 0.7
+NOTE_MIN_S = 2.0           # s a yellow note stays up at least
+NOTE_READ_CPS = 6.0        # 汉字 per second a viewer reads a note while watching (creator, 109 #10: 「停留可以长一点」)
 MIN_SHOT_S = 0.5
 EDGE_SLACK = 0.15
 
@@ -58,6 +60,10 @@ def check(edl):
         for x in E.shot_subs(s):
             if x["kind"] != "note" and x["t1"] - x["t0"] < MIN_CAPTION_S:
                 warns.append(f"{sid}: caption 「{x['text']}」 on screen only {x['t1'] - x['t0']:.2f} s")
+            # a yellow note must stay long enough to read; a skip inside its window eats the time (109 #10)
+            need = max(NOTE_MIN_S, count_hanzi(x["text"]) / NOTE_READ_CPS)
+            if x["kind"] == "note" and x["t1"] - x["t0"] < need - 0.1:
+                warns.append(f"{sid}: note 「{x['text'][:12]}…」 on screen {x['t1'] - x['t0']:.1f} s, needs ~{need:.1f} s to read")
         # overlay collisions (creator, ep 100 review): a top note shown while the top-left tag is up, or two
         # captions on screen at once in the same slot. (Title vs bottom caption is avoided by the renderer.)
         subs_l = E.shot_subs(s)

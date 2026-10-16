@@ -626,4 +626,5 @@ Run this on every episode BEFORE he reviews it (an "upgrade pass"); each item is
 8. **Tags/labels appear when the subject is on screen** (`tag_at`, `tag_dur`).
 9. **Titles/tags/description:** no 第X天; standard Chinese place name first + one nameable hook (search + suggested); no bargain words; description names shops/places with addresses.
 10. **Covers:** dynamic multi-place (publish skill "Every cover needs motion"); no insects; no bargain words.
+11. **Yellow notes stay long enough and never collide** (109 #10 「停留可以长一点」, 1:23 「字幕重叠」): ≥ 2 s and ~6 汉字/s of on-screen time *after skips* (a skip inside a note's window silently eats it), never under the top-left place tag's first 3 s, never in the same slot as a caption. Run `python -m src.editor.note_hold "<project>"` (stretches inside the shot), then fix what it reports as "shot too short" (split the note across two shots, extend a music-only shot, or trim the text). `src.editor.lint` warns on all three; read its `[lint]` lines after every render.
 After the pass: re-render the preview, update HANDOFF ("Pre-review pass" section listing every change with 成片 times), so his review starts from a better cut.
