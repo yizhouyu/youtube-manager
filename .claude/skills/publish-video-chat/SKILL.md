@@ -573,6 +573,8 @@ If the 合集 doesn't exist yet, the script creates it. A video can be in only o
 
 **Cadence update (creator, 2026-10-08):** from the episode after 99, long videos go out **every two days** at 09:00 ET (99 → 10/8, the next → 10/10, then 10/12, …), same time on both platforms. **Two Shorts per long video**, queued after the last already-scheduled Short, one a day at 15:00 ET (creator, 2026-10-08: 100's Shorts went to 10/18 and 10/19, after 99's 10/17). Set each Short's Related video once its long video is public. Cut them as open loops that send viewers to the long video (see edit-video-chat §2b item 11). Shorts scheduled before this change stay as they are.
 
+**Cadence update (creator, 2026-10-16):** from 108 on, **2 long videos a week: Monday and Thursday 09:00 ET** (108 → Mon 10/26, 109 → Thu 10/29, 110 → Mon 11/2, 111 → Thu 11/5, …), same instant on YouTube and Bilibili. Mind DST: 09:00 ET is 13:00 UTC until 11/1 and 14:00 UTC after. Shorts unchanged (queued one a day at 15:00 ET).
+
 ## Step 7.9 — Clean up review renders
 Once both uploads are verified, delete this episode's review renders:
 - `02 - Export/edit/preview.mp4`
