@@ -6,3 +6,6 @@
 
 ## Before killing a background process, read its full command line (2026-10-16)
 After a session restart I killed a "python -u /private/tmp/.../scratchpad/…" process thinking it was the old log watcher; `ps … | cut -c1-200` had truncated the path and it was 107's `upload_bili.py`. Its biliup child kept uploading but nothing would record the BV. Fix: `ps -o command= -p <pid>` (no cut) before any kill; give watchers distinctive names. If it happens: let the orphaned biliup finish, then read the BV from `biliup list` by title (never re-upload blind; upload_bili.py's title check prevents a double).
+
+## A failed upload step must exit non-zero (2026-10-16)
+108's `upload_bili.py` printed "NO BVID" after a Wi-Fi drop (biliup: dns error) but exited 0, so the chain's `retry` saw success and moved on to Shorts; B站 was silently skipped for 8 h. Every chain step script must `sys.exit(1)` when its id isn't recorded. Check new chains for this before arming them. When the laptop sleeps, `sleep 1800` retries pause too: after a reconnect, look at the log and restart the chain (it is idempotent) rather than waiting.
