@@ -99,6 +99,26 @@ def _zoom_filters(z, dur, w, h):
             f"crop={w}:{h}:'(trunc({w}*{zz}/2)*2-{w})*{x}':'(trunc({h}*{zz}/2)*2-{h})*{y}'"]
 
 
+def _fit_chains(fit, src, out, w, h, post):
+    """Filter-graph pieces that put a vertical clip into the w×h frame (see `edl.fit_of`), then run
+    the comma-joined `post` filters; `src`/`out` are full pad labels ("[0:v]…", "[v0]")."""
+    if fit["mode"] == "crop":
+        y = min(1.0, max(0.0, float(fit.get("y", 0.5))))
+        return [f"{src}scale={w}:-2:flags=lanczos,crop={w}:{h}:0:'(ih-{h})*{y}',{post}{out}"]
+    # portrait centre at `x` (frame fraction): 0.5 = middle; e.g. 0.33 leaves room for a second clip as a pip
+    px = f"min(max(W*{float(fit.get('x', 0.5))}-w/2,0),W-w)"
+    if fit["mode"] == "black":   # plain pillarbox: dark night footage turns a blur-fill into muddy grey
+        return [f"{src}scale=-2:{h}:flags=lanczos,setsar=1,pad={w}:{h}:'{px.replace('W', str(w)).replace('w', 'iw')}':0:black,"
+                f"{post}{out}"]
+    bw, bh = w // 8 // 2 * 2, h // 8 // 2 * 2   # blur at 1/8 size: cheap and smoother than a 4K gblur
+    tag = out.strip("[]")
+    return [f"{src}split[{tag}a][{tag}b]",
+            f"[{tag}a]scale={bw}:{bh}:force_original_aspect_ratio=increase,crop={bw}:{bh},gblur=sigma=5,"
+            f"eq=brightness=-0.10:saturation=0.75,scale={w}:{h}:flags=bicubic,setsar=1[{tag}g]",
+            f"[{tag}b]scale=-2:{h}:flags=lanczos,setsar=1[{tag}f]",
+            f"[{tag}g][{tag}f]overlay='{px}':0,{post}{out}"]
+
+
 def is_tts_sfx(fx):
     """A shot `sfx` entry that is really a narration line (a file under edit/tts/, or "tts": true)."""
     return bool(fx.get("tts", fx.get("file", "").replace("\\", "/").startswith("tts/")))
@@ -334,8 +354,11 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
         extra.append("title-clear-1")  # titles now lift clear of bottom captions
     if any(m.get("track") for m in shot.get("marks", [])):
         extra.append("track-smooth-1")  # tracked arrows: renderer version
+    fits = [E.fit_of(edl, x) for x in [shot, *shot.get("broll", [])] if x.get("clip")]
+    if any(fits):  # vertical clips are framed (blur-fill / crop), not stretched
+        extra.append(["fit-1", fits])
     norot = set(edl.get("noautorotate", []))
-    used = {shot.get("clip")} | {b.get("clip") for b in shot.get("broll", [])} | {p.get("clip") for p in shot.get("pip", [])}
+    used ={shot.get("clip")} | {b.get("clip") for b in shot.get("broll", [])} | {p.get("clip") for p in shot.get("pip", [])}
     if norot & used:  # decoding without the display matrix changes the picture: re-render
         extra.append(["noautorotate", sorted(norot & used), "dm-strip-1"])
     for pp in shot.get("pip", []):  # re-render when a pip file (e.g. a mini-map animation) changes
@@ -383,7 +406,12 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
         vf.append(f"fade=t=out:st={max(0, dur - fo):.3f}:d={fo}")
     k = E.speed(shot)
     retime = f"setpts=(PTS-STARTPTS)/{k}" if k != 1 else "setpts=PTS-STARTPTS"
-    chains.append(f"{vsrc}{retime},{','.join(vf)},format={_pixfmt(preset)}[v0]")
+    fit = E.fit_of(edl, shot)
+    if fit:  # vertical clip: blur-fill or crop instead of stretching it to 16:9
+        chains.append(f"{vsrc}{retime}[vfit]")
+        chains += _fit_chains(fit, "[vfit]", "[v0]", w, h, f"{','.join(vf[1:])},format={_pixfmt(preset)}")
+    else:
+        chains.append(f"{vsrc}{retime},{','.join(vf)},format={_pixfmt(preset)}[v0]")
 
     # B-roll: cut the picture away to another clip while the main shot's audio keeps playing.
     grades = edl.get("grades", {})
@@ -398,7 +426,12 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
         bvf = [f"scale={w}:{h}:flags=lanczos", f"fps={fps_str}"]
         if grades.get(b.get("grade", "default")):
             bvf.append(grades[b.get("grade", "default")])
-        chains.append(f"[{k}:v]trim=0:{bd:.3f},setpts=PTS-STARTPTS+{at:.3f}/TB,{','.join(bvf)},format={_pixfmt(preset)}[b{k}]")
+        bfit = E.fit_of(edl, b)
+        if bfit:
+            chains += _fit_chains(bfit, f"[{k}:v]trim=0:{bd:.3f},setpts=PTS-STARTPTS+{at:.3f}/TB,", f"[b{k}]", w, h,
+                                  f"{','.join(bvf[1:])},format={_pixfmt(preset)}")
+        else:
+            chains.append(f"[{k}:v]trim=0:{bd:.3f},setpts=PTS-STARTPTS+{at:.3f}/TB,{','.join(bvf)},format={_pixfmt(preset)}[b{k}]")
         chains.append(f"[{last}][b{k}]overlay=0:0:eof_action=pass:enable='between(t,{at:.3f},{at + bd:.3f})'[vb{k}]")
         last = f"vb{k}"
     # a pip marked "under_subs" sits below the title/tag/caption overlays (e.g. a full-frame illustration

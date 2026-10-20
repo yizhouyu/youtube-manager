@@ -469,7 +469,10 @@ def draw_base(osm, proj, size, colors=None, roads=None, coast_width=8, sea=True)
     chains = coast_chains(els)
     if chains:
         main = max(chains, key=len)
-        if sea and main[0] != main[-1]:
+        if sea and main[0] == main[-1] and len(main) > 3:  # the map sits on one island: sea everywhere, the ring is land
+            d.rectangle([0, 0, size[0], size[1]], fill=col["sea"])
+            d.polygon([proj(la, lo) for la, lo in main], fill=col["land"])
+        elif sea and main[0] != main[-1]:
             ring = main + [tuple(p) for p in sea] if isinstance(sea, list) else sea_polygon(main, proj.view_bbox())
             d.polygon([proj(la, lo) for la, lo in ring], fill=col["sea"])
         for ch in chains:

@@ -183,6 +183,49 @@ def input_args(edl, clip):
     return ["-noautorotate"] if clip in set(edl.get("noautorotate", [])) else []
 
 
+_PORTRAIT = {}
+
+
+def is_portrait(edl, clip):
+    """True when a raw clip displays taller than wide (phone/Pocket vertical video), honouring the
+    display matrix unless the clip is listed in `noautorotate`."""
+    key = (clip_path(edl, clip), clip in set(edl.get("noautorotate", [])))
+    if key not in _PORTRAIT:
+        import subprocess
+        out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                              "stream=width,height:stream_side_data=rotation", "-of", "json", key[0]],
+                             capture_output=True, text=True).stdout
+        try:
+            s = json.loads(out)["streams"][0]
+            w, h = s["width"], s["height"]
+            rot = next((abs(int(float(d["rotation"]))) for d in s.get("side_data_list", []) if "rotation" in d), 0)
+            if rot in (90, 270) and not key[1]:
+                w, h = h, w
+            _PORTRAIT[key] = h > w
+        except (KeyError, IndexError, ValueError):
+            _PORTRAIT[key] = False
+    return _PORTRAIT[key]
+
+
+def fit_of(edl, item):
+    """How a shot / B-roll entry fills the 16:9 frame: None (landscape clip, plain scale), or for a
+    vertical clip {"mode": "blur"} (default: the sharp portrait centred over a blurred, dimmed copy of
+    itself), {"mode": "black"} (plain pillarbox, for dark night footage) or {"mode": "crop", "y": 0.0-1.0}
+    (fill the width, keep the band at `y`). blur/black take `"x"` (portrait centre, frame fraction, default 0.5;
+    e.g. 0.33 with a second vertical clip as a `pip` on the right = a side-by-side diptych). Set per shot with
+    `"fit": "crop"` / `"fit": {"mode": "crop", "y": 0.35}`; `"fit": "stretch"` = old behaviour."""
+    f = item.get("fit")
+    if f == "stretch" or not item.get("clip") or not is_portrait(edl, item["clip"]):
+        return None
+    if isinstance(f, str):
+        f = {"mode": f}
+    f = dict(f or {})
+    f.setdefault("mode", "blur")
+    if f["mode"] == "crop":
+        f.setdefault("y", 0.5)
+    return f
+
+
 def active_shots(edl):
     return [s for s in edl["shots"] if s.get("enabled", True) and s["out"] > s["in"]]
 
