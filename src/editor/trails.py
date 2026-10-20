@@ -115,8 +115,22 @@ def render(src, t_in, t_out, out, decay=(0.975, 0.975), preroll=2.0, grade="", h
         pd.wait()
     if pe.returncode:
         raise SystemExit("encode failed")
+    mux_audio(tmp, src, t_in, written / fps, in_args)
     os.replace(tmp, out)
     return out, written / fps
+
+
+def mux_audio(video, src, t_in, dur, in_args=()):
+    """Copy the source clip's own sound under the trails picture (111 Shorts shipped silent without this)."""
+    if not subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
+                           "-of", "csv=p=0", src], capture_output=True, text=True).stdout.strip():
+        return video  # the source has no audio
+    tmp = video + ".a.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", video, *in_args, "-ss", f"{t_in:.3f}", "-t", f"{dur:.3f}",
+                    "-i", src, "-map", "0:v", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "256k",
+                    "-shortest", tmp], check=True)
+    os.replace(tmp, video)
+    return video
 
 
 def main(argv=None):
