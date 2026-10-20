@@ -111,9 +111,55 @@ def _cached(cache_dir, key, render):
 NOTE_COLOR = (255, 226, 130, 255)
 
 
-def subtitle(text, w, h, cache_dir, kind="speech", pos="bottom"):
+PAPER_NOTE = {"bg": (246, 238, 218, 236), "fg": (28, 40, 70, 255), "bar": (191, 13, 62, 255)}
+
+
+def _note_paper_layout(d, text, w, h):
+    size = int(h * 0.042)
+    f = _font(SUB_FONTS, size, text)
+    lines = _wrap(d, text, f, w * 0.80)
+    lh = int(size * 1.32)
+    padx, pady, bar = int(size * 0.62), int(size * 0.34), max(4, int(size * 0.11))
+    tw = max(d.textlength(ln, font=f) for ln in lines)
+    bw = int(tw + 2 * padx + bar + size * 0.32)
+    bh = int(lh * len(lines) - (lh - size) + 2 * pady)
+    return size, f, lines, lh, padx, pady, bar, bw, bh
+
+
+def _note_paper(text, w, h, pos):
+    """Editor note as a cream paper chip (navy text, Texas-red bar on the left, soft shadow): creator found
+    the yellow notes odd (ep 110 review #32, 2026-10-20); the critic sub-agent picked this over dark/white boxes."""
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    size, f, lines, lh, padx, pady, bar, bw, bh = _note_paper_layout(d, text, w, h)
+    x0 = (w - bw) // 2
+    y0 = int(h * 0.06) if pos == "top" else h - int(h * 0.07) - bh
+    r = int(size * 0.28)
+    sh = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(sh).rounded_rectangle([x0, y0 + int(h * 0.004), x0 + bw, y0 + bh + int(h * 0.004)], radius=r,
+                                          fill=(0, 0, 0, 70))
+    im = Image.alpha_composite(im, sh.filter(ImageFilter.GaussianBlur(h * 0.012)))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=r, fill=PAPER_NOTE["bg"])
+    bx = x0 + int(size * 0.32)
+    d.rounded_rectangle([bx, y0 + int(pady * 0.9), bx + bar, y0 + bh - int(pady * 0.9)], radius=bar // 2,
+                        fill=PAPER_NOTE["bar"])
+    tx = bx + bar + padx
+    y = y0 + pady
+    for ln in lines:
+        d.text((tx, y - int(size * 0.06)), ln, font=f, fill=PAPER_NOTE["fg"])
+        y += lh
+    return im
+
+
+def subtitle(text, w, h, cache_dir, kind="speech", pos="bottom", style="yellow"):
     """kind='speech' (what people say, white) or 'note' (editor's explanatory caption for a
-    silent shot — soft yellow, slightly smaller, so viewers can tell it isn't dialogue)."""
+    silent shot — soft yellow, slightly smaller, so viewers can tell it isn't dialogue).
+    style='paper' (EDL "note_style"): notes become a cream chip with navy text instead (ep 110)."""
+    if kind == "note" and style == "paper":
+        return _cached(cache_dir, f"sub|note-paper|{text}|{w}x{h}" + ("|top" if pos == "top" else ""),
+                       lambda: _note_paper(text, w, h, pos))
+
     def render():
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
@@ -131,9 +177,11 @@ def subtitle(text, w, h, cache_dir, kind="speech", pos="bottom"):
     return _cached(cache_dir, f"sub|{kind}|{text}|{w}x{h}" + ("|top" if pos == "top" else ""), render)
 
 
-def subtitle_top(text, w, h, kind="speech"):
+def subtitle_top(text, w, h, kind="speech", style="yellow"):
     """Top y (px) of a bottom caption's first line, as `subtitle` lays it out (same font, wrap and spacing)."""
     d = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
+    if kind == "note" and style == "paper":
+        return h - int(h * 0.07) - _note_paper_layout(d, text, w, h)[8]
     size = int(h * (0.046 if kind == "note" else 0.052))
     lines = _wrap(d, text, _font(SUB_FONTS, size, text), w * 0.84)
     return h - int(h * 0.07) - int(size * 1.3) * len(lines)

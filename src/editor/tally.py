@@ -179,7 +179,10 @@ class Tally:
                 d.text((tx + name_w + 26 * k, y + h * 0.43), it["en"], font=self.F("sans", 52),
                        fill=A(INK, 0.85), anchor="lm")
             if it.get("fact"):
-                d.text((tx, y + h * 0.63), it["fact"], font=self.F("sans", 56), fill=A(INK, 0.95), anchor="lm")
+                fs = 56   # shrink to fit the card: a long fact ran past the right edge (ep 110 review)
+                while fs > 36 and tx + d.textlength(it["fact"], font=self.F("sans", fs)) > x + w - 40 * k:
+                    fs -= 2
+                d.text((tx, y + h * 0.63), it["fact"], font=self.F("sans", fs), fill=A(INK, 0.95), anchor="lm")
             lit = i + (1 if t > 0.35 else 0)
             self.dots(d, tx, y + h * 0.85, x + w - 40 * k - tx, lit, highlight=i, a=max(0.0, a_txt))
         im.alpha_composite(lay)

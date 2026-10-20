@@ -31,7 +31,7 @@ import urllib.parse
 import urllib.request
 from functools import lru_cache
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 _REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 HEAVY_FONTS = [os.path.join(_REPO, "assets", "fonts", "heavy.otf"),
@@ -500,21 +500,71 @@ def draw_base(osm, proj, size, colors=None, roads=None, coast_width=8, sea=True)
 
 
 # ── pins, flight arc ─────────────────────────────────────────────────────────────────────────
-def pin(d, x, y, num, cn, sub, side, s, fonts, colors=None, halo=None, scale=1.0):
+_ICONS = {}
+
+
+def icon_disc(path, diameter, ring, ring_color):
+    """A photo cropped to a circle with a ring (cached): stop icons, e.g. the animal in the tally crops."""
+    key = (path, diameter, ring, tuple(ring_color))
+    if key not in _ICONS:
+        dm = max(2, int(diameter))
+        im = ImageOps.fit(Image.open(path).convert("RGB"), (dm, dm), Image.LANCZOS).convert("RGBA")
+        m = Image.new("L", (dm * 4, dm * 4), 0)
+        ImageDraw.Draw(m).ellipse([0, 0, dm * 4 - 1, dm * 4 - 1], fill=255)
+        im.putalpha(m.resize((dm, dm), Image.LANCZOS))
+        out = Image.new("RGBA", (dm + 2 * ring, dm + 2 * ring), (0, 0, 0, 0))
+        ImageDraw.Draw(out).ellipse([0, 0, dm + 2 * ring - 1, dm + 2 * ring - 1], fill=tuple(ring_color[:3]) + (255,))
+        out.alpha_composite(im, (ring, ring))
+        _ICONS[key] = out
+    return _ICONS[key]
+
+
+def draw_icons(canvas, cx, cy, paths, radius, ring, ring_color, overlap=0.42):
+    """Paste one or more icon discs centred on (cx, cy); several overlap side by side.
+    Returns the half-width of the group (for label offsets)."""
+    if radius < 2 or not paths:
+        return 0
+    dm = int(2 * radius)
+    step = dm * (1 - overlap)
+    width = dm + step * (len(paths) - 1)
+    x0 = cx - width / 2
+    for i, pth in enumerate(paths):
+        disc = icon_disc(pth, dm, ring, ring_color)
+        canvas.alpha_composite(disc, (int(x0 + i * step - ring), int(cy - radius - ring)))
+    return width / 2 + ring
+
+
+def pin(d, x, y, num, cn, sub, side, s, fonts, colors=None, halo=None, scale=1.0, icons=None, canvas=None, en=None):
     """Numbered pin at (x, y) popped to size s (0..1+), with a name and a sub-label.
 
     fonts = (name font, sub font, number font). side: up, upright, upleft, down, left, right
-    ("downland" is accepted as down). halo is the text outline colour (default: land)."""
+    ("downland" is accepted as down). halo is the text outline colour (default: land).
+    icons (image paths) + canvas (the RGBA frame) turn the dot into photo disc(s) with a small number
+    badge; en is an English name, shown instead of the sub-label."""
     col = dict(COLORS, **(colors or {}))
     fc, fe, fn = fonts
     k = scale
-    r = 42 * s * k
-    d.ellipse([x - r, y - r, x + r, y + r], fill=col["pin"], outline=col["pin_outline"],
-              width=max(1, int(10 * s * k)))
-    if s > 0.6:
-        d.text((x, y + 2 * k), str(num), font=fn, fill=col["pin_number"], anchor="mm")
+    grow = 0.0
+    if icons and canvas is not None:
+        R = 78 * s * k
+        half = draw_icons(canvas, x, y, icons, R, max(1, int(9 * s * k)), col["pin_outline"])
+        if s > 0.6:   # number badge on the lower right of the group
+            br = 30 * k
+            bx, by = x + half - br * 0.6, y + R * 0.62
+            d.ellipse([bx - br, by - br, bx + br, by + br], fill=col["pin"], outline=col["pin_outline"],
+                      width=max(1, int(6 * k)))
+            d.text((bx, by + 2 * k), str(num), font=fn, fill=col["pin_number"], anchor="mm")
+        grow = max(0.0, (78 - 42) * k + (half - R))
+    else:
+        r = 42 * s * k
+        d.ellipse([x - r, y - r, x + r, y + r], fill=col["pin"], outline=col["pin_outline"],
+                  width=max(1, int(10 * s * k)))
+        if s > 0.6:
+            d.text((x, y + 2 * k), str(num), font=fn, fill=col["pin_number"], anchor="mm")
     if s < 0.95:
         return
+    if en:   # map labels stay short: the English name replaces the sub-label (the panel keeps both)
+        sub = en
     sw = dict(stroke_width=max(1, round(10 * k)), stroke_fill=tuple(halo or col["land"]))
     side = "down" if side == "downland" else side
     pos = {  # side: (name xy, name anchor, sub xy, sub anchor), offsets in 4K px
@@ -526,6 +576,11 @@ def pin(d, x, y, num, cn, sub, side, s, fonts, colors=None, halo=None, scale=1.0
         "left": ((-66, -4), "rs", (-66, 10), "rt"),
     }
     (cx, cy), ca, (sx, sy), sa = pos.get(side, pos["down"])
+    if grow:   # push the labels out past the bigger icon pin
+        g = grow / k
+        dx = {"right": g, "left": -g, "upright": g * 0.5, "upleft": -g * 0.5}.get(side, 0)
+        dy = {"up": -g, "upright": -g, "upleft": -g, "down": g}.get(side, 0)
+        cx, sx, cy, sy = cx + dx, sx + dx, cy + dy, sy + dy
     name_xy = (x + cx * k, y + cy * k)
     d.text(name_xy, cn, font=fc, fill=col["text"], anchor=ca, **sw)
     if sub:
@@ -592,7 +647,7 @@ DEFAULTS = {
     "fit": "contain", "align": [0.5, 0.5], "ref_lat": None,
     "mode": "drive",             # default leg mode: drive | walk | straight
     "legs": None,                # per leg: {"mode": ..., "via": [[lat, lon], ...], "offset": px}
-    "stops": [],                 # {"cn", "sub", "lat", "lon", "side", "halo"}
+    "stops": [],                 # {"cn", "sub", "lat", "lon", "side", "halo", "en", "icons": [img, ...]}
     "spans": None,               # per leg [t0, t1] seconds; default spreads legs over the clip
     "first_pin": 0.1, "pin_pop": 0.3,
     "title": None, "sub_title": None,
@@ -626,6 +681,9 @@ def load_config(config):
         if cfg.get(k):
             cfg[k] = os.path.join(cfg["_dir"], os.path.expanduser(cfg[k]))
     cfg["colors"] = {k: tuple(v) for k, v in dict(COLORS, **cfg["colors"]).items()}
+    for st in cfg["stops"]:
+        if st.get("icons"):
+            st["icons"] = [os.path.join(cfg["_dir"], os.path.expanduser(p)) for p in st["icons"]]
     n = max(0, len(cfg["stops"]) - 1)
     legs = cfg["legs"] or [{} for _ in range(n)]
     if len(legs) != n:
@@ -774,14 +832,28 @@ class RouteMap:
             if i > done:
                 break
             y = H * 0.33 + i * H * 0.105
-            d.ellipse([x, y, x + 2 * r, y + 2 * r], fill=a(col["panel_dot"]))
-            d.text((x + r, y + r + 2 * k), str(i + 1), font=self.F("heavy", 50), fill=a(col["panel_number"]), anchor="mm")
-            name_xy = (x + 120 * k, y - 6 * k)
+            tx = 120
+            if st.get("icons"):   # photo icon(s) instead of the numbered dot, number on a small badge
+                ir = 64 * k
+                half = draw_icons(lay, x + ir, y + r, st["icons"], ir, max(1, int(7 * k)), col["pin_outline"], overlap=0.5)
+                br = 24 * k
+                bx, by = x + ir - half + br * 0.4, y + r - ir * 0.62
+                d.ellipse([bx - br, by - br, bx + br, by + br], fill=a(col["panel_dot"]), outline=a(col["pin_outline"]),
+                          width=max(1, int(5 * k)))
+                d.text((bx, by + 2 * k), str(i + 1), font=self.F("heavy", 34), fill=a(col["panel_number"]), anchor="mm")
+                tx = max(tx, (2 * half - 2 * ir) / k + 160)
+            else:
+                d.ellipse([x, y, x + 2 * r, y + 2 * r], fill=a(col["panel_dot"]))
+                d.text((x + r, y + r + 2 * k), str(i + 1), font=self.F("heavy", 50), fill=a(col["panel_number"]), anchor="mm")
+            name_xy = (x + tx * k, y - 6 * k)
             name_font = self.F("heavy", 70)
             d.text(name_xy, st["cn"], font=name_font, fill=a(col["text"]))
+            nb = d.textbbox(name_xy, st["cn"], font=name_font)
+            if st.get("en"):   # English name after the Chinese, baseline-aligned
+                d.text((nb[2] + 26 * k, nb[3]), st["en"], font=self.F("sans", 54), fill=a(col["subtext"]), anchor="ls")
             if st.get("sub"):   # under the name's real ink box (heavy CJK faces run past their nominal size)
-                sy = d.textbbox(name_xy, st["cn"], font=name_font)[3] + 40 * k
-                d.text((x + 122 * k, sy), st["sub"], font=self.F("sans", 50), fill=a(col["subtext"]))
+                sy = nb[3] + 40 * k
+                d.text((x + (tx + 2) * k, sy), st["sub"], font=self.F("sans", 50), fill=a(col["subtext"]))
         if cfg["credit"]:
             d.text((x, H * 0.958), cfg["credit"], font=self.F("sans", 40), fill=a(col["credit"]))
         out = im.convert("RGBA")
@@ -827,8 +899,10 @@ class RouteMap:
             s = pop((t - arrive[i]) / cfg["pin_pop"])
             if t >= arrive[i] and s > 0.05:
                 done = i
+                if st.get("icons") and im.mode != "RGBA":
+                    im = im.convert("RGBA"); d = ImageDraw.Draw(im)
                 pin(d, x, y, i + 1, st["cn"], st.get("sub", ""), st.get("side", "down"), s, fonts, col,
-                    halo=_halo(cfg, st.get("halo", "land")), scale=k)
+                    halo=_halo(cfg, st.get("halo", "land")), scale=k, icons=st.get("icons"), canvas=im, en=st.get("en"))
         if cfg["panel"]:
             im = self._panel(im, done)
         return im

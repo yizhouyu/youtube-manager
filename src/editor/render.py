@@ -415,7 +415,8 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
             t = shot["title"]
             td = min(t.get("dur", 3.0), dur)
             # keep the title block clear of any bottom caption shown while it is up
-            tops = [overlays.subtitle_top(c["text"], w, h, c.get("kind", "speech")) for c in E.shot_subs(shot)
+            tops = [overlays.subtitle_top(c["text"], w, h, c.get("kind", "speech"), edl.get("note_style", "yellow"))
+                    for c in E.shot_subs(shot)
                     if c.get("pos") != "top" and c["t0"] < td and c["t1"] > 0]
             limit = min(tops) - int(h * 0.015) if tops else None
             ovs.append((overlays.title_card(t["text"], t.get("sub", ""), w, h, ov_dir, limit), 0, td, 0.4))
@@ -463,7 +464,10 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
             else:
                 ovs.append((overlays.arrow(m.get("label", ""), m["x"], m["y"], w, h, ov_dir), a0, a1, 0))
         for s in E.shot_subs(shot):
-            ovs.append((overlays.subtitle(s["text"], w, h, ov_dir, s.get("kind", "speech"), s.get("pos", "bottom")), s["t0"], min(s["t1"], dur), 0))
+            ns = edl.get("note_style", "yellow")
+            fade = 0.15 if ns == "paper" and s.get("kind") == "note" else 0
+            ovs.append((overlays.subtitle(s["text"], w, h, ov_dir, s.get("kind", "speech"), s.get("pos", "bottom"), ns),
+                        s["t0"], min(s["t1"], dur), fade))
     for i, ov in enumerate(ovs, base_inputs):
         png, t0, t1, fade = ov[:4]
         if len(ov) > 4:  # moving overlay: x/y offset expressions in t (tracked arrows)

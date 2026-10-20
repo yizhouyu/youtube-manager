@@ -15,6 +15,20 @@ Resolve `REPO` as two levels up from this file and run everything from there.
 publishing: append what this video taught** — new mistakes, creator corrections that generalize,
 faster ways of working — and prune lessons the code now enforces.
 
+## Goal and freedom (creator, 2026-10-20)
+
+The goal is videos that viewers love and that grow subscribers, not conformity with this file.
+- **Treat this file as experience, not a template.** Try something new each episode, and say what in HANDOFF. 「不要每一个视频剪出来的风格都完全一样」.
+- **Brainstorm wide.** Before deciding structure, hooks, openers, cards or Shorts, fan out several sub-agents on the strongest model with different seats. Debate, then pick.
+- **His taste rules still hold:**
+  - thumbnail taste;
+  - captions: Arabic digits, standard Mandarin, exact words, no fillers;
+  - no companion names or pet names;
+  - best take only;
+  - paper-style notes;
+  - fast pacing with rare close-ups kept.
+- **Write durable lessons back** here or into LESSONS.md.
+
 ## Batch mode (the creator is away / reviews later)
 
 Do the whole first cut + QA + thumbnails yourself; don't wait on him. Render the 1080p preview only
