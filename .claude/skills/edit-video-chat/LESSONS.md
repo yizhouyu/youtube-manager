@@ -589,4 +589,4 @@ A narrated explainer is a different job from a travel cut. What made 113 work, a
 
 - **Overpass down, Python SSL can't reach OSRM (2026-10-20):** every Overpass mirror timed out for an hour and the venv's urllib failed the OSRM TLS handshake. Route map built from OSRM geometry fetched with `curl` (legs as `straight` with the OSRM points as `via`) + US Census TIGER/Line coastline (16 MB shapefile, parsed with `struct`, no GIS libs). Natural Earth 10 m coast is too coarse at 80 km (the road ended up "in the sea"). A one-island view needs routemap's new island mode (a closed coast ring = land, sea elsewhere).
 - **Contact sheets: decode keyframes only** (`-skip_frame nokey` in `scan.py`, 2026-10-20). Full-frame HEVC decode of 351 Pocket clips was ~30× slower and saturated the CPU; DJI/GoPro put a keyframe every ~1 s, which is all a 12-frame sheet needs.
-
+- **320-px contact sheets hide small animals on busy ground** (family-hawaii-01): ~8 green sea turtles basking on Punaluʻu's black sand were invisible on the sheet and only caught by the independent QA on full frames. On any beach/reef/wildlife wide, pull one full-res frame before calling it "scenery".
