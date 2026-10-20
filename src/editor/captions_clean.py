@@ -91,6 +91,9 @@ def clean_project(project):
 
 
 if __name__ == "__main__":
+    # `--help` once became a project name and left a "~/Desktop/--help" folder (2026-10-20)
+    if len(sys.argv) < 2 or sys.argv[1].startswith("-") or not os.path.isdir(E.project_dir(sys.argv[1])):
+        sys.exit("usage: python -m src.editor.captions_clean <project> [--mark-proofread]  (project folder must exist)")
     n = clean_project(sys.argv[1])
     if "--mark-proofread" in sys.argv:
         # the agent has read every transcript and filled glossary.json: captions may now be shown
