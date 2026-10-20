@@ -309,6 +309,13 @@ Every episode keeps `edit/copyright_risk.md`: one line per shot that has audible
 Distilled from his live reviews of 83 and 84. Check the cut against this list *before* QA, and
 have the reviewer check it too. Every item is something he had to ask for by hand.
 
+**From the 111 review (2026-10-20):**
+- **A term he says gets its gloss in the caption, in parentheses**, not as a top note: 「这边是 residential dining（住校学生的食堂）」, 「MAI Building（Main Building 主楼）」. Top notes are for facts he didn't say (history, numbers).
+- **Don't over-trim the walk.** The pace pass cut too much of his commentary: he restored about 15 short lines (fields and parking lot, the 2nd/3rd floors, the dorm entrance, the March study line, the police, CVS/Wells Fargo, new buildings downtown, the crowd under the bridge). Cut retakes, fillers and dead air, but keep every complete observation he makes.
+- **Only caption his own speech.** Background speakers (「很酷吧？」) and unclear staff lines get no caption.
+- When a sign's time is when *we* saw it, say so (「下午3:38 我们吃完出门时…」), not as if that's when it happened.
+- No on-screen map credit (see the route-map section).
+
 **Keep more:**
 - Keep the fun and the specific: animals doing things (porcupine walking), campgrounds and
   lodging with character (the RV campground), individual exhibits (the carved-animal diorama, the
@@ -521,7 +528,7 @@ intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 
   - routes each leg as a shortest path on the OSM road graph, respecting one-ways;
   - draws an out-and-back on the same road as two parallel dashed lines, offset to the right of travel;
   - has numbered pins that pop in as each leg arrives, plus the time sub-labels;
-  - carries the credit 「路线示意 · 地图数据 © OpenStreetMap contributors」.
+  - has **no on-screen credit** (creator, 2026-10-20: 「以后的视频也都不用写」). `CREDIT` defaults to ""; the OSM credit goes in the video description instead (publish-video-chat).
 
   Don't copy episode scripts any more; use the shared module `src/editor/routemap.py`. Write
   `edit/maps/route_config.json` and run it from the repo:

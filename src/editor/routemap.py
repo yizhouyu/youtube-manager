@@ -15,7 +15,7 @@ Relative paths in a config resolve against the config file's folder.
 CLI (from the repo root):
     ./venv/bin/python -m src.editor.routemap <config.json> [fetch] [legs] [route] [--out X.mp4] [--preview X.jpg]
 `route` is the default. `legs` only prints each leg's distance and roads.
-Map data is (c) OpenStreetMap contributors (ODbL); keep the on-screen credit.
+Map data is (c) OpenStreetMap contributors (ODbL). Per the creator (2026-10-20) the credit goes in the video description, not on screen.
 """
 import argparse
 import copy
@@ -44,7 +44,7 @@ SANS_FONTS = ["/System/Library/Fonts/STHeiti Medium.ttc",
               "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
               "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
               "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"]
-CREDIT = "路线示意 · 地图数据 © OpenStreetMap contributors"
+CREDIT = ""  # creator 2026-10-20: no on-screen map credit; credit OSM in the video description instead
 
 
 def font_path(kind="sans", override=None):

@@ -307,6 +307,7 @@ Reuse what you see. **Example channel** (Chinese-first bilingual travel) pattern
 - **Tags** — ~12, mixed Chinese + English, proper nouns first then generic.
 - **Description** — first line 3–5 hashtags, then a hook, a `你好！欢迎…` intro, then a 📍
   route list with 1️⃣2️⃣ markers. Preserve music credits / links. Note if it continues a series.
+  If the episode has a route map, end the description with the line `地图数据 © OpenStreetMap contributors`. The map itself carries no credit (creator, 2026-10-20).
 
 **Goal = max discoverability.** Draft **3 options** (engaging / informative / curiosity), each
 with `title`, bilingual `description` (Chinese with keywords up front, `---`, then English),
