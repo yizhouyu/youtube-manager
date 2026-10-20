@@ -7,6 +7,7 @@ shot, stopping at the shot edges and at the next/previous caption in the same sl
 (the shot itself is too short: carry the note into the next shot by hand or trim the text).
 """
 import json
+import os
 import shutil
 import sys
 import time
@@ -60,6 +61,7 @@ def main(project, dry=False):
     print("\n".join(done + short) or "all notes long enough")
     if done and not dry:
         p = E.edl_path(project)
+        os.makedirs(os.path.join(os.path.dirname(p), "history"), exist_ok=True)
         shutil.copy(p, p.replace("edl.json", f"history/edl.{time.strftime('%Y%m%d-%H%M%S')}.json"))
         E.save(project, edl)
 
