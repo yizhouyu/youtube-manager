@@ -59,6 +59,15 @@ Spec (all times in seconds; segment times and keyframes are SOURCE-clip seconds)
             "start": 0.0, "fade_in": 0.05, "gain_db": 0},  # output second the music enters
                                         # (natural sound first); file is relative to
                                         # <project>/02 - Export/edit/ or absolute; ducked under speech subs
+  "note_style": "paper",                # notes as the long video's cream paper chip (ep 110 on)
+  "voiceover": [{"t": 0.2, "text": "...", "voice": "zh-CN-YunxiNeural", "rate": "-5%",
+                 "gain_db": 0, "caption": true}],   # edge-tts lines at OUTPUT seconds, levelled like the
+                                        # CTA line (the bed ducks under them); caption: true = a speech
+                                        # caption for its span; they count as speech for music + CTA
+  "sfx": [{"t": 0.6, "file": "/abs/hit.wav", "gain_db": -6}],   # extra sounds at OUTPUT seconds
+  "overlays": [{"t0": 0, "t1": 2.0, "png": "/abs/full_frame.png", "anim": "shake",
+                "fade_out": 0}],        # extra full-frame RGBA layers (a HUD, a flash...): anim pop | rise
+                                        # | bob | shake (8-frame jolt) | blink (4 Hz) | flash (fades out)
   "caption_bottom": 0.675,              # where speech/note blocks end (fraction of H); per-sub "y" overrides
   "loudness": {"I": -14, "TP": -1.5},
   "edge_fade": 0.15                     # audio fade at start/end; no video fade, so the Short loops
@@ -426,6 +435,44 @@ def caption_png(text, style, cache, bottom=CAPTION_BOTTOM):
     return O._cached(cache, f"short|{style}|{text}|{bottom}|{W}x{H}", render)
 
 
+PAPER_NOTE = {"bg": (246, 238, 218, 236), "fg": (28, 40, 70, 255), "bar": (191, 13, 62, 255)}
+
+
+def paper_note_png(text, cache, bottom=CAPTION_BOTTOM):
+    """Note as the long video's cream paper chip (navy text, red bar on the left, soft shadow; EDL
+    note_style "paper", ep 110), centred in the Shorts safe zone, its bottom edge at `bottom`."""
+    def render():
+        im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        size = 62
+        f = O._font(O.SUB_FONTS, size, text)
+        max_w = W - SAFE["left"] - SAFE["right"] - 120
+        lines = [ln for part in text.split("\n") for ln in O._wrap(d, part, f, max_w)]
+        lh = int(size * 1.32)
+        padx, pady, bar = int(size * 0.62), int(size * 0.38), max(5, int(size * 0.11))
+        tw = max(d.textlength(ln, font=f) for ln in lines)
+        bw = int(tw + 2 * padx + bar + size * 0.32)
+        bh = int(lh * len(lines) - (lh - size) + 2 * pady)
+        cx = (SAFE["left"] + W - SAFE["right"]) / 2
+        x0, y0 = int(cx - bw / 2), max(SAFE["top"], int(H * bottom) - bh)
+        r = int(size * 0.28)
+        sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        ImageDraw.Draw(sh).rounded_rectangle([x0, y0 + 8, x0 + bw, y0 + bh + 8], radius=r, fill=(0, 0, 0, 80))
+        im = Image.alpha_composite(im, sh.filter(ImageFilter.GaussianBlur(20)))
+        d = ImageDraw.Draw(im)
+        d.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=r, fill=PAPER_NOTE["bg"])
+        bx = x0 + int(size * 0.32)
+        d.rounded_rectangle([bx, y0 + int(pady * 0.9), bx + bar, y0 + bh - int(pady * 0.9)], radius=bar // 2,
+                            fill=PAPER_NOTE["bar"])
+        y = y0 + pady
+        for ln in lines:
+            d.text((bx + bar + padx, y - int(size * 0.06)), ln, font=f, fill=PAPER_NOTE["fg"])
+            y += lh
+        assert y0 + bh <= H - SAFE["bottom"] + 10, f"note runs into the bottom overlay: {text}"
+        return im
+    return O._cached(cache, f"paper|{text}|{bottom}|{W}x{H}", render)
+
+
 def punch_caption_png(text, style, cache, bottom=CAPTION_BOTTOM):
     """Punch style: heavy face, thick stroke + soft shadow, {keyword} in yellow. speech = bare text;
     note = the same on a dark rounded plate (so a label never reads as dialogue)."""
@@ -668,23 +715,24 @@ def tighten_pauses(y, max_gap=0.2, edge=0.03, floor_db=-40.0):
     return np.concatenate(keep)
 
 
-def cta_voice_line(spec, vcfg, work):
+def cta_voice_line(spec, vcfg, work, name="cta"):
     """edge-tts line -> (wav, seconds, line LUFS): cached as MP3 in <project>/02 - Export/edit/tts/,
-    put through the long-form editor's broadcast-VO chain (render.tts_processed), pauses tightened."""
+    put through the long-form editor's broadcast-VO chain (render.tts_processed), pauses tightened.
+    Also used for the spec's "voiceover" lines (`name` keeps their work files apart)."""
     import hashlib
     from src.editor.render import tts_processed
     text, voice, rate = vcfg["text"], vcfg.get("voice", CTA_VOICE["voice"]), vcfg.get("rate", CTA_VOICE["rate"])
     key = hashlib.sha1(json.dumps([text, voice, rate], ensure_ascii=False).encode()).hexdigest()[:10]
     tdir = os.path.join(E.edit_dir(spec["project"]), "tts") if spec.get("project") else os.path.join(work, "tts")
     os.makedirs(tdir, exist_ok=True)
-    mp3 = os.path.join(tdir, f"short_cta_{key}.mp3")
+    mp3 = os.path.join(tdir, f"short_{'cta' if name == 'cta' else 'vo'}_{key}.mp3")
     if not os.path.exists(mp3):
         subprocess.run([EDGE_TTS, "--voice", voice, f"--rate={rate}", "--text", text,
                         "--write-media", mp3 + ".part.mp3"], capture_output=True, check=True)
         os.replace(mp3 + ".part.mp3", mp3)
     wav, line_i = tts_processed(mp3, os.path.join(work, "tts"))
     y = tighten_pauses(_read_f32(wav))
-    out = os.path.join(work, "cta_voice.wav")
+    out = os.path.join(work, f"{name}_voice.wav")
     _write_f32(out, y)
     return out, len(y) / SR, line_i
 
@@ -706,12 +754,9 @@ def cta_timing(total, cta, speech, voice_dur):
     return t_cta, t_voice
 
 
-def mix_cta_audio(mix, out, voice_track, speech, t_cta, t_voice, line, bell_cfg, vcfg, total):
-    """Mix the bell (at t_cta) and the spoken line (at t_voice) into `mix` (pre-master). The line sits
-    at the on-camera speech level (median of the speech captions' loudness), or 1 LU above the mix
-    when nobody speaks; the bed (source + music) ducks under it. The bell's loudest 400 ms sits
-    `bell_lu` (default -5 LU) under that reference and never above its file level (peak -6 dBFS).
-    -> info dict for the report."""
+def speech_ref(voice_track, speech, mix):
+    """(LUFS, source) a spoken line should sit at: the median loudness of the on-camera speech spans,
+    or 1 LU above the mix when nobody speaks."""
     from src.editor.render import _measure, _momentary, power_mean_lufs
     per = []
     if speech:
@@ -722,9 +767,57 @@ def mix_cta_audio(mix, out, voice_track, speech, t_cta, t_voice, line, bell_cfg,
                 per.append(v)
     if per:
         per.sort()
-        ref, src = (per[len(per) // 2] + per[(len(per) - 1) // 2]) / 2, "speech"
-    else:
-        ref, src = _measure(mix)["I"] + 1.0, "mix+1"
+        return (per[len(per) // 2] + per[(len(per) - 1) // 2]) / 2, "speech"
+    return _measure(mix)["I"] + 1.0, "mix+1"
+
+
+def mix_layers(mix, out, voice_track, speech, vo, sfx, total):
+    """Mix the spec's voiceover lines (each levelled to speech_ref + its gain_db, the bed ducked
+    `duck_db` (8) under it) and sfx (file level + gain_db) into `mix` -> info list for the report."""
+    ref, _ = speech_ref(voice_track, speech, mix)
+    args, chain, labels, env, info = ["-i", mix], [], [], [], []
+    for t, (wav, dur, line_i), cfg in vo:
+        gain = max(-24.0, min(24.0, ref + 0.5 - line_i + float(cfg.get("gain_db", 0))))
+        g = 10 ** (-float(cfg.get("duck_db", 8)) / 20)
+        a, b, r = t - 0.05, t + dur + 0.1, 0.15
+        env.append(f"{1 - g:.4f}*clip(min((t-{a:.3f}+{r})/{r},({b:.3f}+{r}-t)/{r}),0,1)")
+        args += ["-i", wav]
+        chain.append(f"[{len(args) // 2 - 1}:a]volume={gain:.2f}dB,afade=t=in:d=0.02,"
+                     f"adelay={int(round(t * 1000))}:all=1[l{len(labels)}]")
+        labels.append(f"[l{len(labels)}]")
+        info.append({"vo": cfg["text"], "t": round(t, 2), "dur": round(dur, 2), "gain_db": round(gain, 1)})
+    for s in sfx:
+        args += ["-i", s["file"]]
+        chain.append(f"[{len(args) // 2 - 1}:a]aresample={SR},aformat=sample_fmts=fltp:channel_layouts=stereo,"
+                     f"volume={float(s.get('gain_db', 0)):.2f}dB,adelay={int(round(float(s['t']) * 1000))}:all=1"
+                     f"[l{len(labels)}]")
+        labels.append(f"[l{len(labels)}]")
+        info.append({"sfx": os.path.basename(s["file"]), "t": s["t"]})
+    if not labels:
+        shutil.copy(mix, out)
+        return info
+    bed = "[0:a]"
+    if env:
+        chain.insert(0, f"[0:a]volume='max(0,1-({'+'.join(env)}))':eval=frame[bed]")
+        bed = "[bed]"
+    chain.append(f"{bed}{''.join(labels)}amix=inputs={len(labels) + 1}:normalize=0:duration=first,"
+                 f"atrim=0:{total:.3f}[out]")
+    script = out + ".txt"
+    with open(script, "w") as f:
+        f.write(";".join(chain))
+    run(["ffmpeg", "-v", "error", "-y", *args, "-/filter_complex", script, "-map", "[out]",
+         "-c:a", "pcm_f32le", out])
+    return info
+
+
+def mix_cta_audio(mix, out, voice_track, speech, t_cta, t_voice, line, bell_cfg, vcfg, total):
+    """Mix the bell (at t_cta) and the spoken line (at t_voice) into `mix` (pre-master). The line sits
+    at the on-camera speech level (median of the speech captions' loudness), or 1 LU above the mix
+    when nobody speaks; the bed (source + music) ducks under it. The bell's loudest 400 ms sits
+    `bell_lu` (default -5 LU) under that reference and never above its file level (peak -6 dBFS).
+    -> info dict for the report."""
+    from src.editor.render import _momentary
+    ref, src = speech_ref(voice_track, speech, mix)
     info = {"t_cta": round(t_cta, 2), "ref_lufs": round(ref, 1), "ref": src}
     args, chain, labels = ["-i", mix], [], []
     bed = "[0:a]"
@@ -793,6 +886,14 @@ def layer_state(anim, lt, dur, fade_out=0.0):
         a = min(1.0, max(0.0, (k - 3) / 6))
         ph = math.sin(2 * math.pi * lt / 0.8)
         dx, dy = int(-10 * ph), int(10 * ph)
+    elif anim == "shake":   # an 8-frame jolt (a hit), then still
+        if k < 8:
+            amp = 22 * (1 - k / 8)
+            dx, dy = int(amp * math.sin(k * 2.7)), int(amp * math.cos(k * 3.9))
+    elif anim == "blink":   # 4 Hz on/off (an alarm)
+        a = 1.0 if int(lt * 8) % 2 == 0 else 0.25
+    elif anim == "flash":   # full on, then fades over the layer's life (a red hit flash)
+        a = max(0.0, 1 - lt / max(dur, 1e-3)) ** 1.5
     if fade_out > 0 and dur - lt < fade_out:
         a *= max(0.0, (dur - lt) / fade_out)
     return round(s, 3), round(a, 2), dx, dy
@@ -989,6 +1090,14 @@ def build(spec, out, check=False, check_dir=None):
         for c in spec.get("captions", []):
             caps.append({"t0": c.get("t0", 0), "t1": c.get("t1") if c.get("t1") is not None else total,
                          "text": c["text"], "style": c.get("style", "headline"), "y": c.get("y")})
+        vo = []   # [(t, (wav, dur, lufs), cfg)] voiceover lines at output seconds
+        for k, v in enumerate(spec.get("voiceover", [])):
+            ln = cta_voice_line(spec, dict(CTA_VOICE, **v), work, name=f"vo{k}")
+            vo.append((float(v["t"]), ln, v))
+            if v.get("caption", True):
+                caps.append({"t0": float(v["t"]), "t1": float(v["t"]) + ln[1] + float(v.get("hold", 0.15)),
+                             "text": v.get("caption_text", v["text"]), "style": "speech", "y": v.get("y")})
+        voiced = sorted(speech + [(t0, t0 + ln[1]) for t0, ln, _ in vo])   # on-camera speech + voiceover
 
         # overlay track: captions, hook, CTA
         cta = spec.get("cta")
@@ -999,14 +1108,19 @@ def build(spec, out, check=False, check_dir=None):
             vcfg = dict(CTA_VOICE, **(vcfg if isinstance(vcfg, dict) else {})) if vcfg is not False else None
             if vcfg:
                 line = cta_voice_line(spec, vcfg, work)
-            cta_t0, t_voice = cta_timing(total, cta, speech, line[1] if line else 0)
+            cta_t0, t_voice = cta_timing(total, cta, voiced, line[1] if line else 0)
             cta_top = cta_layout(cta)["top"] / H
         layers = []
+        for o in spec.get("overlays", []):   # HUDs, flashes: under the captions
+            layers.append({"t0": float(o["t0"]), "t1": float(o["t1"]) if o.get("t1") is not None else total,
+                           "png": o["png"], "anim": o.get("anim"), "fade_out": float(o.get("fade_out", 0))})
         for c in caps:
             bottom = float(c.get("y") or spec.get("caption_bottom", CAPTION_BOTTOM))
             if cta_t0 is not None and c["style"] != "headline" and c["t1"] > cta_t0 + 0.05:
                 bottom = min(bottom, cta_top - 0.01)   # keep the payoff line readable above the CTA
-            if punch and c["style"] != "headline":
+            if c["style"] == "note" and spec.get("note_style") == "paper":
+                png = paper_note_png(c["text"].replace("{", "").replace("}", ""), cache, bottom)
+            elif punch and c["style"] != "headline":
                 png = punch_caption_png(c["text"], c["style"], cache, bottom)
             else:
                 png = caption_png(c["text"].replace("{", "").replace("}", ""), c["style"], cache, bottom)
@@ -1068,7 +1182,7 @@ def build(spec, out, check=False, check_dir=None):
         if m and m.get("file"):
             mf = m["file"] if os.path.isabs(m["file"]) else os.path.join(E.edit_dir(spec["project"]), m["file"])
             base, duck, r = float(m.get("volume", 0.30)), float(m.get("duck", 0.08)), 0.35
-            terms = [f"clip(min((t-{a:.2f}+{r})/{r},({b:.2f}+{r}-t)/{r}),0,1)" for a, b in speech]
+            terms = [f"clip(min((t-{a:.2f}+{r})/{r},({b:.2f}+{r}-t)/{r}),0,1)" for a, b in voiced]
             sp = "min(1," + "+".join(terms) + ")" if terms else "0"
             pre = ""
             if m.get("match"):   # Audio Library tracks differ by 15+ LU; level them before `volume`
@@ -1091,6 +1205,13 @@ def build(spec, out, check=False, check_dir=None):
         else:
             run(["ffmpeg", "-v", "error", "-y", "-i", voice, "-af",
                  f"afade=t=in:d={fade},afade=t=out:st={max(0, total - fade):.3f}:d={fade}", "-c:a", "pcm_s24le", mix])
+        layer_info = None
+        if vo or spec.get("sfx"):   # voiceover lines + sfx, before the CTA (which ducks them too)
+            mix1 = os.path.join(work, "mix_layers.wav")
+            sfx = [dict(x, file=x["file"] if os.path.isabs(x["file"]) else
+                        os.path.join(E.edit_dir(spec["project"]), x["file"])) for x in spec.get("sfx", [])]
+            layer_info = mix_layers(mix, mix1, voice, speech, vo, sfx, total)
+            mix = mix1
         cta_info = None
         if cta is not None:   # bell when the CTA appears + the spoken line, after any speech
             mix2 = os.path.join(work, "mix_cta.wav")
@@ -1113,6 +1234,8 @@ def build(spec, out, check=False, check_dir=None):
         if report["longest_shot"] > 3.5:
             report["pace_warning"] = "a shot runs > 3.5 s: cut, punch in or ramp it (target 1-2.5 s)"
         report["captions"] = caps
+        if layer_info:
+            report["layers"] = layer_info
         if cta_info:
             report["cta"] = cta_info
         print(json.dumps(report, ensure_ascii=False, indent=1))
