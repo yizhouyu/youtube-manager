@@ -282,6 +282,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   5. ffprobe (~320 kbps, right duration); add to `~/Movies/yt-music-library/INDEX.md`.
   (A background tab can't receive typed search text — pick tracks by reading row data, scrolling or
   filtering via the page's own controls with JS.)
+- **Since 2026-10-20 the creator allows automatic downloads for studio.youtube.com in Chrome**, so Studio's own
+  **Download** button saves straight to `~/Downloads/<Title> - <Artist>.mp3` (320 kbps, no dialog). Use that instead of the
+  get_tracks replay above, which a permission check now refuses (signed-URL capture). Search one title at a time in
+  the library's filter box, hover the row, and click Download. The full catalogue is larger than the paged list: a title
+  search finds tracks back to 2016. If downloads stop again, ask the creator; don't work around it (ep 116).
 - **Shared music library:** every track you fetch also goes to `~/Movies/yt-music-library/`
   (outside the repo — audio isn't ours to redistribute) with a row in its `INDEX.md` (title, artist,
   license, mood, used-in episodes). Check the library first; reuse is fine across episodes that
@@ -299,6 +304,12 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   (Bosley), Magnolia Town (Patrick Jordan-Patrikios), Our Last Night (Televisions), Sky Is The Limit. It
   MISSED When It Ends (known sung), so a "clean" result is a lower bound: still listen or run Demucs
   vocals + whisper on any track you place under speech.
+- **Demucs vocal-stem loudness over time is the reliable vocal check; whisper is not (ep 116).** Whole-track whisper
+  looped fake lyrics on two instrumentals (A Stroll Alone, Moonlight Magic; both stems −68/−69 LUFS = clean), and whisper+VAD
+  on the stem printed nothing for Among The Stars, whose vocal stem sits at −11 LUFS all the way through (vocal chops) →
+  rejected. Read the stem's short-term loudness every 4 s: a clean track stays below about −60, and anything above about
+  −35 is a voice or a lead the creator may hear as one. Short events (Defying Gravity 37–42 s, F16 0–8 s and 64–76 s) are
+  fine as long as the `in` keeps the used range off them.
 - **Never rewrite a shell script in place while it runs** (`cat > x.sh`): bash reads scripts lazily, so running copies execute garbage (2026-10-09: rewriting `render_lock.sh` killed 113's queued assemble step). Write a new file and `mv` it over (new inode).
 - **Copyright sweep method (101–112, 2026-10-09):** scan each audible shot's OWN source audio over its kept
   ranges (not the preview mix — the licensed bed trips every music detector). Demucs two-stems → whisper
