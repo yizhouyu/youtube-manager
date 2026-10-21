@@ -914,12 +914,35 @@ async function loadPreview(keep){
   const nv=$('#pvv');
   if(nv){nv.muted=wasMuted; nv.playbackRate=pvSpeed; nv.defaultPlaybackRate=pvSpeed; pvMarkSpeed(pvSpeed)
     nv.addEventListener('ratechange',()=>{if(nv.playbackRate!==pvSpeed){pvSpeed=nv.playbackRate; pvMarkSpeed(pvSpeed)}})}
+  if(nv&&!keep&&!PV_RESTORED){PV_RESTORED=true; keep=savedPos(n)}
   if(nv&&keep){const restore=()=>{nv.currentTime=Math.min(keep.t,Math.max(0,nv.duration-0.5)); if(keep.playing) nv.play().catch(()=>{})};
     nv.readyState>=1?restore():nv.addEventListener('loadedmetadata',restore,{once:true})}
   const nb=$('#pvnew'); if(nb) nb.onclick=()=>swapPreview();
   const fb=$('#pvfs'); if(fb) fsIcon(fb);
-  const v=$('#pvv'); if(v){v.addEventListener('timeupdate',()=>onPreviewTime(false)); v.addEventListener('seeked',()=>onPreviewTime(true))}
+  const v=$('#pvv'); if(v){v.addEventListener('timeupdate',()=>{onPreviewTime(false); savePos(false)}); v.addEventListener('seeked',()=>{onPreviewTime(true); savePos(true)}); v.addEventListener('pause',()=>savePos(true))}
 }
+// Remember where he was, so a page refresh lands at the same moment instead of 0:00 (creator, 2026-10-21).
+// Saved per project: the second and the shot under it (id + offset), so a newer render with a shifted
+// timeline still lands on the same picture.
+let PV_RESTORED=false, pvSavedAt=0;
+function posKey(){return 'rv_pos:'+(PNAME||location.port)}
+function savePos(force){
+  const v=$('#pvv'); if(!v||!D||!(v.currentTime>0)) return;
+  if(!force&&Date.now()-pvSavedAt<1000) return; pvSavedAt=Date.now();
+  const i=shotAt(v.currentTime), s=D.shots[i], st=starts();
+  const o={t:v.currentTime, pv:PVNAME, id:s&&s.id, off:s?v.currentTime-st[i]:0};
+  try{localStorage.setItem(posKey(),JSON.stringify(o))}catch(e){}
+}
+function savedPos(name){
+  let o=null; try{o=JSON.parse(localStorage.getItem(posKey())||'null')}catch(e){}
+  if(!o||!(o.t>0)) return null;
+  if(o.pv&&o.pv===name) return {t:o.t};                       // same file: exact second
+  const i=D?D.shots.findIndex(s=>s.id===o.id&&isOn(s)):-1;     // newer render: same shot, same offset
+  if(i>=0) return {t:starts()[i]+Math.min(o.off||0,Math.max(0,sdur(D.shots[i])-0.1))};
+  return {t:o.t};
+}
+window.addEventListener('pagehide',()=>savePos(true));
+document.addEventListener('visibilitychange',()=>{if(document.hidden) savePos(true)});
 function swapPreview(){const v=$('#pvv'); loadPreview(v?{t:v.currentTime,playing:!v.paused&&!v.ended}:null)}
 async function checkNewPreview(){
   const n=await latestPreview(); if(!n||n===PVNAME) return;
