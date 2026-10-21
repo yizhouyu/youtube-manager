@@ -252,9 +252,12 @@ def place_tag(text, w, h, cache_dir, pos="tl"):
                             radius=int(size * 0.5), fill=(0, 0, 0, 120))
         d.ellipse([x + pad, y + pad * 0.7 + size * 0.3, x + pad + size * 0.4, y + pad * 0.7 + size * 0.7],
                   fill=(255, 214, 90, 255))
-        d.text((x + pad + size * 0.7, y + pad * 0.7), text, font=f, fill="white")
+        # centre the glyphs' real ink on the pill's midline (nominal top sat low, 117 review)
+        bb = d.textbbox((0, 0), text, font=f)
+        cy = y + (size + pad * 1.4) / 2
+        d.text((x + pad + size * 0.7, cy - (bb[1] + bb[3]) / 2), text, font=f, fill="white")
         return im
-    return _cached(cache_dir, f"tag|{text}|{w}x{h}" + (f"|{pos}" if pos != "tl" else ""), render)
+    return _cached(cache_dir, f"tag2|{text}|{w}x{h}" + (f"|{pos}" if pos != "tl" else ""), render)
 
 
 def _hex(c):
