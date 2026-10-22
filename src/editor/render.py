@@ -676,6 +676,18 @@ def render_segment_audio(edl, shot, fps_str, cache):
         out[_HS + L - n:_HS + L] *= np.linspace(1, 0, n, dtype=np.float32)[:, None]
         out[_HS + L:] = 0
         post = 0
+    # sound-only ramps (picture untouched): e.g. a voice re-entering after a music-free, quiet passage
+    afi, afo = float(shot.get("afade_in", 0) or 0), float(shot.get("afade_out", 0) or 0)
+    if afi:
+        n = min(L, int(round(afi * SR)))
+        out[_HS:_HS + n] *= np.linspace(0, 1, n, dtype=np.float32)[:, None]
+        out[:_HS] = 0
+        pre = 0
+    if afo:
+        n = min(L, int(round(afo * SR)))
+        out[_HS + L - n:_HS + L] *= np.linspace(1, 0, n, dtype=np.float32)[:, None]
+        out[_HS + L:] = 0
+        post = 0
     for fx in shot.get("sfx", []):   # sound effects (shot-local `at`), cut at the end of the post-handle
         if _tts_chain_on(edl) and is_tts_sfx(fx):
             continue                  # narration lines: mix_voiceover places them

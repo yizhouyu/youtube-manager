@@ -65,6 +65,7 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
                                                # speaker (e.g. a guide) before the final master; applied before
                                                # dialogue levelling, which then only corrects what's left
       "fade_in": 0, "fade_out": 0,             # seconds (video+audio)
+      "afade_in": 0, "afade_out": 0,           # seconds, sound only (the picture cuts as usual)
       "title": {"text": "Day 1", "sub": "圣约翰岛 St. John", "dur": 3.0},   # optional card at shot start
       "tag": "Mongoose Junction",              # optional small place label, top-left, first 3 s
                                                # (cards too); "tag_pos": "tr" = top-right (e.g. a series
