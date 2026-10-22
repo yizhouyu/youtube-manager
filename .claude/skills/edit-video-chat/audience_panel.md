@@ -46,7 +46,12 @@ This brief is for one episode of 「Yizhou的一周」, a New York-based softwar
 5. **Swipe-away moments:** timestamps where you'd leave, and why.
 6. **Lean-in moments:** timestamps, and the comment or 弹幕 you'd write there.
 7. **What you wanted more or less of.** Anything confusing: a caption gone too fast, a missing why, a place you didn't recognise.
-8. **Packaging.** Read the title(s) in `edit/publish_prep/draft_metadata.md` and look at the recommended cover in `02 - Export/thumbnail/`. Would you click? Do the first 30 s pay off what the title and cover promise?
+8. **Packaging. Experience it like a real viewer, in this order:**
+   - **The feed.** Before watching anything, look at each cover candidate in `02 - Export/thumbnail/` at phone-feed size (about 360 px wide) with its proposed title from `edit/publish_prep/draft_metadata.md` underneath, as YouTube would show them. Would you click? Which cover and title pair would you click first, and why? Is any text unreadable at that size?
+   - **The promise.** After watching, did the video deliver what the cover and title promised, and how early?
+   - **Below the video.** Read the description and chapters in `draft_metadata.md`. Is the first line worth reading? Do the chapter names make you jump to a part? Is anything missing that you went looking for: where, how much, how to book?
+   - **After the end.** Would you like, comment, subscribe, or click on to another video? What would you write in the comments?
+   If there's a B站 title or cover, judge it the same way, as a B站 user would see it.
 9. **The questions you'd type in the comments:** practical info, "where is this", "what's that".
 10. **Top 5 changes**, with timestamps.
 
@@ -74,6 +79,7 @@ Final message: a 5-line summary plus the report path.
 - After each run, improve this brief: what you wanted to know but didn't get. Log it below.
 
 ## Changelog
+- v7 2026-10-22: the viewer experiences the packaging like a real viewer: covers at feed size with titles before watching, then the promise check, the description and chapters, and what they would do after the end. Creator: 「也可以看看封面图、简介和标题什么的，就把他们当做一个真正的观众」.
 - v1 2026-10-22: first version (123 trailer, 120).
 - v2 2026-10-22, after 120:
   - fixable-vs-new-footage and objective-vs-taste tags;
