@@ -11,7 +11,9 @@ which parts of each raw clip end up in the current cut (enabled shots' kept rang
 b-roll inserts); the page re-reads it every 10 s so it tracks an edit in progress.
 
 Read-only: nothing inside the source folder is ever written. Probe results and thumbnails
-are cached under /tmp/yt-editor/<project>/.
+are cached under /tmp/yt-editor/<project>/. Hovering the timeline shows a thumbnail of that
+moment (YouTube-style storyboard, see storyboard.py), cached per clip in
+`02 - Export/edit/.storyboard/raw/<clip>/` and made in the background on first play/hover.
 """
 import argparse
 import json
@@ -21,6 +23,7 @@ import subprocess
 import threading
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import quote
 
 from flask import Flask, Response, abort, jsonify, send_file
 
@@ -28,6 +31,7 @@ from . import edl as E
 from . import questions as QS
 from . import chat as CHAT
 from . import theme as THEME
+from . import storyboard as SB
 
 CACHE_ROOT = "/tmp/yt-editor"
 DEFAULT_SOURCE = "01 - Unedited"
@@ -268,9 +272,35 @@ def upright(name, src):
     return out
 
 
+def storyboard(name):
+    """Storyboard index for a raw clip (queued in the background when missing). Built from the
+    original file with -noautorotate for the `noautorotate` clips, so it matches what plays."""
+    src = clip_file(name)
+    j = SB.request(src, os.path.join(E.edit_dir(PROJECT), SB.SUB, "raw", name), name in norot())
+    j["base"] = f"/storyboard/raw/{quote(name)}/"
+    return j
+
+
+@app.get("/api/storyboard/<name>")
+def api_storyboard(name):
+    return jsonify(storyboard(name))
+
+
+@app.get("/storyboard/raw/<name>/<sheet>")
+def storyboard_sheet(name, sheet):
+    clip_file(name)
+    if not SB.SHEET_RE.fullmatch(sheet):
+        abort(404)
+    p = os.path.join(E.edit_dir(PROJECT), SB.SUB, "raw", name, sheet)
+    if not os.path.isfile(p):
+        abort(404)
+    return send_file(p, mimetype="image/jpeg", max_age=86400)   # URLs carry ?k=<source key>
+
+
 @app.get("/clip/<name>")
 def clip(name):
     src = clip_file(name)
+    storyboard(name)
     if name in norot():
         src = upright(name, src)
     return send_file(src, mimetype="video/mp4", conditional=True)
@@ -369,8 +399,11 @@ body.showuse .seg.noedl{background:rgba(255,255,255,.4)}
 body.showuse .seg.cur{background:rgba(255,255,255,.38)}
 body:not(.showuse) .seg .u,body:not(.showuse) .item .ub,body:not(.showuse) .legend{display:none}
 .ph{position:absolute;top:2px;bottom:2px;width:4px;margin-left:-1px;background:#ff3b5c;border-radius:2px;pointer-events:none;z-index:2}
-.hover{position:absolute;bottom:22px;transform:translateX(-50%);background:rgba(20,20,20,.92);color:#fff;
-  font-size:12px;padding:3px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;display:none;font-variant-numeric:tabular-nums}
+/* hover tip: storyboard thumbnail of that moment + time/clip, like YouTube */
+.hover{position:absolute;bottom:36px;transform:translateX(-50%);color:#fff;z-index:5;
+  font-size:12px;white-space:nowrap;pointer-events:none;display:none;flex-direction:column;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+.hover .im{border:2px solid #fff;border-radius:7px;background-color:#000;background-repeat:no-repeat;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+.hover .tx{background:rgba(20,20,20,.92);padding:3px 8px;border-radius:6px}
 .qms{position:absolute;left:0;right:0;top:-11px;height:0;z-index:3}
 .qm{position:absolute;top:0;width:0;height:0;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;
   border-top:8px solid var(--q);cursor:pointer;filter:drop-shadow(0 0 1px rgba(0,0,0,.8))}
@@ -447,7 +480,7 @@ __QA_CSS__
     <div class="cap" id="cap"></div>
     <div class="ov" id="ov">
       <div class="tl-row"><div class="tl" id="tl"></div><div class="ph" id="ph"></div><div class="qms" id="qms"></div>
-        <div class="hover" id="hover"></div></div>
+        <div class="hover" id="hover"><div class="im"></div><div class="tx"></div></div></div>
       <div class="bar">
         <button id="play" title="播放 / 暂停（空格）"></button>
         <div class="inlamp" id="inlamp" title="这一帧有没有用在成片里"><i></i><span>未用</span></div>
@@ -608,11 +641,33 @@ tl.addEventListener('click',e=>jumpGlobal(tlAt(e)));
 (function(){let drag=false,last=0;const row=tl.parentElement;
   tl.addEventListener('pointerdown',e=>{drag=true;row.classList.add('drag');tl.setPointerCapture(e.pointerId);jumpGlobal(tlAt(e));e.preventDefault()});
   tl.addEventListener('pointermove',e=>{if(!drag)return;const now=performance.now();if(now-last<80)return;last=now;jumpGlobal(tlAt(e))});
-  const end=()=>{drag=false;row.classList.remove('drag')};tl.addEventListener('pointerup',end);tl.addEventListener('pointercancel',end)})();
-tl.addEventListener('mousemove',e=>{const g=tlAt(e);let i=0;while(i+1<clips.length&&starts[i+1]<=g)i++;
-  const h=$('hover');h.style.display='block';h.style.left=(g/total*100)+'%';
-  h.textContent=`${fmt(g)} · ${clips[i].clip} ${clips[i].when}`});
-tl.addEventListener('mouseleave',()=>$('hover').style.display='none');
+  const end=e=>{drag=false;row.classList.remove('drag');if(e.pointerType!=='mouse')$('hover').style.display='none'};
+  tl.addEventListener('pointerup',end);tl.addEventListener('pointercancel',end)})();
+// hover/drag on the timeline: thumbnail of that moment from the clip's storyboard (made in the background on
+// first hover/play; until it's ready only the time shows) — creator, 2026-10-21
+const SBC={};let hovX=null;
+function sbUrl(j,f){return j.base+f+'?k='+encodeURIComponent(j.key)}
+function sbGet(c){const s=SBC[c]||(SBC[c]={});
+  if(s.j||s.busy||Date.now()<(s.next||0))return s.j||null;
+  s.busy=true;
+  fetch('/api/storyboard/'+encodeURIComponent(c)).then(r=>r.json()).then(j=>{s.busy=false;
+    if(j.ready){s.j=j;j.sheets.forEach(f=>{new Image().src=sbUrl(j,f)});if(hovX!=null)hoverAt(hovX)}
+    else s.next=Date.now()+(j.state==='error'?60000:2500)}).catch(()=>{s.busy=false;s.next=Date.now()+5000});
+  return null}
+function hoverAt(cx){
+  if(!clips.length)return;hovX=cx;
+  const r=tl.getBoundingClientRect(),g=Math.max(0,Math.min(1,(cx-r.left)/r.width))*total;let i=0;while(i+1<clips.length&&starts[i+1]<=g)i++;
+  const c=clips[i],j=sbGet(c.clip),h=$('hover'),im=h.firstElementChild;
+  if(j){const k=Math.max(0,Math.min(j.count-1,Math.floor((g-starts[i])/j.interval))),per=j.cols*j.rows,n=k%per;
+    im.style.display='block';im.style.width=j.w+'px';im.style.height=j.h+'px';
+    im.style.backgroundImage=`url("${sbUrl(j,j.sheets[Math.floor(k/per)])}")`;
+    im.style.backgroundPosition=`${-(n%j.cols)*j.w}px ${-Math.floor(n/j.cols)*j.h}px`}
+  else im.style.display='none';
+  h.lastElementChild.textContent=`${fmt(g)} · ${c.clip} ${c.when}`;
+  h.style.display='flex';const w=h.offsetWidth,R=tl.parentElement.getBoundingClientRect();
+  h.style.left=Math.max(w/2,Math.min(R.width-w/2,cx-R.left))+'px'}
+tl.addEventListener('pointermove',e=>hoverAt(e.clientX));
+tl.addEventListener('pointerleave',e=>{if(!tl.parentElement.classList.contains('drag')){hovX=null;$('hover').style.display='none'}});
 $('play').onclick=toggle;
 const stage=$('stage'),ov=$('ov');
 stage.addEventListener('click',toggle);

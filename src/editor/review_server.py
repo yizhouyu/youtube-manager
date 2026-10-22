@@ -11,6 +11,9 @@ The renderer is expected to write `<project>/02 - Export/edit/render_status.json
     {"state": "running|done|error", "step": "...", "progress": 0.0-1.0,
      "output": "path", "error": "..."}
 Preview output is read from `<project>/02 - Export/edit/preview.mp4`.
+
+Hovering the player's timeline shows a thumbnail of that moment (YouTube-style storyboard,
+see storyboard.py); sprites are cached in `02 - Export/edit/.storyboard/<preview name>/`.
 """
 import argparse
 import json
@@ -28,6 +31,7 @@ from . import edl as E
 from . import questions as QS
 from . import chat as CHAT
 from . import theme as THEME
+from . import storyboard as SB
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CACHE_ROOT = "/tmp/yt-editor"
@@ -55,6 +59,33 @@ def status_path():
 
 def preview_path():
     return os.path.join(edit_dir(), "preview.mp4")
+
+
+def preview_file(v):
+    """'preview.mp4' or 'previews/preview-<stamp>.mp4' (what the page plays) -> (path, stem) or None."""
+    if v == "preview.mp4":
+        return preview_path(), "preview"
+    m = re.fullmatch(r"previews/(preview-\d{8}-\d{6})\.mp4", v or "")
+    if m:
+        return os.path.join(edit_dir(), "previews", m[1] + ".mp4"), m[1]
+    return None
+
+
+def storyboard(v):
+    """Storyboard index for a preview file, queueing it in the background when missing."""
+    pf = preview_file(v)
+    if not pf or not os.path.isfile(pf[0]):
+        return None
+    root = os.path.join(edit_dir(), SB.SUB)
+    j = SB.request(pf[0], os.path.join(root, pf[1]))
+    if not j.get("ready"):   # a new render: drop storyboards of versions that are gone
+        vdir = os.path.join(edit_dir(), "previews")
+        keep = {pf[1]} | {f[:-4] for f in (os.listdir(vdir) if os.path.isdir(vdir) else []) if f.endswith(".mp4")}
+        if os.path.isfile(preview_path()):
+            keep.add("preview")
+        SB.prune(root, keep)
+    j["base"] = f"/storyboard/{pf[1]}/"
+    return j
 
 
 def src_clip(edl, clip):
@@ -270,6 +301,7 @@ def preview():
     p = preview_path()
     if not os.path.isfile(p):
         abort(404)
+    storyboard("preview.mp4")
     return send_file(p, mimetype="video/mp4", conditional=True, max_age=0)
 
 
@@ -287,8 +319,27 @@ def preview_version(name):
     p = os.path.join(edit_dir(), "previews", name)
     if not os.path.isfile(p):
         abort(404)
+    storyboard("previews/" + name)
     # versions never change once written, so the browser may cache them
     return send_file(p, mimetype="video/mp4", conditional=True, max_age=3600)
+
+
+@app.get("/api/storyboard")
+def api_storyboard():
+    j = storyboard(request.args.get("v", ""))
+    if j is None:
+        abort(404)
+    return jsonify(j)
+
+
+@app.get("/storyboard/<stem>/<sheet>")
+def storyboard_sheet(stem, sheet):
+    if not re.fullmatch(r"preview(-\d{8}-\d{6})?", stem) or not SB.SHEET_RE.fullmatch(sheet):
+        abort(404)
+    p = os.path.join(edit_dir(), SB.SUB, stem, sheet)
+    if not os.path.isfile(p):
+        abort(404)
+    return send_file(p, mimetype="image/jpeg", max_age=86400)   # URLs carry ?k=<source key>
 
 
 @app.get("/clip/<name>")
@@ -405,13 +456,21 @@ body.dirty #bSave kbd{color:var(--accent);border-color:var(--accent-line)}
 #nowrow .keys button{border:0;background:transparent;padding:0 2px;font-size:12px;color:var(--text-3);height:auto}
 #nowrow .keys button:hover{color:var(--text)}
 #pv .none{color:var(--stage-mute);padding:30px;font-size:14px;text-align:center}
-#qstrip{display:none;position:relative;height:14px;margin:6px auto 0;cursor:default}
-body.hasq #qstrip.on{display:block}
-#qstrip .tr{position:absolute;left:0;right:0;top:9px;height:3px;border-radius:2px;background:var(--line-2)}
+/* slim scrub bar under the picture: hover = thumbnail of that moment, click/drag = seek; question markers on top */
+#qstrip{display:none;position:relative;height:14px;margin:6px auto 0;cursor:pointer;touch-action:none}
+#qstrip.on{display:block}
+#qstrip .tr{position:absolute;left:0;right:0;top:9px;height:3px;border-radius:2px;background:var(--line-2);transition:top .12s,height .12s}
+#qstrip:hover .tr,#qstrip.drag .tr{top:8px;height:5px}
 #qstrip .ph{position:absolute;top:6px;width:2px;height:9px;margin-left:-1px;background:var(--text-3);border-radius:1px}
 #qstrip .qm{position:absolute;top:0;width:0;height:0;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;
   border-top:9px solid var(--q);cursor:pointer}
 #qstrip .qm.done{border-top-color:var(--used)}
+/* storyboard tip: thumbnail + time (+ the shot under it) above the timeline being hovered */
+#pvwrap{position:relative}
+#sbtip{position:absolute;z-index:7;display:none;flex-direction:column;align-items:center;gap:4px;pointer-events:none}
+#sbtip .im{border:2px solid #fff;border-radius:7px;background-color:#000;background-repeat:no-repeat;box-shadow:0 2px 10px rgba(0,0,0,.45)}
+#sbtip .tx{background:rgba(20,20,20,.88);color:#fff;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+#sbtip .tx i{font-style:normal;font-weight:400;opacity:.8;margin-left:6px;display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
 /* under the player, like a video title: which shot is playing + the keys */
 #nowrow{display:flex;align-items:baseline;gap:12px;padding:10px 2px 0;min-width:0}
 #nowt{font-size:17px;font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -555,7 +614,8 @@ __QA_CSS__
 <div class="theater" data-fsroot>
 <main class="stage">
   <div id="pvwrap"><div id="pv"><div class="none">还没有预览，点右上角「更新预览」生成</div></div>
-    <div id="qstrip" title="黄色 = 有问题想问你（点一下跳过去），绿色 = 已回答"><div class="tr"></div><div class="ph"></div><div id="qmarks"></div></div>
+    <div id="qstrip" title="拖动或点一下跳到那里 · 黄色 = 有问题想问你，绿色 = 已回答"><div class="tr"></div><div class="ph"></div><div id="qmarks"></div></div>
+    <div id="sbtip"><div class="im"></div><div class="tx"></div></div>
     <div id="nowrow"><span id="nowt"></span><span class="sp"></span>
       <span class="keys"><span><kbd>空格</kbd> 播放/暂停</span><span><kbd>←</kbd><kbd>→</kbd> 5 秒</span><span><button id="fsHint" title="全屏时右边留着聊天（C 切换成悬浮）"><kbd>F</kbd> 全屏</button></span></span></div></div>
   <section id="edits" class="panel">
@@ -919,6 +979,7 @@ async function loadPreview(keep){
     nv.readyState>=1?restore():nv.addEventListener('loadedmetadata',restore,{once:true})}
   const nb=$('#pvnew'); if(nb) nb.onclick=()=>swapPreview();
   const fb=$('#pvfs'); if(fb) fsIcon(fb);
+  sbHide(); sbLoad(src?src.replace(/^\//,'').replace(/\?.*$/,''):'');
   const v=$('#pvv'); if(v){v.addEventListener('timeupdate',()=>{onPreviewTime(false); savePos(false)}); v.addEventListener('seeked',()=>{onPreviewTime(true); savePos(true)}); v.addEventListener('pause',()=>savePos(true))}
 }
 // Remember where he was, so a page refresh lands at the same moment instead of 0:00 (creator, 2026-10-21).
@@ -942,6 +1003,58 @@ function savedPos(name){
   return {t:o.t};
 }
 window.addEventListener('pagehide',()=>savePos(true));
+// ---- storyboard: hovering a timeline shows the frame at that moment, like YouTube (creator, 2026-10-21).
+// Two timelines: the native seek bar on the picture, and the slim bar under it (also click/drag to seek).
+// The sprites are made in the background after a new preview appears; until then only the time shows.
+let SB=null, sbFor='', sbBy='';
+function sbUrl(j,f){return j.base+f+'?k='+encodeURIComponent(j.key)}
+function sbLoad(v){
+  sbFor=v; SB=null; if(!v) return;
+  const go=()=>{if(sbFor!==v) return;
+    fetch('/api/storyboard?v='+encodeURIComponent(v)).then(r=>r.json()).then(j=>{
+      if(sbFor!==v) return;
+      if(j.ready){SB=j; j.sheets.forEach(f=>{new Image().src=sbUrl(j,f)})}   // preload: hover is instant
+      else if(j.state!=='error') setTimeout(go,3000)}).catch(()=>setTimeout(go,10000))};
+  go();
+}
+// t = seconds; x = px in #pvwrap under the pointer; y = px in #pvwrap the tip sits above; [x0,x1] = keep inside
+function sbShow(t,x,y,x0,x1,by){
+  const tip=$('#sbtip'), im=tip.querySelector('.im'); sbBy=by;
+  if(SB){const k=Math.max(0,Math.min(SB.count-1,Math.floor(t/SB.interval))), per=SB.cols*SB.rows, n=k%per;
+    im.style.display='block'; im.style.width=SB.w+'px'; im.style.height=SB.h+'px';
+    im.style.backgroundImage=`url("${sbUrl(SB,SB.sheets[Math.floor(k/per)])}")`;
+    im.style.backgroundPosition=`${-(n%SB.cols)*SB.w}px ${-Math.floor(n/SB.cols)*SB.h}px`}
+  else im.style.display='none';
+  let sh=''; if(D){const i=shotAt(t), s=D.shots[i]; if(s) sh=`<i>#${i+1} ${esc(s.note||s.clip)}</i>`}
+  tip.querySelector('.tx').innerHTML=fmt(t)+sh;
+  tip.style.display='flex';
+  const w=tip.offsetWidth, h=tip.offsetHeight;
+  tip.style.left=Math.max(x0,Math.min(x1-w,x-w/2))+'px'; tip.style.top=(y-h-8)+'px';
+}
+function sbHide(by){if(by&&sbBy!==by) return; $('#sbtip').style.display='none'; sbBy=''}
+// the slim bar under the picture
+(function(){const st=$('#qstrip'); let drag=false, last=0;
+  const at=e=>{const r=st.getBoundingClientRect(), v=$('#pvv'); return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*((v&&v.duration)||0)};
+  const show=e=>{const v=$('#pvv'); if(!v||!v.duration) return; const W=$('#pvwrap').getBoundingClientRect(), r=st.getBoundingClientRect();
+    sbShow(at(e),e.clientX-W.left,r.top-W.top,r.left-W.left,r.right-W.left,'strip')};
+  st.addEventListener('pointermove',e=>{show(e); if(!drag) return; const now=performance.now(); if(now-last<60) return; last=now; $('#pvv').currentTime=at(e)});
+  st.addEventListener('pointerleave',()=>{if(!drag) sbHide('strip')});
+  st.addEventListener('pointerdown',e=>{const v=$('#pvv'); if(e.button||!v||!v.duration||e.target.closest('.qm')) return;
+    drag=true; st.classList.add('drag'); st.setPointerCapture(e.pointerId); v.currentTime=at(e); show(e); e.preventDefault()});
+  const end=e=>{if(!drag) return; drag=false; st.classList.remove('drag'); const v=$('#pvv'); if(v&&v.duration) v.currentTime=at(e);
+    const r=st.getBoundingClientRect(); if(e.pointerType!=='mouse'||e.clientY<r.top-4||e.clientY>r.bottom+4) sbHide('strip')};
+  st.addEventListener('pointerup',end); st.addEventListener('pointercancel',end);
+})();
+// the native seek bar on the picture: Chrome draws it NB.x px in from both edges, NB.y0–NB.y1 px above the bottom
+const NB={x:16, y0:0, y1:30};
+$('#pv').addEventListener('mousemove',e=>{
+  const v=$('#pvv'); if(!v||e.target!==v||!v.duration){sbHide('native'); return}
+  const r=v.getBoundingClientRect(), dy=r.bottom-e.clientY;
+  if(dy<NB.y0||dy>NB.y1||e.clientX<r.left+NB.x-4||e.clientX>r.right-NB.x+4){sbHide('native'); return}
+  const W=$('#pvwrap').getBoundingClientRect(), t=Math.max(0,Math.min(1,(e.clientX-r.left-NB.x)/(r.width-2*NB.x)))*v.duration;
+  sbShow(t,e.clientX-W.left,r.bottom-NB.y1-W.top,r.left-W.left+4,r.right-W.left-4,'native');
+});
+$('#pv').addEventListener('mouseleave',()=>sbHide('native'));
 document.addEventListener('visibilitychange',()=>{if(document.hidden) savePos(true)});
 function swapPreview(){const v=$('#pvv'); loadPreview(v?{t:v.currentTime,playing:!v.paused&&!v.ended}:null)}
 async function checkNewPreview(){
@@ -1130,6 +1243,9 @@ def main():
     PROJECT = os.path.abspath(E.project_dir(a.project))
     if not os.path.isfile(E.edl_path(PROJECT)):
         sys.exit(f"No EDL at {E.edl_path(PROJECT)}")
+    vdir = os.path.join(edit_dir(), "previews")
+    latest = sorted(f for f in os.listdir(vdir) if f.startswith("preview-")) if os.path.isdir(vdir) else []
+    storyboard("previews/" + latest[-1] if latest else "preview.mp4")   # warm the hover thumbnails
     print(f"Review page: http://{a.host}:{a.port}/")
     app.run(host=a.host, port=a.port, threaded=True, debug=False)
 

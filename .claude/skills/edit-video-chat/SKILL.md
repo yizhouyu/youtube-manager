@@ -434,6 +434,14 @@ open -a "Google Chrome" "file://<project>/02 - Export/thumbnail/editorial.html" 
 Creator order (2026-10-09): cover/thumbnail page first, then 8765, then 8766. Use the exact port assignments in that episode's `edit/HANDOFF.md` if they override the defaults.
 Opening the URLs does not start either server or the chat listener.
 
+**Hover thumbnails (creator, 2026-10-21).** Both pages show a YouTube-style frame preview + time while
+hovering/dragging the timeline (8766: the native seek bar and the slim bar under the picture, which also
+seeks on click/drag, plus the shot under that time; 8765: the whole-trip bar). Sprites come from
+`src/editor/storyboard.py`, made lazily in the background (one job at a time across both servers, nice'd,
+VideoToolbox decode — ~15–20 s wall / ~2.5 s CPU for a 5-min 1080p preview) and cached in
+`edit/.storyboard/<preview name>/` and `edit/.storyboard/raw/<clip>/`, keyed by file size+mtime, so a
+new render regenerates on its own. Until ready the tip shows only the time. Safe to delete the folder.
+
 **Review chat (creator, 2026-10-01).** Both pages have a "和 Agent 聊" box. Its `chat watch` heartbeat
 is runtime-neutral and works from Claude Code or Codex; `chat reply` detects the active runtime and
 labels replies accordingly (`CHAT_AGENT=claude-code|codex` overrides detection when needed).
