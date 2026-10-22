@@ -28,6 +28,7 @@ The goal is videos that viewers love and that grow subscribers, not conformity w
   - paper-style notes;
   - fast pacing with rare close-ups kept.
 - **Write durable lessons back** here or into LESSONS.md.
+- **This file is a floor, not a ceiling (creator, 2026-10-22, second time):** 「我不希望…skills…把你的想象力框死了」. Know his taste, then go further on your own. When a section here conflicts with a better idea for *this* video, try the idea and say why in HANDOFF. Sub-agent specs give goals + hard constraints, not recipes, and invite one idea of the agent's own.
 
 ## Batch mode (the creator is away / reviews later)
 
