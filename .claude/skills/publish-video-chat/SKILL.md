@@ -119,6 +119,12 @@ clutter. The art director's top pick lost 3 of 7 times, always to the option wit
 distinctive hero or fewer elements — weight those. Never offer equal strips/grids again (not even
 as "old" comparison options), and use his face only in a clearly flattering frame.
 
+**Judge every cover at feed size (creator, 2026-10-22, 123 map cover):** 「封面的话其实大家是看不到那些小字的」.
+- Before recommending a candidate, save and look at a 360 px-wide copy (phone feed) and a 168 px-wide copy (sidebar).
+- Anything unreadable at 360 px doesn't belong on the cover: place labels, tiny photo windows, edition marks, long sublines.
+- Use at most 2 big text elements.
+- Show the 360 px previews next to each candidate on the review page.
+
 **Local review pages get a favicon (creator, 2026-09-29):** every HTML page made for the creator
 (thumbnail `review.html`, Shorts compare pages, …) includes a clean favicon so its tab is
 recognisable: `from src.editor.favicon import link` → put `link("thumb")` (or "short"/"cut"/"raw")
