@@ -30,8 +30,19 @@ Deliver your report (≤ 700 words) to `<PROJ>/02 - Export/edit/qa/audience_<per
 3. **Lean-in moments:** timestamps where you leaned in. The B站 persona also writes the 弹幕 they'd send.
 4. **What you wanted more of** (or less of), and anything confusing: a caption you couldn't read in time, a missing why, a place you didn't recognise.
 5. **Top 5 concrete changes:** cut, trim, hold longer, reorder, add a note, music. Give timestamps.
+   - Tag each change **[剪辑可改]** (doable with the footage that exists) or **[需要新素材]**. The editor can't reshoot, so concentrate on [剪辑可改].
+   - Tag each issue **objective** (a typo, a level jump, an unreadable caption) or **taste**.
+6. **In one sentence, in your own words: what is this video about?** If you can't say, that's a clarity problem.
+7. **Packaging.** Read the proposed title(s) in `edit/publish_prep/draft_metadata.md` and look at the recommended cover in `02 - Export/thumbnail/`. Answer two questions:
+   - Would you click?
+   - Does the first 30 s pay off what the title and cover promise?
+8. **Long sequences.** For each long sequence (a show, a drive, a meal, anything over 30 s on one subject), give a keep/trim verdict with the seconds you'd keep and the best moment inside it.
+9. **The questions you'd type in the comments.** Practical info, "where is this", "what's that". The editor can answer them with notes.
+
+Measurement rules: name the measure for every loudness number you cite. Use ffmpeg `ebur128` and its short-term (3 s) values. Report a jump as "X LU above the 10 s around it".
 
 Final message: a 5-line summary plus the report path.
 
 ## Changelog
 - v1 2026-10-22: first version (123 trailer, 120).
+- v2 2026-10-22 (after 120): added fixable-vs-new-footage and objective-vs-taste tags, one-sentence summary, packaging check (title/cover vs first 30 s), per-sequence keep/trim verdicts, comment questions, loudness measured as short-term LU vs surroundings (120 reports quoted "−9 LUFS" without saying which measure).
