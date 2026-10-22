@@ -1256,7 +1256,7 @@ def render(project, mode):
         if edl.get("master") == "loudnorm":  # legacy chain (dynamic loudnorm + blind limiter), kept as a fallback
             master = _master_loudnorm(f"{work}/mix.wav", f"{work}/master.m4a")
         else:
-            master = _master(f"{work}/mix.wav", f"{work}/master.m4a")
+            master = _master(f"{work}/mix.wav", f"{work}/master.m4a", target=float(edl.get("master_lufs", MASTER_I)))
         _run(["ffmpeg", "-v", "error", "-y", "-i", f"{work}/video.mp4", "-i", f"{work}/master.m4a",
               "-map", "0:v", "-map", "1:a", "-c", "copy", "-movflags", "+faststart",
               "-f", "mov" if out.endswith(".mov") else "mp4", tmp])
@@ -1361,11 +1361,12 @@ def _master_af(gain, ceil):
             f"alimiter=limit={lim:.5f}:attack=1:release=80:level=false:latency=1,aresample={SR}")
 
 
-def _master(mix_wav, out_m4a, codec=None):
-    """Master `mix_wav` into `out_m4a` (AAC). Returns the stats written to render_status.json."""
+def _master(mix_wav, out_m4a, codec=None, target=MASTER_I):
+    """Master `mix_wav` into `out_m4a` (AAC) at `target` LUFS (EDL "master_lufs", default -14; a quieter
+    target suits music-only scenic cuts). Returns the stats written to render_status.json."""
     codec = codec or _aac()
     m0 = _measure(mix_wav)
-    gain, ceil = round(MASTER_I - m0["I"], 2), MASTER_CEIL0
+    gain, ceil = round(target - m0["I"], 2), MASTER_CEIL0
     attempts = []
     for it in range(1, MASTER_ITERS + 1):
         path = f"{out_m4a}.try{it}.m4a"
@@ -1374,16 +1375,16 @@ def _master(mix_wav, out_m4a, codec=None):
         attempts.append(dict(m, gain=gain, ceil=ceil, path=path, iter=it))
         print(f"[master] try {it}: gain {gain:+.2f} dB, ceiling {ceil:.2f} dBFS -> "
               f"I {m['I']:.1f} LUFS, TP {m['TP']:.1f} dBTP, LRA {m['LRA']:.1f}", flush=True)
-        gain, ceil, done = master_step(gain, ceil, m["I"], m["TP"], master_slope(attempts))
+        gain, ceil, done = master_step(gain, ceil, m["I"], m["TP"], master_slope(attempts), target=target)
         if done:
             break
-    best = attempts[-1] if done else master_pick(attempts)
+    best = attempts[-1] if done else master_pick(attempts, target=target)
     os.replace(best["path"], out_m4a)
     for a in attempts:
         if os.path.exists(a["path"]):
             os.remove(a["path"])
-    ok = best["TP"] <= MASTER_TP and abs(best["I"] - MASTER_I) <= 0.5
-    return {"I": best["I"], "TP": best["TP"], "LRA": best["LRA"], "gain_db": best["gain"],
+    ok = best["TP"] <= MASTER_TP and abs(best["I"] - target) <= 0.5
+    return {"target_I": target, "I": best["I"], "TP": best["TP"], "LRA": best["LRA"], "gain_db": best["gain"],
             "ceiling_db": best["ceil"], "iterations": len(attempts), "mix_I": m0["I"], "mix_TP": m0["TP"],
             "mix_LRA": m0["LRA"], "method": "linear+tp-loop", "codec": codec[1], "ok": ok}
 
