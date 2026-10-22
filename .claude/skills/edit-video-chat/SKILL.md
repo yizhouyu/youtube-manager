@@ -415,6 +415,27 @@ back into the file (poll it; add questions any time, the pages pick them up with
 `./venv/bin/python -m src.editor.questions "<project>" add "问题" --clip GX015467 --clip-t 1.0 [--t <cut s>] [--context "…"]`
 (give either anchor; the other is filled from the EDL). `... questions "<project>" list` shows answers.
 
+## 2d. Note + tag fact-check pass — before the FIRST preview (creator, 2026-10-22: 「以后能不能做到第一遍就改对」)
+Every yellow note and place tag gets checked against **the frame on screen at that moment** and
+**a source**, before the creator ever sees the cut. Pull a still at each note's start and end and
+each tag's first frame, read them, and fix:
+1. **Picture match.** The note describes what is visible *while it is on screen*; trim t1 so it ends
+   before the picture changes subject. Place tags match the sign/building actually in frame (ep 120:
+   the tag said 奥特亚罗瓦 while a TONGA gate was on screen).
+2. **What things are.** Name objects from the frame, not from memory (ep 120: "poi with dried fish"
+   was wooden tasting sticks; "石像" moai are a concrete-like material per the site).
+3. **Precise wording.** Category words must be true (Hawaiʻi/Aotearoa aren't 岛国 → 岛屿文化);
+   translations of native terms only if a source agrees on them.
+4. **Contested numbers → ranges.** If two sources disagree (70 % vs 80 %, 300 vs 450 mantas), write
+   大多 / 几百 instead of picking one. No claim that only a tour operator makes.
+5. **Add the interesting why.** Prefer meaning/origin/how-it-formed over a bare label (Kualoa = one of
+   Oʻahu's most sacred places; fire-knife dance grew out of the war-club dance).
+6. **Length and layout.** ≤ ~26 characters; first mention of a place gets its local name once
+   (莫科利伊 Mokoliʻi); no overlap with speech captions or tags (lint).
+7. **Sources** for every fact go into `edit/research.md` (URL + one line); unverifiable → leave it out.
+Record the pass in HANDOFF ("notes checked: N kept, M fixed"). The independent QA reviewer re-checks a
+sample against frames.
+
 ## 3. Render + review
 
 ```bash
