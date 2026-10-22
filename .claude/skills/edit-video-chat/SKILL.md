@@ -563,10 +563,15 @@ You direct, the panel advises.
 
 First runs: 123, 120, 121 (two viewer seats, v1–v5); 122 (v4).
 
-**Where the panel sits (default, still being tuned with the creator, 2026-10-22).** His workflow is: rough cut → he reviews which raw clips were kept (footage player) and gives feedback → update → he reviews the preview.
-1. **Rough cut → peer director.** Before his raw-selection review, the director proposes additions, cuts, structure and craft ideas. Apply what you agree with, then hand the cut to him.
-2. **His selection feedback.** It overrides the panel. Record any overridden panel suggestion in HANDOFF under "decided by creator", and pass those decisions to later panel runs as settled.
-3. **Update → viewer.** Before he watches the preview, the viewer checks the near-final experience: swipe-away points, clarity, misleading notes, packaging. Fix the objective issues (levels, typos, misleading notes) before he reviews. Both 123 viewers scored it 5/10, which led to the opening, pace and wall changes.
+**Where the panel sits** (creator, 2026-10-22). His workflow:
+1. I rough-cut.
+2. He reviews which raw clips I kept (footage player) and gives feedback.
+3. I update, and he watches the preview right away.
+
+So **both seats run on the rough cut, before he looks at the selection.** The director checks additions, cuts, structure and craft; the viewer checks swipe-away points, clarity, misleading notes and packaging. Apply what you agree with, re-render, and only then hand him the selection. 「我会希望你在一开始就其实有过跟小弟的思考，不用等到我看预览之前」.
+
+- **His selection feedback overrides the panel.** Record any panel suggestion he overrode in HANDOFF under "decided by creator", and tell later panel runs those points are settled.
+- **After his feedback:** update and render the preview at once. Don't run the panel again before he watches; do your own objective QA only (levels, typos, notes fact-check §2d). Both 123 viewers scored it 5/10, which led to the opening, pace and wall changes.
 
 **Every video must get better than the last (creator's standing ask):**
 - The reviewer doesn't only find faults: every round it also proposes 3–5 concrete *improvement
