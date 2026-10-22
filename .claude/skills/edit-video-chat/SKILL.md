@@ -561,7 +561,12 @@ You direct, the panel advises.
 - Record decisions and scores in HANDOFF under "Panel round". Keep the reports in `edit/qa/panel_*.md`.
 - After every run, improve the brief with what you wanted to know but didn't get, and log the change in its changelog.
 
-First runs: 123, 120, 121 (two viewer seats, v1–v5); 122 (v4). Both 123 viewers scored it 5/10, which led to the opening, pace and wall changes.
+First runs: 123, 120, 121 (two viewer seats, v1–v5); 122 (v4).
+
+**Where the panel sits (default, still being tuned with the creator, 2026-10-22).** His workflow is: rough cut → he reviews which raw clips were kept (footage player) and gives feedback → update → he reviews the preview.
+1. **Rough cut → peer director.** Before his raw-selection review, the director proposes additions, cuts, structure and craft ideas. Apply what you agree with, then hand the cut to him.
+2. **His selection feedback.** It overrides the panel. Record any overridden panel suggestion in HANDOFF under "decided by creator", and pass those decisions to later panel runs as settled.
+3. **Update → viewer.** Before he watches the preview, the viewer checks the near-final experience: swipe-away points, clarity, misleading notes, packaging. Fix the objective issues (levels, typos, misleading notes) before he reviews. Both 123 viewers scored it 5/10, which led to the opening, pace and wall changes.
 
 **Every video must get better than the last (creator's standing ask):**
 - The reviewer doesn't only find faults: every round it also proposes 3–5 concrete *improvement
