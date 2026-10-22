@@ -551,7 +551,17 @@ Payoff (reveal/reaction/animal/laugh), Audio health (ducking, no jumps, same tra
 intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 4/10 = boredom risk;
 > 2 in a row = restructure that section. Put the score table in HANDOFF.md.
 
-**Audience panel — before the creator's 审片 (creator, 2026-10-22: 「让小弟来当观众…写进整个工作流」):** after the QA reviewer, run 2 sub-agents who watch the preview *as viewers*, not editors — one a Chinese-speaking YouTube viewer who doesn't know the channel, one a B站 user (20s, likes travel/outdoors/animals). Give each the preview (contact sheets ~1 frame/s, modest size — token thrift), the per-second loudness, and the channel's video list (titles), plus the known-pending fixes so they don't re-report. Each returns: scores 1–10 (hook, clarity, pace, visuals, sound, peak, would-subscribe), swipe-away and lean-in timestamps (B站: the 弹幕 they'd send), what they wanted to see more of, and top 5 changes. The director (not the panel) decides what to apply; record the decision list + scores in HANDOFF and keep reports in `edit/qa/audience_*.md`. First used on 123: both said 5/10, which led to the opening, pace and wall changes. The brief is `audience_panel.md` (next to this file). **Improve it after every run** (creator, 2026-10-22): note what you wanted to know but the panel didn't answer, or answered vaguely, and update the brief before the next episode's panel; log the change in its changelog.
+**Review panel: a viewer + a peer director, before the creator's 审片** (creator, 2026-10-22: 「让小弟来当观众…写进整个工作流」, then 「一个是 YouTube，一个是你的同行导演」). Run it after the QA reviewer. Two sub-agents work in parallel from `audience_panel.md` (next to this file):
+- **The viewer** is a Chinese-speaking YouTube viewer new to the channel. Returns scores, swipe-away and lean-in moments, packaging (title and cover vs. the first 30 s), the questions people would ask in comments, and misleading notes.
+- **The peer director (同行导演)** is a fellow travel-vlog editor. Returns raw-footage moments to **add**, giving the clip, the second and where each goes, plus trims, and at least 5 concrete craft ideas: transitions, effects, graphics, music, sound, structure. One bold idea is welcome.
+
+You direct, the panel advises.
+- Adopt **additions**, not only cuts.
+- Try at least one of the director's craft ideas each round, unless it's clearly wrong for this episode.
+- Record decisions and scores in HANDOFF under "Panel round". Keep the reports in `edit/qa/panel_*.md`.
+- After every run, improve the brief with what you wanted to know but didn't get, and log the change in its changelog.
+
+First runs: 123, 120, 121 (two viewer seats, v1–v5); 122 (v4). Both 123 viewers scored it 5/10, which led to the opening, pace and wall changes.
 
 **Every video must get better than the last (creator's standing ask):**
 - The reviewer doesn't only find faults: every round it also proposes 3–5 concrete *improvement
