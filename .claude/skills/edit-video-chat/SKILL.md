@@ -297,6 +297,16 @@ values to test, not laws.
   - trip-series day markers (「…· 第 1/3 天」);
   - one plain reflective closing line at a trip finale.
 
+### 2b-style. Borrowed craft from lemo-opuscar + huashu-art-motion (creator, 2026-10-22: 「学到的点也可以运用在以后的视频里」)
+Full notes: `~/Desktop/AI Showcase/playbook/references/{lemo-opuscar,huashu-art-motion}.md`. Use them as experience, not a checklist; pick what fits the episode.
+- **Judge in this order: sound → rhythm → camera → directing.** Pretty frames are the starting point.
+- **Every visible action has a sound** matched to its material (door, splash, footsteps, card snap); cards and maps get foley, not silence.
+- **At least two real silences** in a long video, with the key sound/line right after one; **≥2 sound-led transitions** (J/L cuts).
+- **Cuts on the beat grid** in music-only montages; to speed up, shorten segments instead of a faster track; land the reveal on the downbeat.
+- **Reading time:** on-screen text ≥ CJK chars ÷ 4.5 + 1.5 s; captions ≥ max(1.8 s, speech + 0.6 s).
+- **One signature move per film** (an opener style, a match cut, a stamp), placed at the emotional peak; the ending echoes the opening.
+- **Transitions from the material itself** (ink, paper, water, the trip's own texture) rather than generic wipes; design one frame right before animating it.
+
 ## 2b-copyright. Copyright risk in clip audio (creator, 2026-10-08)
 Every episode keeps `edit/copyright_risk.md`: one line per shot that has audible music, with its class and what was done.
 - **Certain risk → fix it without asking:** recorded music, especially with vocals: car stereos, shop or restaurant speakers, a DJ, arena or PA songs.
