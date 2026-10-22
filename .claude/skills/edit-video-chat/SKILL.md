@@ -550,6 +550,8 @@ Payoff (reveal/reaction/animal/laugh), Audio health (ducking, no jumps, same tra
 intended), plus Promise for 0–30 s (peak + promise line by 8 s). A window ≤ 4/10 = boredom risk;
 > 2 in a row = restructure that section. Put the score table in HANDOFF.md.
 
+**Audience panel — before the creator's 审片 (creator, 2026-10-22: 「让小弟来当观众…写进整个工作流」):** after the QA reviewer, run 2 sub-agents who watch the preview *as viewers*, not editors — one a Chinese-speaking YouTube viewer who doesn't know the channel, one a B站 user (20s, likes travel/outdoors/animals). Give each the preview (contact sheets ~1 frame/s, modest size — token thrift), the per-second loudness, and the channel's video list (titles), plus the known-pending fixes so they don't re-report. Each returns: scores 1–10 (hook, clarity, pace, visuals, sound, peak, would-subscribe), swipe-away and lean-in timestamps (B站: the 弹幕 they'd send), what they wanted to see more of, and top 5 changes. The director (not the panel) decides what to apply; record the decision list + scores in HANDOFF and keep reports in `edit/qa/audience_*.md`. First used on 123: both said 5/10, which led to the opening, pace and wall changes.
+
 **Every video must get better than the last (creator's standing ask):**
 - The reviewer doesn't only find faults: every round it also proposes 3–5 concrete *improvement
   ideas* (e.g. re-cut a B-roll run to the music beat, a route/map animation between places, a
