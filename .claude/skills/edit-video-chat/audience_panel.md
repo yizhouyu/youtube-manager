@@ -37,6 +37,8 @@ Deliver your report (≤ 700 words) to `<PROJ>/02 - Export/edit/qa/audience_<per
    - Would you click?
    - Does the first 30 s pay off what the title and cover promise?
 8. **Long sequences.** For each long sequence (a show, a drive, a meal, anything over 30 s on one subject), give a keep/trim verdict with the seconds you'd keep and the best moment inside it.
+10. **Notes that might mislead.** A note can be literally true and still read wrong next to the picture. Example, 121: 「1945年日本在此签署投降书」 shown at Pearl Harbor, when the signing was on the USS Missouri in Tokyo Bay. List any such note, and any label pointing at the wrong object.
+11. **Privacy.** List clearly visible stranger faces held for 1 s or more.
 9. **The questions you'd type in the comments.** Practical info, "where is this", "what's that". The editor can answer them with notes.
 
 Measurement rules: name the measure for every loudness number you cite. Use ffmpeg `ebur128` and its short-term (3 s) values. Report a jump as "X LU above the 10 s around it".
@@ -45,4 +47,5 @@ Final message: a 5-line summary plus the report path.
 
 ## Changelog
 - v1 2026-10-22: first version (123 trailer, 120).
+- v3 2026-10-22 (after 121): explicit asks for misleading notes / wrong-object labels and stranger faces (the 121 YouTube viewer caught both unprompted; make it standard).
 - v2 2026-10-22 (after 120): added fixable-vs-new-footage and objective-vs-taste tags, one-sentence summary, packaging check (title/cover vs first 30 s), per-sequence keep/trim verdicts, comment questions, loudness measured as short-term LU vs surroundings (120 reports quoted "−9 LUFS" without saying which measure).
