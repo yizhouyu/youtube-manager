@@ -12,6 +12,13 @@ Inputs (read-only — never modify anything in the project):
 - `<PROJ>/02 - Export/edit/HANDOFF.md`: the structure table only. Don't trust its self-praise.
 - The channel's other videos: `<CHANNEL_LIST>` (the coordinator exports the channel's long-video titles via the YouTube API into a scratch file).
 
+Optional, when the coordinator says so: **raw footage.**
+- `<PROJ>/02 - Export/edit/scan/sheets/*.jpg` holds one contact sheet per raw clip, named after the clip.
+- `<PROJ>/02 - Export/edit/scan/clip_index.md` lists what each clip is.
+- `edl.json` shows which clips and seconds are used (`shots[].file`, `in`, `out`, `skip`).
+- Skim the sheets of clips that are **unused or barely used**. You don't need to look at every sheet; prioritise clips the index or sheets suggest are interesting.
+- Report up to 8 moments that are in the raw footage but not in the cut and that you'd want in it: clip name, approximate second, what it is, why, and where it would go. This is a viewer's wish list. The director decides.
+
 Rules the episode must follow (don't flag these as problems):
 - The moms are not centred or shown in close-up.
 - No companion, pet or hotel names.
@@ -46,5 +53,6 @@ Final message: a 5-line summary plus the report path.
 
 ## Changelog
 - v1 2026-10-22: first version (123 trailer, 120).
+- v4 2026-10-22: optional raw-footage pass — what is in the raw clips but not in the cut that viewers would want (creator idea: 「观众小弟也可以看看哪些是在原片里但不在全片里」).
 - v3 2026-10-22 (after 121): explicit ask for misleading notes / wrong-object labels (the 121 YouTube viewer caught one unprompted). Stranger faces are NOT an issue (creator: 「露脸的陌生人应该没问题」) — don't flag them.
 - v2 2026-10-22 (after 120): added fixable-vs-new-footage and objective-vs-taste tags, one-sentence summary, packaging check (title/cover vs first 30 s), per-sequence keep/trim verdicts, comment questions, loudness measured as short-term LU vs surroundings (120 reports quoted "−9 LUFS" without saying which measure).
