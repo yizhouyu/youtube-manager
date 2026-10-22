@@ -301,7 +301,7 @@ values to test, not laws.
 Full notes: `~/Desktop/AI Showcase/playbook/references/{lemo-opuscar,huashu-art-motion}.md`. Use them as experience, not a checklist; pick what fits the episode.
 - **Judge in this order: sound → rhythm → camera → directing.** Pretty frames are the starting point.
 - **Every visible action has a sound** matched to its material (door, splash, footsteps, card snap); cards and maps get foley, not silence.
-- **At least two real silences** in a long video, with the key sound/line right after one; **≥2 sound-led transitions** (J/L cuts).
+- **Pauses, not dead air:** a held breath before the key sound/line works, but the creator hears a full music dropout (123 trailer, 1.7 s at −65 dB) as 「断档」. Duck/filter the music or bridge with a real sound; any true silence stays <0.4 s. **≥2 sound-led transitions** (J/L cuts).
 - **Cuts on the beat grid** in music-only montages; to speed up, shorten segments instead of a faster track; land the reveal on the downbeat.
 - **Reading time:** on-screen text ≥ CJK chars ÷ 4.5 + 1.5 s; captions ≥ max(1.8 s, speech + 0.6 s).
 - **One signature move per film** (an opener style, a match cut, a stamp), placed at the emotional peak; the ending echoes the opening.

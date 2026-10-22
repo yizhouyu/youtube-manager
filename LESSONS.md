@@ -9,3 +9,14 @@ After a session restart I killed a "python -u /private/tmp/.../scratchpad/…" p
 
 ## A failed upload step must exit non-zero (2026-10-16)
 108's `upload_bili.py` printed "NO BVID" after a Wi-Fi drop (biliup: dns error) but exited 0, so the chain's `retry` saw success and moved on to Shorts; B站 was silently skipped for 8 h. Every chain step script must `sys.exit(1)` when its id isn't recorded. Check new chains for this before arming them. When the laptop sleeps, `sleep 1800` retries pause too: after a reconnect, look at the log and restart the chain (it is idempotent) rather than waiting.
+
+## Ep 116 experiments (2026-10-20)
+- **Silkscreen-poster opener** (lemo-opuscar grammar in numpy/Pillow, `116/edit/scripts/silkscreen_opener.py`): flat inks per squeegee pull, stepped bands, paper = salt flat, route stamped as a layer, registration snap before the facts. 12.5 s was too long (4 seats agreed): **~9 s**, starting with the first colour already down, then hard-cut on the clack into the first live arrival. Reusable for any trip by swapping shapes + text.
+- **Elevation ruler (海拔尺)** pip at each stop with ghost ticks of earlier stops and a broken scale (0…+1800 compressed, 0…−100 stretched) — snap it in on the spoken number, not over a walking shot. Make it ~1.2× the first draft; at phone size only the red number reads.
+- **Plant from above, pay off from below:** a 2 s match cut (salt flat looking up ↔ the viewpoint looking down) answered the open question better than a note alone. Keep a hook's punchline (「咸的」) out of the hook when the same take plays later — cut the hook on the gesture.
+- **Seat debate before locking** (retention / Bilibili viewer / channel voice / motion, then a rebuttal round) converged fast and caught real bugs (duplicate notes, a dead first 30 s). ~10 min wall time.
+- **Studio Audio Library downloads from automation stall after one file** (Chrome blocks repeated automatic downloads; capturing the signed URL was refused by the permission classifier). Fetch music pools with the creator present or after he allows automatic downloads for studio.youtube.com.
+- **tighten can clip a word inside a long line** (s012 lost 「旁边的这」): re-listen to the shots tighten touched before QA.
+
+## B站 dtime must be ≤15 days ahead (2026-10-20, ep 111)
+biliup uploaded 111's 7.5 GB master, then the submit failed with code 21173 「发布时间离当前时间必须≥5分钟且≤15天」: 11/05 09:00 ET was 15.8 days out. No 稿件 was created (nothing to clean up), but the chain's `retry` would have re-uploaded the whole file every 30 min. Before arming a chain, check `dtime - now ≤ 15 d`; if not, gate the B站 step on `date +%s ≥ dtime − 15 d + 10 min` and do the other steps first (chain111b.sh). With 2 long videos a week queued ~2 weeks ahead, this hits every episode scheduled more than 15 days out.
