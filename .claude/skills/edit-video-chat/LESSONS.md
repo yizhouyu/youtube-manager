@@ -604,3 +604,5 @@ A narrated explainer is a different job from a travel cut. What made 113 work, a
 - **Overpass down again (2026-10-20):** `sessions/family-hawaii/make_osm.py`-style fallback worked for four islands: TIGER coastline (struct-parsed shapefile) + OSRM legs via curl written as a routemap `osm` json; reuse one island coast extract across episodes.
 
 - **A full-frame pip hides top notes and captions (116, 2026-10-21).** A star photo cut in over a talking shot covered its note, which only flashed for 0.3 s during the fade. For a full-frame cutaway while someone keeps talking, set `"under_subs": true` on the pip so captions and notes stay on top. Corner insets that sit low (e.g. the elevation ruler) must also end above ~78 % of frame height, or long captions run under them.
+
+- **Water clips usually hold an animal (Na Pali, 2026-10-21).** He films the sea because something is in it — a fin, a turtle head, a fish shadow. During the scan, sample every clip at ≥2 fps and look for animals before marking a clip "empty water"; when one is small, keep it and point it out (zoom / Ken Burns + note).
