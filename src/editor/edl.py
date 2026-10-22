@@ -7,6 +7,11 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
   "project": "NN - Trip Name",                  # project folder name (under ~/Desktop)
   "source_dir": "01 - Unedited",               # where the raw clips live (never modified)
   "output": {"width": 3840, "height": 2160, "fps": "30000/1001"},
+  "canvas": "16:9",                            # default; "9:16" = a vertical film (1080x1920 preview, 2160x3840
+                                               # final): portrait clips fill the frame (their 16:9 `fit` is
+                                               # ignored), landscape clips get the blur/crop fit sideways
+                                               # (crop takes "x"), titles/tags/notes use the portrait layout
+                                               # clear of the YouTube mobile UI (bottom 15 %, right 12 %)
   "grades": {"default": "<ffmpeg vf chain>", "underwater": "..."},   # named color grades
   "music": [{"file": "music/track.mp3", "start": "s001", "in": 0, "gain": 0}],  # "in" skips a quiet
                                                # intro (s), "gain" in dB; a track per section, starting at
@@ -207,13 +212,36 @@ def is_portrait(edl, clip):
     return _PORTRAIT[key]
 
 
+def canvas(edl):
+    """'16:9' (default) or '9:16' (a vertical film; see the EDL `canvas` key)."""
+    return "9:16" if str(edl.get("canvas", "16:9")).replace(" ", "") in ("9:16", "portrait", "vertical") else "16:9"
+
+
+def is_vertical(edl):
+    return canvas(edl) == "9:16"
+
+
 def fit_of(edl, item):
     """How a shot / B-roll entry fills the 16:9 frame: None (landscape clip, plain scale), or for a
     vertical clip {"mode": "blur"} (default: the sharp portrait centred over a blurred, dimmed copy of
     itself), {"mode": "black"} (plain pillarbox, for dark night footage) or {"mode": "crop", "y": 0.0-1.0}
     (fill the width, keep the band at `y`). blur/black take `"x"` (portrait centre, frame fraction, default 0.5;
     e.g. 0.33 with a second vertical clip as a `pip` on the right = a side-by-side diptych). Set per shot with
-    `"fit": "crop"` / `"fit": {"mode": "crop", "y": 0.35}`; `"fit": "stretch"` = old behaviour."""
+    `"fit": "crop"` / `"fit": {"mode": "crop", "y": 0.35}`; `"fit": "stretch"` = old behaviour.
+    On a 9:16 canvas it is the other way round: portrait clips fill the frame (None) and a landscape clip
+    gets the fit (`"vfit"` overrides `fit` there; crop takes "x" = which band of the width to keep)."""
+    if is_vertical(edl):
+        if not item.get("clip") or is_portrait(edl, item["clip"]):
+            return None
+        f = item.get("vfit", "blur")
+        if f == "stretch":
+            return None
+        f = dict({"mode": f} if isinstance(f, str) else f)
+        f.setdefault("mode", "blur")
+        if f["mode"] == "crop":
+            f.setdefault("x", 0.5)
+        f["sideways"] = True
+        return f
     f = item.get("fit")
     if f == "stretch" or not item.get("clip") or not is_portrait(edl, item["clip"]):
         return None

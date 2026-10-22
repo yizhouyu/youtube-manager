@@ -19,6 +19,22 @@ TITLE_FONTS = [os.path.join(_REPO, "assets/fonts/heavy.otf")] + SUB_FONTS
 
 _NOTDEF = {}
 
+# 9:16 canvas (EDL "canvas": "9:16"): text stays clear of the YouTube mobile UI -- the bottom ~15 %
+# (title / channel / progress bar) and the right-hand button column (~12 % of the width).
+V_LEFT, V_RIGHT = 0.06, 0.88        # usable x span (fractions of W)
+V_TOP = 0.085                       # tags start here (fraction of H), below the top bar
+V_CAPTION_BOTTOM = 0.80             # notes / captions end here: lower third, above the bottom UI
+V_LAYOUT = 3                        # bump when a 9:16 layout changes: invalidates portrait PNGs + segments only
+
+
+def _portrait(w, h):
+    return h > w
+
+
+def _dims(w, h):
+    """Size part of an overlay cache key (portrait keys carry V_LAYOUT; landscape keys never change)."""
+    return f"{w}x{h}v{V_LAYOUT}" if _portrait(w, h) else f"{w}x{h}"
+
 
 def _glyph(font, ch):
     m = font.getmask(ch)
@@ -76,6 +92,10 @@ def _wrap(draw, text, font, max_w):
     return _wrap_chars(draw, text, font, max_w)
 
 
+_NO_START = set("》）」』】〉，。、；：！？…”’)]}.,;:!?%")
+_NO_END = set("《（「『【〈“‘([{")
+
+
 def _wrap_chars(draw, text, font, max_w):
     """Greedy wrap that works for CJK (no spaces) and Latin words alike."""
     lines, cur = [], ""
@@ -86,6 +106,14 @@ def _wrap_chars(draw, text, font, max_w):
             gl = cur.rfind("（")
             if gl > 0 and "）" not in cur[gl:]:
                 lines.append(cur[:gl].rstrip()); cur = cur[gl:] + ch
+                continue
+            # kinsoku: a line never starts with closing punctuation (》）」，。) nor ends with an opening one
+            # (《（「): carry the char before it along ("《金刚 / 》和…" read badly on the 9:16 chips)
+            if ch in _NO_START and len(cur) > 1:
+                lines.append(cur[:-1]); cur = cur[-1] + ch
+                continue
+            if cur[-1] in _NO_END and len(cur) > 1:
+                lines.append(cur[:-1]); cur = cur[-1] + ch
                 continue
             # don't split an ASCII word if we can back up to a space
             cut = cur.rfind(" ") if ch.isascii() and ch != " " else -1
@@ -98,6 +126,118 @@ def _wrap_chars(draw, text, font, max_w):
     if cur:
         lines.append(cur)
     return lines
+
+
+def _cjk(ch):
+    return ord(ch) >= 0x2E80
+
+
+def _wrap_balanced(draw, text, font, max_w):
+    """9:16 caption wrap: the fewest lines that fit, then the most even ones, breaking after clause
+    punctuation (or before a "（" gloss) where possible; never inside a Latin word or number, never between a
+    number and the CJK unit after it (4000英尺, 1976年), kinsoku as in _wrap_chars. A line-end ，、；： is
+    dropped like _wrap does. "\n" in the text forces a break. Narrow portrait chips made the greedy wrap
+    split words ("巨 / 浪", "4000英 / 尺")."""
+    if "\n" in text:
+        return [ln for part in text.split("\n") for ln in _wrap_balanced(draw, part, font, max_w)]
+    if draw.textlength(text, font=font) <= max_w:
+        return [text]
+    n, em = len(text), font.size
+    soft = "，、；：,;。！？"
+    inside, depth = [False] * (n + 1), 0     # no break inside a short 《title》 / “quote” / （gloss）
+    pairs = {"《": "》", "“": "”", "（": "）", "(": ")"}
+    stack = []
+    for k, ch in enumerate(text):
+        if ch in pairs:
+            stack.append((k, pairs[ch]))
+        elif stack and ch == stack[-1][1]:
+            a, _ = stack.pop()
+            if k - a <= 12:
+                for m in range(a + 1, k + 1):
+                    inside[m] = True
+
+    def shown(i, j):
+        ln = text[i:j].strip()
+        return ln.rstrip("，、；：,;") if j < n else ln
+
+    def brk(j):   # cost of breaking between text[j-1] and text[j]; None = not allowed
+        a, b = text[j - 1], text[j]
+        if b in _NO_START or a in _NO_END or inside[j]:
+            return None
+        if a.isalnum() and b.isalnum() and not (_cjk(a) and _cjk(b)):
+            if not (_cjk(a) or _cjk(b)) or a.isdigit():
+                return None   # inside a Latin word / number, or number + its unit
+        if a in soft:
+            return 0.0
+        if b in "（(" or a in "）)":
+            return 1.0
+        if a == " " or b == " ":
+            return 25.0                      # Latin-CJK seam ("Kalalau 步道"): fine, not ideal
+        return 80.0                          # mid-phrase: worse than one more line
+    INF = float("inf")
+    best = [(INF, 0, -1)] * (n + 1)     # (cost, lines, prev)
+    best[0] = (0.0, 0, -1)
+    for j in range(1, n + 1):
+        bj = 0.0 if j == n else brk(j)
+        if bj is None:
+            continue
+        for i in range(j - 1, -1, -1):
+            if best[i][0] == INF:
+                continue
+            wd = draw.textlength(shown(i, j), font=font)
+            if wd > max_w:
+                if draw.textlength(text[i:j], font=font) > max_w * 1.6:
+                    break
+                continue
+            slack = (max_w - wd) / em
+            c = best[i][0] + bj + 40.0 + slack * slack * (0.1 if j == n else 0.3)
+            if c < best[j][0]:
+                best[j] = (c, best[i][1] + 1, i)
+    if best[n][0] == INF:
+        return _wrap_chars(draw, text, font, max_w)
+    cuts, j = [], n
+    while j > 0:
+        i = best[j][2]
+        cuts.append((i, j))
+        j = i
+    return [shown(i, j) for i, j in reversed(cuts)]
+
+
+def _dotted_parts(text):
+    """'可爱岛 · 从海上看群崖' -> ['可爱岛', '从海上看群崖'] (None when there is no middle dot)."""
+    if "·" not in text:
+        return None
+    return [p.strip() for p in text.split("·")]
+
+
+def _text_dotted(d, xy, text, font, fill, anchor="la", **kw):
+    """Draw text whose ' · ' separators get an even gap on both sides (the CJK fonts' · hugs the left).
+    Returns the drawn width. Only 'la' / 'lm' anchors."""
+    parts = _dotted_parts(text)
+    if not parts:
+        d.text(xy, text, font=font, fill=fill, anchor=anchor, **kw)
+        return d.textlength(text, font=font)
+    size = font.size
+    gap, r = size * 0.36, max(2, size * 0.075)
+    x, y = xy
+    bb = d.textbbox((0, 0), "中", font=font, anchor=anchor)
+    cy = y + (bb[1] + bb[3]) / 2
+    for k, p in enumerate(parts):
+        if k:
+            x += gap
+            d.ellipse([x, cy - r, x + 2 * r, cy + r], fill=fill)
+            x += 2 * r + gap
+        d.text((x, y), p, font=font, fill=fill, anchor=anchor, **kw)
+        x += d.textlength(p, font=font)
+    return x - xy[0]
+
+
+def _len_dotted(d, text, font):
+    parts = _dotted_parts(text)
+    if not parts:
+        return d.textlength(text, font=font)
+    size = font.size
+    return sum(d.textlength(p, font=font) for p in parts) + (len(parts) - 1) * (size * 0.72 + 2 * max(2, size * 0.075))
 
 
 def _cached(cache_dir, key, render):
@@ -115,9 +255,14 @@ PAPER_NOTE = {"bg": (246, 238, 218, 236), "fg": (28, 40, 70, 255), "bar": (191, 
 
 
 def _note_paper_layout(d, text, w, h):
-    size = int(h * 0.042)
-    f = _font(SUB_FONTS, size, text)
-    lines = _wrap(d, text, f, w * 0.80)
+    if _portrait(w, h):   # phone-sized chip; the whole chip fits the safe x span
+        size = int(w * 0.05)
+        f = _font(SUB_FONTS, size, text)
+        lines = _wrap_balanced(d, text, f, w * (V_RIGHT - V_LEFT) - size * 1.9)
+    else:
+        size = int(h * 0.042)
+        f = _font(SUB_FONTS, size, text)
+        lines = _wrap(d, text, f, w * 0.80)
     lh = int(size * 1.32)
     padx, pady, bar = int(size * 0.62), int(size * 0.34), max(4, int(size * 0.11))
     tw = max(d.textlength(ln, font=f) for ln in lines)
@@ -132,8 +277,12 @@ def _note_paper(text, w, h, pos):
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     size, f, lines, lh, padx, pady, bar, bw, bh = _note_paper_layout(d, text, w, h)
-    x0 = (w - bw) // 2
-    y0 = int(h * 0.06) if pos == "top" else h - int(h * 0.07) - bh
+    if _portrait(w, h):   # left-aligned with the place tag, in the lower third
+        x0 = int(w * V_LEFT)
+        y0 = int(h * 0.16) if pos == "top" else int(h * V_CAPTION_BOTTOM) - bh
+    else:
+        x0 = (w - bw) // 2
+        y0 = int(h * 0.06) if pos == "top" else h - int(h * 0.07) - bh
     r = int(size * 0.28)
     sh = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     ImageDraw.Draw(sh).rounded_rectangle([x0, y0 + int(h * 0.004), x0 + bw, y0 + bh + int(h * 0.004)], radius=r,
@@ -157,40 +306,138 @@ def subtitle(text, w, h, cache_dir, kind="speech", pos="bottom", style="yellow")
     silent shot — soft yellow, slightly smaller, so viewers can tell it isn't dialogue).
     style='paper' (EDL "note_style"): notes become a cream chip with navy text instead (ep 110)."""
     if kind == "note" and style == "paper":
-        return _cached(cache_dir, f"sub|note-paper|{text}|{w}x{h}" + ("|top" if pos == "top" else ""),
+        return _cached(cache_dir, f"sub|note-paper|{text}|{_dims(w, h)}" + ("|top" if pos == "top" else ""),
                        lambda: _note_paper(text, w, h, pos))
 
     def render():
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
-        size = int(h * (0.046 if kind == "note" else 0.052))
-        f = _font(SUB_FONTS, size, text)
-        lines = _wrap(d, text, f, w * 0.84)
+        size, lines, f, cx, y = _caption_layout(d, text, w, h, kind, pos)
         lh = int(size * 1.3)
-        # pos="top": a note shown at the top while someone is talking (the bottom holds their words)
-        y = int(h * 0.06) if pos == "top" else h - int(h * 0.07) - lh * len(lines)
         for ln in lines:
-            d.text((w / 2, y), ln, font=f, fill=NOTE_COLOR if kind == "note" else "white", anchor="ma",
+            d.text((cx, y), ln, font=f, fill=NOTE_COLOR if kind == "note" else "white", anchor="ma",
                    stroke_width=max(2, size // 8), stroke_fill=(0, 0, 0, 230))
             y += lh
         return im
-    return _cached(cache_dir, f"sub|{kind}|{text}|{w}x{h}" + ("|top" if pos == "top" else ""), render)
+    return _cached(cache_dir, f"sub|{kind}|{text}|{_dims(w, h)}" + ("|top" if pos == "top" else ""), render)
+
+
+def _caption_layout(d, text, w, h, kind, pos):
+    """-> (size, lines, font, centre x, first-line y) of a plain (white speech / yellow note) caption."""
+    if _portrait(w, h):
+        size = int(w * (0.056 if kind == "note" else 0.062))
+        f = _font(SUB_FONTS, size, text)
+        lines = _wrap_balanced(d, text, f, w * (V_RIGHT - V_LEFT))
+        cx = w * (V_LEFT + V_RIGHT) / 2   # centred in the safe span, clear of the buttons
+        bottom = int(h * V_CAPTION_BOTTOM)
+        top = int(h * 0.16)
+    else:
+        size = int(h * (0.046 if kind == "note" else 0.052))
+        f = _font(SUB_FONTS, size, text)
+        lines = _wrap(d, text, f, w * 0.84)
+        cx = w / 2
+        bottom = h - int(h * 0.07)
+        top = int(h * 0.06)
+    # pos="top": a note shown at the top while someone is talking (the bottom holds their words)
+    y = top if pos == "top" else bottom - int(size * 1.3) * len(lines)
+    return size, lines, f, cx, y
 
 
 def subtitle_top(text, w, h, kind="speech", style="yellow"):
     """Top y (px) of a bottom caption's first line, as `subtitle` lays it out (same font, wrap and spacing)."""
     d = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
     if kind == "note" and style == "paper":
-        return h - int(h * 0.07) - _note_paper_layout(d, text, w, h)[8]
-    size = int(h * (0.046 if kind == "note" else 0.052))
-    lines = _wrap(d, text, _font(SUB_FONTS, size, text), w * 0.84)
-    return h - int(h * 0.07) - int(size * 1.3) * len(lines)
+        bottom = int(h * V_CAPTION_BOTTOM) if _portrait(w, h) else h - int(h * 0.07)
+        return bottom - _note_paper_layout(d, text, w, h)[8]
+    return _caption_layout(d, text, w, h, kind, "bottom")[4]
 
 
-def title_card(text, sub, w, h, cache_dir, limit=None):
+def _title_card_v(text, sub, kicker, w, h, limit=None):
+    """9:16 title: an optional letter-spaced Latin kicker, the big title, a short yellow rule and the sub
+    line, left-aligned on the safe margin; the block ends at 78 % of H (over the water, below the sky where
+    white text vanishes into cloud), or above `limit`."""
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    probe = ImageDraw.Draw(im)
+    x, right = int(w * 0.07), w * (V_RIGHT - 0.01)   # the title sits beside the button column too
+    big, small, ks = int(w * 0.165), int(w * 0.052), int(w * 0.033)
+    fb = _font(TITLE_FONTS, big, text)
+    while big > w * 0.08 and probe.textbbox((x, 0), text, font=fb)[2] > right:
+        big = int(big * 0.95)
+        fb = _font(TITLE_FONTS, big, text)
+    fs = _font(SUB_FONTS, small, sub or "")
+    while sub and small > w * 0.03 and x + _len_dotted(probe, sub, fs) > right:
+        small = int(small * 0.95)
+        fs = _font(SUB_FONTS, small, sub)
+    fk = _font(SUB_FONTS, ks, kicker or "")
+    track = ks * 0.28                                   # letter spacing for the kicker
+
+    def kick_w():
+        return sum(probe.textlength(c, font=fk) for c in kicker) + track * (len(kicker) - 1)
+    while kicker and ks > w * 0.02 and kick_w() > right - x:
+        ks = int(ks * 0.95)
+        fk = _font(SUB_FONTS, ks, kicker)
+        track = ks * 0.28
+    gap, bar_h = int(w * 0.03), max(4, w // 160)
+    # heights from the real ink boxes (heavy CJK faces sit well inside their nominal size)
+    bb = probe.textbbox((0, 0), text, font=fb)
+    kb = probe.textbbox((0, 0), kicker, font=fk) if kicker else (0, 0, 0, 0)
+    sb = probe.textbbox((0, 0), sub, font=fs) if sub else (0, 0, 0, 0)
+    block = (kb[3] - kb[1] + gap if kicker else 0) + (bb[3] - bb[1]) + (gap + bar_h + gap + sb[3] - sb[1] if sub else 0)
+    end = int(h * 0.78)
+    if limit is not None:
+        end = min(end, int(limit))
+    top = max(int(h * 0.12), end - block)
+    lay = []                                            # (kind, x, y_draw, text, font)
+    y = top
+    if kicker:
+        lay.append(("k", x, y - kb[1], kicker, fk))
+        y += kb[3] - kb[1] + gap
+    lay.append(("t", x, y - bb[1], text, fb))
+    y += bb[3] - bb[1]
+    bar_y = None
+    if sub:
+        bar_y = y + gap
+        y = bar_y + bar_h + gap
+        lay.append(("s", x, y - sb[1], sub, fs))
+    shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    off = max(3, w // 300)
+
+    def draw_kicker(dr, x0, y0, fill):
+        cx = x0
+        for c in kicker:
+            dr.text((cx, y0), c, font=fk, fill=fill)
+            cx += probe.textlength(c, font=fk) + track
+    for kind, lx, ly, t, f in lay:
+        if kind == "k":
+            draw_kicker(sd, lx + off, ly + off, (0, 0, 0, 190))
+        elif kind == "s":
+            _text_dotted(sd, (lx + off, ly + off), t, f, (0, 0, 0, 180))
+        else:
+            sd.text((lx + off, ly + off), t, font=f, fill=(0, 0, 0, 180))
+    im = Image.alpha_composite(im, shadow.filter(ImageFilter.GaussianBlur(w * 0.008)))
+    d = ImageDraw.Draw(im)
+    for kind, lx, ly, t, f in lay:
+        if kind == "k":
+            draw_kicker(d, lx, ly, (255, 214, 90, 255))
+        elif kind == "t":
+            d.text((lx, ly), t, font=f, fill="white")
+        else:
+            _text_dotted(d, (lx, ly), t, f, "white", stroke_width=max(2, small // 18), stroke_fill=(0, 0, 0, 200))
+    if bar_y is not None:
+        d.rectangle([x, bar_y, x + int(w * 0.09), bar_y + bar_h], fill=(255, 214, 90, 255))
+    return im
+
+
+def title_card(text, sub, w, h, cache_dir, limit=None, kicker=""):
     """Big lower-left title with a soft shadow, e.g. 'Day 1' / '圣约翰岛 St. John'.
     `limit` (px): the title block's ink must end above it, e.g. the top of a two-line caption shown at the
-    same time; the block moves up when needed (creator, ep 100 review: title sub-line ran into the caption)."""
+    same time; the block moves up when needed (creator, ep 100 review: title sub-line ran into the caption).
+    `kicker`: a small letter-spaced line above the title (9:16 canvas only so far)."""
+    if _portrait(w, h):
+        return _cached(cache_dir, f"title-v|{text}|{sub}|{kicker}|{_dims(w, h)}" + (f"|lim{int(limit)}" if limit is not None else ""),
+                       lambda: _title_card_v(text, sub, kicker, w, h, limit))
+
     def render():
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         big, small = int(h * 0.12), int(h * 0.045)
@@ -241,13 +488,14 @@ def place_tag(text, w, h, cache_dir, pos="tl"):
     def render():
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
-        size = int(h * 0.042)
+        v = _portrait(w, h)
+        size = int(w * 0.046) if v else int(h * 0.042)
         f = _font(SUB_FONTS, size, text)
         pad = size * 0.6
-        tw = d.textlength(text, font=f)
-        x, y = int(w * 0.04), int(h * 0.05)
+        tw = _len_dotted(d, text, f) if v else d.textlength(text, font=f)
+        x, y = (int(w * V_LEFT), int(h * V_TOP)) if v else (int(w * 0.04), int(h * 0.05))
         if pos == "tr":
-            x = int(w * 0.96 - (tw + pad * 2 + size * 0.7))
+            x = int(w * (0.94 if v else 0.96) - (tw + pad * 2 + size * 0.7))
         d.rounded_rectangle([x, y, x + tw + pad * 2 + size * 0.7, y + size + pad * 1.4],
                             radius=int(size * 0.5), fill=(0, 0, 0, 120))
         d.ellipse([x + pad, y + pad * 0.7 + size * 0.3, x + pad + size * 0.4, y + pad * 0.7 + size * 0.7],
@@ -255,9 +503,12 @@ def place_tag(text, w, h, cache_dir, pos="tl"):
         # centre the glyphs' real ink on the pill's midline (nominal top sat low, 117 review)
         bb = d.textbbox((0, 0), text, font=f)
         cy = y + (size + pad * 1.4) / 2
-        d.text((x + pad + size * 0.7, cy - (bb[1] + bb[3]) / 2), text, font=f, fill="white")
+        if v:
+            _text_dotted(d, (x + pad + size * 0.7, cy - (bb[1] + bb[3]) / 2), text, f, "white")
+        else:
+            d.text((x + pad + size * 0.7, cy - (bb[1] + bb[3]) / 2), text, font=f, fill="white")
         return im
-    return _cached(cache_dir, f"tag2|{text}|{w}x{h}" + (f"|{pos}" if pos != "tl" else ""), render)
+    return _cached(cache_dir, f"tag2|{text}|{_dims(w, h)}" + (f"|{pos}" if pos != "tl" else ""), render)
 
 
 def _hex(c):

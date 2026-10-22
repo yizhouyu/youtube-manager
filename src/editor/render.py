@@ -42,6 +42,17 @@ PRESETS = {
     # re-encode, so over-provision to keep it visually lossless (YouTube re-encodes anyway).
     "final": {"w": 3840, "h": 2160, "vb": "100M", "tenbit": True},
 }
+# EDL "canvas": "9:16" (a vertical film): same encoders, frame turned upright
+VERTICAL = {"preview": {"w": 1080, "h": 1920, "vb": "12M"},
+            "final": {"w": 2160, "h": 3840, "vb": "100M", "tenbit": True}}
+
+
+def preset_for(edl, mode):
+    """Output size/bitrate for a render mode ('preview' | 'final' | 'package') on the EDL's canvas."""
+    table = VERTICAL if E.is_vertical(edl) else PRESETS
+    return table["preview" if mode == "preview" else "final"]
+
+
 SR = 48000
 
 
@@ -101,7 +112,23 @@ def _zoom_filters(z, dur, w, h):
 
 def _fit_chains(fit, src, out, w, h, post):
     """Filter-graph pieces that put a vertical clip into the w×h frame (see `edl.fit_of`), then run
-    the comma-joined `post` filters; `src`/`out` are full pad labels ("[0:v]…", "[v0]")."""
+    the comma-joined `post` filters; `src`/`out` are full pad labels ("[0:v]…", "[v0]"). `fit["sideways"]`: a landscape clip
+    on a 9:16 canvas (crop keeps the band at `x` of the width; blur/black centre it at `y`, default 0.5)."""
+    if fit.get("sideways"):
+        tag = out.strip("[]")
+        if fit["mode"] == "crop":
+            x = min(1.0, max(0.0, float(fit.get("x", 0.5))))
+            return [f"{src}scale=-2:{h}:flags=lanczos,crop={w}:{h}:'(iw-{w})*{x}':0,setsar=1,{post}{out}"]
+        py = f"min(max(H*{float(fit.get('y', 0.5))}-h/2,0),H-h)"
+        if fit["mode"] == "black":
+            return [f"{src}scale={w}:-2:flags=lanczos,setsar=1,pad={w}:{h}:0:'{py.replace('H', str(h)).replace('h', 'ih')}':black,"
+                    f"{post}{out}"]
+        bw, bh = w // 8 // 2 * 2, h // 8 // 2 * 2
+        return [f"{src}split[{tag}a][{tag}b]",
+                f"[{tag}a]scale={bw}:{bh}:force_original_aspect_ratio=increase,crop={bw}:{bh},gblur=sigma=5,"
+                f"eq=brightness=-0.10:saturation=0.75,scale={w}:{h}:flags=bicubic,setsar=1[{tag}g]",
+                f"[{tag}b]scale={w}:-2:flags=lanczos,setsar=1[{tag}f]",
+                f"[{tag}g][{tag}f]overlay=0:'{py}',{post}{out}"]
     if fit["mode"] == "crop":
         y = min(1.0, max(0.0, float(fit.get("y", 0.5))))
         return [f"{src}scale={w}:-2:flags=lanczos,crop={w}:{h}:0:'(ih-{h})*{y}',{post}{out}"]
@@ -117,6 +144,14 @@ def _fit_chains(fit, src, out, w, h, post):
             f"eq=brightness=-0.10:saturation=0.75,scale={w}:{h}:flags=bicubic,setsar=1[{tag}g]",
             f"[{tag}b]scale=-2:{h}:flags=lanczos,setsar=1[{tag}f]",
             f"[{tag}g][{tag}f]overlay='{px}':0,{post}{out}"]
+
+
+def _fill_scale(edl, w, h):
+    """Scale for a clip that already matches the canvas orientation. On a 9:16 canvas, fill and centre-crop
+    (phones shoot 9:16, 3:4, 9:19.5 …: never stretch); 16:9 keeps the plain scale it always had."""
+    if E.is_vertical(edl):
+        return f"scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,crop={w}:{h},setsar=1"
+    return f"scale={w}:{h}:flags=lanczos"
 
 
 def is_tts_sfx(fx):
@@ -368,6 +403,8 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
     if (shot.get("card") or {}).get("image"):  # re-render when the card's image/animation file changes
         ip = _card_image_path(edl, shot["card"])
         extra.append(os.path.getmtime(ip) if os.path.exists(ip) else "missing")
+    if E.is_vertical(edl):
+        extra.append(["v-layout", overlays.V_LAYOUT])
     vshot = {k: v for k, v in shot.items() if k != "_level_db"}   # audio-only field: keep the video cache
     key = json.dumps([vshot, grade, brg, fps_str, preset, clean, VIDEO_CACHE_VERSION, overlays.VERSION] + extra,
                      sort_keys=True, ensure_ascii=False)
@@ -394,7 +431,7 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
         vsrc = "[vsrc]"
     else:
         vsrc = "[0:v]"
-    vf = [f"scale={w}:{h}:flags=lanczos", f"fps={fps_str}"]
+    vf = [_fill_scale(edl, w, h), f"fps={fps_str}"]
     if shot.get("zoom"):
         vf[1:1] = _zoom_filters(shot["zoom"], dur, w, h)
     if grade:
@@ -423,7 +460,7 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
         k = inputs.count("-i")  # index of the input appended below
         inputs += [*E.input_args(edl, b["clip"]), "-ss", f"{b['in']:.3f}", "-t", f"{bd + 0.2:.3f}", "-i",
                    E.clip_path(edl, b["clip"])]
-        bvf = [f"scale={w}:{h}:flags=lanczos", f"fps={fps_str}"]
+        bvf = [_fill_scale(edl, w, h), f"fps={fps_str}"]
         if grades.get(b.get("grade", "default")):
             bvf.append(grades[b.get("grade", "default")])
         bfit = E.fit_of(edl, b)
@@ -452,7 +489,8 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
                     for c in E.shot_subs(shot)
                     if c.get("pos") != "top" and c["t0"] < td and c["t1"] > 0]
             limit = min(tops) - int(h * 0.015) if tops else None
-            ovs.append((overlays.title_card(t["text"], t.get("sub", ""), w, h, ov_dir, limit), 0, td, 0.4))
+            ovs.append((overlays.title_card(t["text"], t.get("sub", ""), w, h, ov_dir, limit, t.get("kicker", "")),
+                        0, td, 0.4))
         if shot.get("tag"):
             # tag_at: source second the tag appears (creator, ep 106: show the dish tag once the dish is on screen);
             # default = the shot start. tag_dur: how long it stays (default 3 s).
@@ -799,7 +837,7 @@ def _pip_chain(edl, pp, j, dur, fps_str, preset, inputs, idx, last, chains):
     span = t1 - t0
     pw = int(w * float(pp.get("w", 0.3))) // 2 * 2
     ph = int(pw / float(pp.get("aspect", 16 / 9))) // 2 * 2
-    b = int(round(float(pp.get("border", 6)) * h / 1080)) // 2 * 2
+    b = int(round(float(pp.get("border", 6)) * min(w, h) / 1080)) // 2 * 2
     fade = float(pp.get("fade", 0.3))
     grade = edl.get("grades", {}).get(pp.get("grade", "default"), "") if pp.get("clip") else ""
     if pp.get("clip"):
@@ -1184,9 +1222,7 @@ def render(project, mode):
     status = Status(os.path.join(edit, "render_status.json"))
     fps_str = edl.get("output", {}).get("fps", "30000/1001")
     fps = float(Fraction(fps_str))
-    preset = PRESETS["final" if mode == "final" else "preview"]
-    if mode == "package":
-        preset = PRESETS["final"]
+    preset = preset_for(edl, mode)
     cache = os.path.join("/tmp/yt-editor", os.path.basename(E.project_dir(project)),
                          f"seg_{preset['w']}{'_clean' if mode == 'package' else ''}")
     os.makedirs(cache, exist_ok=True)

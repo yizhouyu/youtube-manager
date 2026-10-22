@@ -418,9 +418,10 @@ body.dirty #bSave kbd{color:var(--accent);border-color:var(--accent-line)}
 .stage{padding:16px;min-width:0;display:flex;flex-direction:column}
 .rail{position:sticky;top:var(--barh,52px);height:calc(100vh - var(--barh,52px));display:flex;flex-direction:column;gap:12px;
   padding:16px 16px 16px 0;min-height:0}
-/* player: as wide as the column, but never taller than the window allows (16:9) */
-#pvwrap{flex:none;width:min(100%,calc((100vh - var(--barh,52px) - 150px)*16/9));margin:0 auto;transition:width .25s ease}
-#pv{background:var(--stage);border-radius:var(--r-lg);overflow:hidden;display:flex;justify-content:center;align-items:center;aspect-ratio:16/9;
+/* player: as wide as the column, but never taller than the window allows; --ar = the preview's own aspect
+   (16:9, or 9:16 for a vertical film: then a tall phone-shaped player instead of a strip in a wide box) */
+#pvwrap{--ar:1.7778;flex:none;width:min(100%,calc((100vh - var(--barh,52px) - 150px)*var(--ar)));margin:0 auto;transition:width .25s ease}
+#pv{background:var(--stage);border-radius:var(--r-lg);overflow:hidden;display:flex;justify-content:center;align-items:center;aspect-ratio:var(--ar);
   width:100%;position:relative;box-shadow:var(--sh-1)}
 #pv video{width:100%;height:100%;object-fit:contain;display:block}
 #pvnew{display:none;position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:4;border:0;border-radius:999px;padding:6px 14px;font-size:13px;
@@ -972,6 +973,7 @@ async function loadPreview(keep){
       <div id="pvtools"><div class="speeds" id="pvspeeds" title="速度（数字键 1–4）">${PV_SPEEDS.map(r=>`<button data-r="${r}">${r}x</button>`).join('')}</div><button id="pvfs"></button></div><button id="pvnew">新预览已生成 · 点这里切换（从当前位置继续）</button>`
     :'<div class="none">还没有预览，点右上角「更新预览」生成</div>');
   const nv=$('#pvv');
+  if(nv) nv.addEventListener('loadedmetadata',()=>{if(nv.videoWidth&&nv.videoHeight) $('#pvwrap').style.setProperty('--ar',(nv.videoWidth/nv.videoHeight).toFixed(4))});
   if(nv){nv.muted=wasMuted; nv.playbackRate=pvSpeed; nv.defaultPlaybackRate=pvSpeed; pvMarkSpeed(pvSpeed)
     nv.addEventListener('ratechange',()=>{if(nv.playbackRate!==pvSpeed){pvSpeed=nv.playbackRate; pvMarkSpeed(pvSpeed)}})}
   if(nv&&!keep&&!PV_RESTORED){PV_RESTORED=true; keep=savedPos(n)}
