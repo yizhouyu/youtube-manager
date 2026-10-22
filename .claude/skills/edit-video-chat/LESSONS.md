@@ -605,6 +605,6 @@ A narrated explainer is a different job from a travel cut. What made 113 work, a
 
 - **A full-frame pip hides top notes and captions (116, 2026-10-21).** A star photo cut in over a talking shot covered its note, which only flashed for 0.3 s during the fade. For a full-frame cutaway while someone keeps talking, set `"under_subs": true` on the pip so captions and notes stay on top. Corner insets that sit low (e.g. the elevation ruler) must also end above ~78 % of frame height, or long captions run under them.
 
-- **Water clips usually hold an animal (Na Pali, 2026-10-21).** He films the sea because something is in it — a fin, a turtle head, a fish shadow. During the scan, sample every clip at ≥2 fps and look for animals before marking a clip "empty water"; when one is small, keep it and point it out (zoom / Ken Burns + note).
+- **Look closer where animals are likely (Na Pali, 2026-10-21/22).** On boat trips, snorkeling and wildlife stops he usually films because something is there — a fin, a fish, a bird. Check those clips and keep/point out the animal instead of dropping "empty water". Don't run exhaustive sweeps on ordinary scenes; use judgment, and look closer whenever a moment might be getting missed.
 
 - **Check live-sound shots for engine whine (Na Pali, 2026-10-21).** A boat clip had a steady harmonic whine (1.5–5 kHz lines on a spectrogram); the creator heard it as a "metallic squeal in the music". Before keeping ambient audio, look at `showspectrumpic` for horizontal tonal lines; mute or replace that sound instead of trimming the music.
