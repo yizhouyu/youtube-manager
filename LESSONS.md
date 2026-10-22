@@ -20,3 +20,6 @@ After a session restart I killed a "python -u /private/tmp/.../scratchpad/…" p
 
 ## B站 dtime must be ≤15 days ahead (2026-10-20, ep 111)
 biliup uploaded 111's 7.5 GB master, then the submit failed with code 21173 「发布时间离当前时间必须≥5分钟且≤15天」: 11/05 09:00 ET was 15.8 days out. No 稿件 was created (nothing to clean up), but the chain's `retry` would have re-uploaded the whole file every 30 min. Before arming a chain, check `dtime - now ≤ 15 d`; if not, gate the B站 step on `date +%s ≥ dtime − 15 d + 10 min` and do the other steps first (chain111b.sh). With 2 long videos a week queued ~2 weeks ahead, this hits every episode scheduled more than 15 days out.
+
+## Channel inventory: a Short is ≤60 s, not <3 min (2026-10-22, 123 trailer audit)
+To list the channel's "long videos", I filtered out everything under 3 min as Shorts. That silently dropped 7 real episodes, including all 4 Utah parks (2–3 min each). As a result I told the creator Utah "was never published" (wrong). Treat only ≤60 s as a Short, or better, exclude the videos in the 短视频 | Shorts playlist. Before claiming something is missing, search the full upload list by keyword.
