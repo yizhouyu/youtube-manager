@@ -237,6 +237,10 @@ def register(app, get_project):
         after = request.args.get("after", type=int, default=0)
         return jsonify([m for m in visible(load(get_project())) if m["id"] > after])
 
+    @app.get("/api/chat/project")
+    def api_chat_project():   # which episode this page is (badge in fullscreen + tab title)
+        return jsonify({"name": os.path.basename(os.path.normpath(get_project()))})
+
     @app.get("/api/chat/status")
     def api_chat_status():
         project = get_project()
@@ -362,6 +366,11 @@ WIDGET = r"""
 #cbHint:empty{display:none}
 /* ---- fullscreen: video + chat (see module doc) */
 .fsbar,#cbBubble{display:none}
+#cbEp{display:none}
+[data-fsroot].fs #cbEp{display:block;position:absolute;top:14px;left:16px;z-index:25;padding:5px 12px;border-radius:9px;
+  background:rgba(0,0,0,.55);color:#fff;font:600 15px/1.35 var(--font);letter-spacing:.02em;pointer-events:none;
+  box-shadow:0 1px 6px rgba(0,0,0,.35)}
+[data-fsroot].fs.fs-float #cbEp{left:auto;right:16px}
 [data-fsroot].fs{__DARK__}
 [data-fsroot].fs{position:fixed;inset:0;z-index:1000;width:100vw;height:100vh;margin:0;padding:0;background:var(--stage);
   display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,22vw,420px);gap:0;overflow:hidden}
@@ -560,6 +569,13 @@ WIDGET = r"""
     const bub=document.createElement('button');bub.type='button';bub.id='cbBubble';bub.title='展开聊天（C）';
     bub.innerHTML='<svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2.5 3.5h11v7.5H7l-3 2.5V11H2.5z"/></svg><i class="st"></i><b class="badge"></b>';
     root.appendChild(bub);
+    const ep=document.createElement('div');ep.id='cbEp';root.appendChild(ep);
+    const kindLabel='__CHAT_PAGE__'==='raw'?'原片':'成片';
+    fetch('/api/chat/project').then(r=>r.json()).then(j=>{
+      const n=(j&&j.name)||'';ep.textContent=n+' · '+kindLabel;
+      const num=(n.match(/^\d+/)||[''])[0];
+      if(num&&!document.title.startsWith(num))document.title=num+' '+kindLabel+' · '+document.title;
+      root.dataset.ep=n}).catch(()=>{});
     const qh=document.createElement('div');qh.id='cbQHint';qh.textContent='有个问题想问你 · 点右下角的气泡回答';root.appendChild(qh);
     const modeBtn=bar.querySelector('[data-a=mode]');
     function place(){   // keep the floating panel / bubble inside the screen
@@ -573,7 +589,7 @@ WIDGET = r"""
       root.classList.toggle('fs-min',fl&&S.min);
       modeBtn.innerHTML=(S.mode==='float'?'放到右边':'悬浮')+' <kbd>C</kbd>';
       modeBtn.title=S.mode==='float'?'聊天放回右边一栏（C）':'视频铺满，聊天悬浮在画面上（C）';
-      bar.querySelector('.fst').textContent=fl?'':'全屏 · 聊天';
+      bar.querySelector('.fst').textContent=fl?'':((root.dataset.ep?root.dataset.ep.split(' - ')[0]+' '+kindLabel+' · ':'')+'全屏 · 聊天');
       if(fl)requestAnimationFrame(place);
       if(!(fl&&S.min)){S.n=0;bub.classList.remove('unread')}
       window.dispatchEvent(new CustomEvent('cbfs',{detail:{on:S.on,mode:S.mode,min:S.min}}))}
