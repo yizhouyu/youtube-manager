@@ -10,6 +10,11 @@ case "$ep" in
   *) raw=$((8700 + (ep % 50) * 2)); cut=$((raw + 1));;
 esac
 up() { curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$1/"; }
+# one episode at a time: stop the other episodes' review servers (comments are already saved on disk)
+for p in 8765 8766 8767 8768 8769 8770 8771 8772 8773; do
+  [ "$p" = "$raw" ] || [ "$p" = "$cut" ] && continue
+  pids=$(lsof -ti tcp:$p -sTCP:LISTEN 2>/dev/null); [ -n "$pids" ] && kill $pids 2>/dev/null
+done
 start() {  # start <port> <module>
   up "$1" && return
   nohup ./venv/bin/python -m "src.editor.$2" "$proj" --port "$1" > "/tmp/review_$1.log" 2>&1 &
