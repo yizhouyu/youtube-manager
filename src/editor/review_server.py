@@ -238,8 +238,19 @@ def api_durations():
     return jsonify({c: probe_duration(src_clip(edl, c)) for c in clips})
 
 
+def view_only():
+    """EDL flag `"view_only": true`: the film is built outside the EDL renderer (e.g. 123's film/build.sh).
+    The page can watch, scrub and chat, but never saves the EDL or starts src.editor.render."""
+    try:
+        return bool(E.load(PROJECT).get("view_only"))
+    except Exception:
+        return False
+
+
 @app.post("/api/save")
 def api_save():
+    if view_only():
+        return jsonify({"ok": False, "errors": ["这个项目由外部脚本出片，审片页只能看和留言，不能保存剪辑"]}), 403
     new = request.get_json(silent=True)
     old = E.load(PROJECT)
     if isinstance(new, dict):
@@ -267,6 +278,8 @@ def api_save():
 
 @app.post("/api/render")
 def api_render():
+    if view_only():
+        return jsonify({"ok": False, "error": "这个项目由外部脚本出片，审片页不能渲染"}), 403
     mode = (request.get_json(silent=True) or {}).get("mode", "preview")
     if mode not in ("preview", "final"):
         return jsonify({"ok": False, "error": "mode 必须是 preview 或 final"}), 400
