@@ -380,6 +380,7 @@ Use plain food words ("美食中心" for a food court, "牛肉" not a guessed cu
 - **Arrows:** never on subjects viewers can already see (squirrels, their tails). If a moment matters, zoom in slowly instead (a squirrel standing up).
 - **Explain names people say.** When the speaker names a person or old name (Millikan), add who it is in a title sub-line. A historic photo of *that same place* (Millikan Library, 1967) is welcome.
 - **Outside material must match what's on screen and be familiar to Chinese viewers.**
+  - **Film/TV references (creator, 2026-10-22, 121):** only titles most Chinese viewers know (Jurassic Park, Moana, Pirates of the Caribbean…). He cut 「1953年《乱世忠魂》…在这个小海湾拍摄」: 「我不知道这个电影是什么…要放那些大家都知道的电影」. If a location's film fame rests on an obscure title, leave it out.
   - A cast photo next to a building looked random.
   - A US TV show most viewers don't know (Parks and Recreation) was cut entirely, line and picture.
   - Prefer references the audience knows; otherwise leave it out.

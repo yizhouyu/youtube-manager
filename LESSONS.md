@@ -23,3 +23,9 @@ biliup uploaded 111's 7.5 GB master, then the submit failed with code 21173 「�
 
 ## Channel inventory: a Short is ≤60 s, not <3 min (2026-10-22, 123 trailer audit)
 To list the channel's "long videos", I filtered out everything under 3 min as Shorts. That silently dropped 7 real episodes, including all 4 Utah parks (2–3 min each). As a result I told the creator Utah "was never published" (wrong). Treat only ≤60 s as a Short, or better, exclude the videos in the 短视频 | Shorts playlist. Before claiming something is missing, search the full upload list by keyword.
+
+## Code-made films: the creator judges the animal first, and by eye (2026-10-23, ep 124 falling cat)
+He rejected the whole first draft of the falling-cat film on sight: 「这个猫…长的样子就非常的不对」「猫现在3d太粗糙」「猫太假了」, then clarified 「真实感不一定要是 real 逼真…要像猫…只要不要出戏」. Seven agent reviews had passed the procedural cat. What to do now:
+- Any animal or character in a code-made film is tested blind next to real photos of that animal, at phone size, with a pet-owner seat and an animator seat, before animation.
+- Real footage (archival or licensed) leads; animation only where footage can't show the idea.
+- Chinese narration: he hears a Taiwan accent and unnatural prosody at once. Audition across models (ElevenLabs v2 had tone errors, v3 drifted to Taiwan readings, v4 was cleanest for the same voices) and send him clips with on-screen text; edge-tts voices aren't licensed for commercial use.
