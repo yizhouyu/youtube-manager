@@ -128,6 +128,8 @@ clutter. The art director's top pick lost 3 of 7 times, always to the option wit
 distinctive hero or fewer elements — weight those. Never offer equal strips/grids again (not even
 as "old" comparison options), and use his face only in a clearly flattering frame.
 
+**Keep the original images next to the covers (creator, 2026-10-22).** Every frame or photo used in any cover candidate is saved untouched, at native resolution, in `02 - Export/thumbnail/editorial_src/`. Name each file `<clip>_<seconds>.png/jpg`; for stills or renders, name it after its source. A line in THUMBNAILS.md says which cover uses which file. Purpose: later collages of covers across episodes. Never keep only the composited cover.
+
 **Judge every cover at feed size (creator, 2026-10-22, 123 map cover):** 「封面的话其实大家是看不到那些小字的」.
 - Before recommending a candidate, save and look at a 360 px-wide copy (phone feed) and a 168 px-wide copy (sidebar).
 - Anything unreadable at 360 px doesn't belong on the cover: place labels, tiny photo windows, edition marks, long sublines.
