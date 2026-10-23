@@ -130,6 +130,8 @@ as "old" comparison options), and use his face only in a clearly flattering fram
 
 **One photo by default (creator, 2026-10-22).** A hero photo plus a diagonal wedge of a second photo looked bad on 121: 「还是应该是一张照片…除非你有更好的剪辑方式」. Build covers from a single strong photo. Use two only when the layout is clearly better than a wedge, and always show the single-photo version next to it.
 
+**Viewer pass on the description, every video (creator, 2026-10-22):** 「以后你也要有这种观众小弟的来回来搞这个 YouTube 简介」. Before upload, a viewer sub-agent reads the title, the first 2 lines shown before 展开, the full description, chapters, tags and the pinned comment, the way a real viewer below the video would. It returns concrete rewrites: a hook in the first line, where to start watching, a one-line channel intro, cuts to anything redundant, AI-sounding or internal, B站 adaptations (no clickable links; tags), and a pinned question a new viewer can actually answer. You decide what to apply and show him the result. First run: 123 (moved the date out of line 1, deleted an internal note that leaked unlisted playlist IDs).
+
 **Keep the original images next to the covers (creator, 2026-10-22).** Every frame or photo used in any cover candidate is saved untouched, at native resolution, in `02 - Export/thumbnail/editorial_src/`. Name each file `<clip>_<seconds>.png/jpg`; for stills or renders, name it after its source. A line in THUMBNAILS.md says which cover uses which file. Purpose: later collages of covers across episodes. Never keep only the composited cover.
 
 **Judge every cover at feed size (creator, 2026-10-22, 123 map cover):** 「封面的话其实大家是看不到那些小字的」.
