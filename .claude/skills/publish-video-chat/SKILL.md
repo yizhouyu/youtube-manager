@@ -108,6 +108,12 @@ description hook, tags, and a **proper-noun glossary**.
   authoritative glossary for metadata AND caption cleanup.
 - Map the timeline (which place at which timestamp) — you'll reuse it for chapters.
 
+**Delete previews as soon as the YouTube long is verified (creator, 2026-10-22).** 「要保留那些所有能够还原这个影片的工程文件，但是 preview 应该是可以删」.
+- Run `venv/bin/python scripts/cleanup_previews.py --apply` right after the YouTube long video is verified as processed. That step stands alone: don't make it wait for B站 or the full verify. 112's cleanup never ran because an unrelated playlist check failed.
+- The script removes only `edit/preview.mp4` and `edit/previews/`. It keeps everything needed to rebuild the film: EDL, masters, captions, scripts, cards, music, sources.
+- The hourly loop runs it in dry-run mode, and runs it with `--apply` when it lists anything.
+- Before moving a finished episode to the drive, run it too.
+
 **Everything uploaded is public (creator, 2026-10-22).** That covers the video, captions, on-screen text, titles, descriptions, comments, covers and Shorts. Never include his sensitive information:
 - address or home area details;
 - lodging names;
