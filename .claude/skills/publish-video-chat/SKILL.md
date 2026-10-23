@@ -108,6 +108,15 @@ description hook, tags, and a **proper-noun glossary**.
   authoritative glossary for metadata AND caption cleanup.
 - Map the timeline (which place at which timestamp) — you'll reuse it for chapters.
 
+**Everything uploaded is public (creator, 2026-10-22).** That covers the video, captions, on-screen text, titles, descriptions, comments, covers and Shorts. Never include his sensitive information:
+- address or home area details;
+- lodging names;
+- family, companion or pet names;
+- accounts, emails, phones, plates or IDs visible on screens, documents or receipts;
+- finances, health, or work-internal details.
+
+His AI and editing workflow is fine to publish. Check for these in QA and before every upload.
+
 ## Step 3 — Design the thumbnail (by looking)
 
 **What the creator actually picks (88–94, 2026-09-29):** a calm, iconic *hero photo that says the
