@@ -1150,24 +1150,38 @@ def _track_gain_db(path, entry):
     return max(-20.0, min(12.0, -14.0 - _track_lufs(path))) + float(entry.get("gain", 0.0))
 
 
+MUSIC_XF = 2.5   # s, default crossfade window into a music section
+
+
+def section_xf(entry):
+    """Crossfade window (s) into a music section: the entry's "xf", else MUSIC_XF (min 0.02)."""
+    try:
+        return max(0.02, float(entry.get("xf", MUSIC_XF)))
+    except (TypeError, ValueError):
+        return MUSIC_XF
+
+
 def music_bed(edl, total, workdir, out_wav):
     secs = music_sections(edl, total)
     if not secs:
         _run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"anullsrc=r={SR}:cl=stereo",
               "-t", f"{total:.3f}", out_wav])
         return False
-    xf = 2.5
     args, chain, labels = [], [], []
     for k, (path, t0, t1, entry) in enumerate(secs):
         # one shared xf window before each section start: the incoming track fades in over
         # [start - xf, start] while the outgoing one fades out over the same window, equal-power
         # (qsin in / qsin out = sin/cos), so two songs never play at full level together (ep 96 QA).
         # Track time at the start shot stays `in` + xf. Tracks loop if the section is long.
+        # A music entry's own "xf" (s, default 2.5) sets the window into it: e.g. a silent entry with
+        # "xf": 0.1 = the music stops dead on that shot (a deliberate stop on a gag, ep 122).
+        xf = section_xf(entry)
+        xf_next = section_xf(secs[k + 1][3]) if k + 1 < len(secs) else 0.0
         a0 = max(0.0, t0 - (xf if k else 0))
         d = min(total, t1) - a0
         fades = [] if k == 0 else [f"afade=t=in:st=0:d={xf}:curve=qsin"]
         if k + 1 < len(secs):
-            fo = min(xf, d)
+            fo = min(xf_next, d)
             fades.append(f"afade=t=out:st={max(0, d - fo):.3f}:d={fo:.3f}:curve=qsin")
         if path is None:  # silent section
             args += ["-f", "lavfi", "-t", f"{d:.3f}", "-i", f"anullsrc=r={SR}:cl=stereo"]

@@ -108,6 +108,11 @@ As soon as the creator hands over a folder, start these side by side (subagents)
   `edit/research.md`; use only verified facts for note captions, the 0–8 s hook, chapter names,
   title/description keywords and the comment question.
 
+**Footage from the external drive (creator, 2026-10-22).** Old episodes' masters and raws live on `/Volumes/YZY's drive/YouTube Channel/<NN - name>/`. The drive is usually not connected: ask him to plug it in, and batch the requests.
+- The drive is strictly read-only. Never delete, move, rename or write anything on it.
+- Copy only the seconds you need into the project.
+- Record every copied clip in a source manifest (`edit/SOURCES.md` + JSON). For each clip, give the drive-relative path, file name, size and mtime, in/out, and processing params, so the cut can be rebuilt later from the drive.
+
 ## 1. Watch the footage (deterministic layer)
 
 - `ffprobe` every clip: duration, `creation_time` (GoPro writes the camera's local clock with

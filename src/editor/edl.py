@@ -18,7 +18,9 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
                                                # that shot; loops, crossfades into the next;
                                                # "file": null = silent "breathing room" section (the
                                                # previous track fades out over 2.5 s, the next fades in
-                                               # 2.5 s before its start: make it >= ~6 s)
+                                               # 2.5 s before its start: make it >= ~6 s);
+                                               # "xf": window (s) into this section instead of 2.5,
+                                               # e.g. {"file": null, "xf": 0.1} = a hard music stop
   "voiceover": [{"file": "tts/line1.mp3", "start": "s010", "at": 0.5}],
                                                # narration / TTS layer: placed at the start shot's timeline
                                                # start + `at` s; may run across shot boundaries (a shot's
