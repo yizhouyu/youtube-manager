@@ -128,6 +128,8 @@ clutter. The art director's top pick lost 3 of 7 times, always to the option wit
 distinctive hero or fewer elements — weight those. Never offer equal strips/grids again (not even
 as "old" comparison options), and use his face only in a clearly flattering frame.
 
+**One photo by default (creator, 2026-10-22).** A hero photo plus a diagonal wedge of a second photo looked bad on 121: 「还是应该是一张照片…除非你有更好的剪辑方式」. Build covers from a single strong photo. Use two only when the layout is clearly better than a wedge, and always show the single-photo version next to it.
+
 **Keep the original images next to the covers (creator, 2026-10-22).** Every frame or photo used in any cover candidate is saved untouched, at native resolution, in `02 - Export/thumbnail/editorial_src/`. Name each file `<clip>_<seconds>.png/jpg`; for stills or renders, name it after its source. A line in THUMBNAILS.md says which cover uses which file. Purpose: later collages of covers across episodes. Never keep only the composited cover.
 
 **Judge every cover at feed size (creator, 2026-10-22, 123 map cover):** 「封面的话其实大家是看不到那些小字的」.
