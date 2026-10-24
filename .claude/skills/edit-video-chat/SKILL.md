@@ -454,6 +454,13 @@ each tag's first frame, read them, and fix:
 Record the pass in HANDOFF ("notes checked: N kept, M fixed"). The independent QA reviewer re-checks a
 sample against frames.
 
+**Addressing review notes: own the film, not just the note (creator, 2026-10-23).** 「小弟…应该还是应该先把整个视频也看看了解这个视频我们在做什么」. Before applying a round of notes:
+1. Read HANDOFF and ALL of his notes for the episode, past rounds included.
+2. Watch the whole current preview at low res (≈1 frame per 2–4 s contact sheets) and the raw clips the notes point to.
+3. Write a short plan in HANDOFF covering what the film is, its arc, what he wants this round, and how each note fits. Then apply the notes as one coherent edit, without patching each note blindly.
+4. After the render, verify every note in the new preview (frame plus timestamp), and give him a re-check list.
+Also look beyond the literal note: if he flags one missed show, check for others like it.
+
 ## 3. Render + review
 
 ```bash
