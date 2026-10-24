@@ -1217,7 +1217,7 @@ def music_bed(edl, total, workdir, out_wav):
     return True
 
 
-def _version_preview(edit, out, keep=3):
+def _version_preview(edit, out, keep=1):
     """Hardlink the new preview as previews/preview-<time>.mp4 so a page that is still playing an
     older version keeps streaming it (overwriting one path broke playback mid-watch)."""
     vdir = os.path.join(edit, "previews")
@@ -1228,11 +1228,15 @@ def _version_preview(edit, out, keep=3):
         os.link(out, dst)
     except OSError:
         shutil.copy2(out, dst)
-    for old in sorted(f for f in os.listdir(vdir) if f.startswith("preview-"))[:-keep]:
-        try:
-            os.remove(os.path.join(vdir, old))
-        except OSError:
-            pass
+    # keep only the newest `keep` versions (creator, 2026-10-23: 「只留最近的一个，之前的我也不看」);
+    # a version = preview-<stamp>.mp4 plus its preview-<stamp>.json shot list
+    stems = sorted({f.rsplit(".", 1)[0] for f in os.listdir(vdir) if f.startswith("preview-")})
+    for stem in stems[:-keep]:
+        for ext in (".mp4", ".json"):
+            try:
+                os.remove(os.path.join(vdir, stem + ext))
+            except OSError:
+                pass
     return name
 
 
