@@ -711,7 +711,7 @@ Contact sheets: `./venv/bin/python -m src.editor.scan "<project>"` → `edit/sca
   - Neither do odd 1–2 word scraps like 好了你, 拿哎呀, 去吧.
   - Background strangers talking are never captioned.
   - `captions_clean` drops these on the raw page (the INTERJECTION regex and the ≤3-character rule). In the cut, leave them out of `subs`.
-  - Keep short lines that mean something: 很大, 好美啊, 哇，好吃.
+  - Keep short lines that mean something: 很大, 好美, 好吃 — but drop the trailing particle (好美啊 → 好美; creator 10/23: no 啊/呀 endings, now a lint warning).
 
 ## Pre-review pass: the creator's review patterns (from his 105–107 notes, 2026-10-15)
 Run this on every episode BEFORE he reviews it (an "upgrade pass"); each item is something he asked for at least twice.
