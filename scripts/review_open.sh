@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Open one episode's review pages (raw + cut) in a NEW browser window; start their local servers if needed.
-# Usage: scripts/review_open.sh <episode number>   (works offline — everything is local)
+# Usage: scripts/review_open.sh <episode number> [--cover]   (works offline — everything is local)
+# Agents open review pages ONLY through this script (one episode at a time; cover → raw → cut).
 # Port map: 120 → 8767/8768, 121 → 8769/8770, 122 → 8771/8772, 123 → 8773 (view-only cut page, no raw page)
 R="$HOME/Desktop/youtube-manager"; cd "$R" || exit 1
 ep="$1"; proj=$(ls -d "$HOME/Desktop/$ep - "* 2>/dev/null | head -1)
@@ -22,7 +23,13 @@ start() {  # start <port> <module>
 [ -n "$raw" ] && start "$raw" footage_player
 start "$cut" review_server
 for i in {1..60}; do { [ -z "$raw" ] || up "$raw"; } && up "$cut" && break; sleep 0.5; done
-urls=(); [ -n "$raw" ] && urls+=("http://127.0.0.1:$raw/"); urls+=("http://127.0.0.1:$cut/")
+urls=()
+# creator's order (2026-10-09): cover page first while the cover is still being picked, then raw, then cut.
+# A cover counts as picked once thumbnail/CHOSEN exists (write the pick into it); --cover forces the page.
+th="$proj/02 - Export/thumbnail"; cover=""
+for f in editorial.html review.html; do [ -f "$th/$f" ] && { cover="$th/$f"; break; }; done
+if [ -n "$cover" ] && { [ ! -f "$th/CHOSEN" ] || [ "$2" = "--cover" ]; }; then urls+=("file://${cover// /%20}"); fi
+[ -n "$raw" ] && urls+=("http://127.0.0.1:$raw/"); urls+=("http://127.0.0.1:$cut/")
 [ -n "$NOOPEN" ] && { echo "would open: ${urls[*]}"; exit 0; }
 if [ -d "/Applications/Google Chrome.app" ]; then
   open -na "Google Chrome" --args --new-window "${urls[@]}"
