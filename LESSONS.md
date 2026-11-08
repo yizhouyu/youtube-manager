@@ -81,3 +81,6 @@ Rules:
 - Run the publish chains first, and do bulk metadata or comment passes after them, or the next day.
 - Before a bulk pass, estimate its cost (count × unit cost). Keep about 3,500 units free for each long-plus-Shorts upload still to come that day.
 - On `quotaExceeded`, stop the chains; don't let them retry. Resume after 03:00 ET. Chains are idempotent, so see `sessions/upload_chains/resume_after_quota.sh`.
+
+## B站 dtime must equal the YouTube slot, date included (2026-11-08)
+09:00 ET (EST) is 22:00 Beijing on the same calendar date. Codex wrote `bili_at: "…11-16T22:00:00+08:00"` for a YouTube slot of 11-15 14:00Z, so B站 ran a day late on 120–122. Set `bili_at` only when the creator asks for a different time. Otherwise derive it from `long_at`, and print both in ET before uploading.
