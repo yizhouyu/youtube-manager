@@ -111,10 +111,67 @@ def main():
                 save(d)
                 print(f"posted comment on {it['ep']} {it['long']}")
     tasks = pending(d, pub)
+    if a[:1] == ["--alerts"]:
+        found = alerts(svc)
+        print("\n".join(found) if found else "no alerts")
+        return 0
     if a[:1] == ["--due"]:
-        return 0 if tasks else 1
+        # run the automation on publish days, and on any day with a new alert
+        return 0 if tasks or new_alerts(svc) else 1
     print(json.dumps(tasks, ensure_ascii=False, indent=1))
     return 0
+
+
+ALERTS = ROOT / "sessions" / "ALERTS.md"
+
+
+def alerts(svc):
+    """Exception-only checks (2026-11-08): a new long video far above/below the channel median at 48 h,
+    and viewer comments on recent long videos with no reply from the channel. About 15 quota units."""
+    import datetime as dt
+    import statistics
+    ch = svc.channels().list(part="id,contentDetails", mine=True).execute()["items"][0]
+    me, up = ch["id"], ch["contentDetails"]["relatedPlaylists"]["uploads"]
+    ids = [i["contentDetails"]["videoId"] for i in svc.playlistItems().list(
+        part="contentDetails", playlistId=up, maxResults=50).execute()["items"]]
+    vids = svc.videos().list(part="snippet,statistics,contentDetails,status", id=",".join(ids)).execute()["items"]
+    now = dt.datetime.now(dt.timezone.utc)
+
+    def age_h(v):
+        return (now - dt.datetime.fromisoformat(v["snippet"]["publishedAt"].replace("Z", "+00:00"))).total_seconds() / 3600
+
+    longs = [v for v in vids if v["status"]["privacyStatus"] == "public"
+             and "M" in v["contentDetails"]["duration"] and not v["contentDetails"]["duration"].startswith("PT0M")]
+    out = []
+    older = [int(v["statistics"].get("viewCount", 0)) for v in longs if age_h(v) > 168]
+    med = statistics.median(older) if older else 0
+    for v in longs:
+        h, views = age_h(v), int(v["statistics"].get("viewCount", 0))
+        if 40 <= h <= 72 and med:
+            if views >= 2 * med:
+                out.append(f"🔥 {v['snippet']['title'][:30]} — {views} views at {h:.0f} h (channel median {med:.0f}): double down (Shorts, community post)")
+            elif views <= 0.5 * med:
+                out.append(f"⚠️ {v['snippet']['title'][:30]} — {views} views at {h:.0f} h (median {med:.0f}): check cover/title")
+    for v in sorted(longs, key=age_h)[:10]:
+        try:
+            th = svc.commentThreads().list(part="snippet,replies", videoId=v["id"], maxResults=50).execute()["items"]
+        except Exception:
+            continue
+        for t in th:
+            top = t["snippet"]["topLevelComment"]["snippet"]
+            if top.get("authorChannelId", {}).get("value") == me:
+                continue
+            replied = any(r["snippet"].get("authorChannelId", {}).get("value") == me
+                          for r in (t.get("replies") or {}).get("comments", []))
+            if not replied:
+                out.append(f"💬 unanswered on {v['snippet']['title'][:24]}: 「{top['textOriginal'][:60]}」 https://www.youtube.com/watch?v={v['id']}&lc={t['id']}")
+    return out
+
+
+def new_alerts(svc):
+    """True when alerts() finds something not already listed in sessions/ALERTS.md (written by the automation)."""
+    seen = ALERTS.read_text() if ALERTS.exists() else ""
+    return any(x[:80] not in seen for x in alerts(svc))
 
 
 if __name__ == "__main__":
