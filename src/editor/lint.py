@@ -8,15 +8,23 @@ a clip shot under 0.5 s, B-roll that runs past its shot, and the same source foo
 Audio/pacing warnings (research 2026-10-01): a voiceover line over 4 汉字 per second of its picture
 window, a voiceover line starting < 0.3 s after a cut, more than 60 s of talk without a
 music-only / natural-sound break, and more than 3 sound effects in any minute.
+On-screen text (retro 2026-11-08 #2: the review notes he kept repeating, as checks): fillers and
+trailing particles in captions/notes, one sentence split across two captions, Chinese numerals that
+should be digits, a glossary name whose first mention lacks its English original (src/editor/glossary.json),
+and, as an ERROR, internal references on screen (episode numbers like 第117期 / 117 E2, 第一版, v2, preview).
 """
 import csv
+import json
 import os
 import re
+import unicodedata
 from difflib import SequenceMatcher
 import subprocess
 import sys
 
 from . import edl as E
+from .captions_clean import FILLER_ONLY, INTERJECTION
+from .digits import convert as to_digits
 
 VO_MAX_CPS = 4.0           # 汉字 per second of a voiceover line's picture window (Yunxi at -5% speaks ~4.7-5/s)
 VO_MIN_AFTER_CUT = 0.3     # s: let the new picture register before narration starts
@@ -87,6 +95,9 @@ def check(edl):
         if v.get("start") not in ids:
             errors.append(f"voiceover {v.get('file')}: start shot {v.get('start')!r} not in the EDL")
     warns += audio_pacing(edl)
+    e2, w2 = onscreen_text(edl)
+    errors += e2
+    warns += w2
     used.sort()
     for i in range(1, len(used)):
         c0, a0, b0, w0 = used[i - 1]
@@ -216,6 +227,199 @@ def audio_pacing(edl):
             warns.append(f"{j - i + 1} sound effects within a minute ({_ts(fx[i])}–{_ts(t)}): "
                          f"more than {SFX_MAX_PER_MIN}/min reads cheap — keep the motivated ones")
             last_warned = t
+    return warns
+
+
+# ---- on-screen text (retro 2026-11-08 #2) --------------------------------------------------------
+# 1. fillers: a trailing particle (120: 「字幕的结尾应该不需要"啊"」) or an interjection phrase (121: 「一般"妈呀"
+#    不要剪进字幕」); whole-line interjections reuse captions_clean's lists.
+TRAIL_PARTICLES = "啊呀吧嘛哦呢啦哈"
+TRAIL_OK = ("酒吧", "网吧", "贴吧", "干嘛", "阿罗哈", "奥马哈", "苏打吧")  # words, not particles
+QUESTION_PARTICLES = "呢吧"           # 「…怎么走呢」「去哪呢？」: a grammatical question particle, left alone
+QUESTION_RX = re.compile(r"[？?]$|什么|怎么|为什么|为啥|哪|谁|多少|几")
+FILLER_PHRASES = ("哎呀妈呀", "妈呀", "我的天", "我的妈", "哇塞", "天哪", "天呐", "哎呀", "哎哟", "哎呦")
+_END_PUNCT = " \t，,。.！!？?~～…、"
+# 2. one sentence split across two cues in a shot (120: 「很和重要 应该要放在一句话…你不要切成两条」): only on a
+#    strong grammatical signal (the first cue can't end there, or the second can't start there), since his
+#    captions carry no end punctuation at all.
+SPLIT_GAP_S = 2.5                    # the signals below are grammatical, so a pause doesn't end the sentence: the raw
+                                     # 117–122 transcripts split real sentences at 0.0–2.3 s gaps (「…他们的很」|「重要的一个部分」)
+SPLIT_MAX_HANZI = 28                 # the merged cue must still fit two lines
+DANGLING_END = re.compile(r"(?:因为|所以|但是|而且|并且|如果|虽然|或者|以及|就是说|比如|非常|比较|对于|关于|"
+                          r"(?<![平暖温柔缓祥附总])和|很|最|跟|被|从|[（(《“])$")   # a cue can't end on these
+CONT_START = re.compile(r"^(?:的(?!确)|了(?![解不])|们|吗|呢|和|与|以及|或者|并且|而且|似的|[）)》”」])")  # nor start
+# 3. digits: src.editor.digits.convert, with set phrases protected (memory caption-digits: keep 第一/一路/百年)
+DIGIT_KEEP = re.compile(r"(?<![零〇一二两三四五六七八九十百千])(?:第一|一路|百年|一起|一下|一点(?!钟)|一些|一样|一直|一天|"
+                        r"一会|一边|一切|一共|一般|一定|四周|四处|十分(?!钟)|千万|万一|一一)")
+# 4. internal references (122: 「这里不用写序号（e.g. 117 118) 因为这是内部编号」; 10/23: 「左下角有写"第一版"」)
+INTERNAL_RX = [
+    (re.compile(r"第\s*1\d\d\s*[期集]"), "an episode number"),
+    (re.compile(r"(?<![\d.])1\d\d\s*[期集](?![市团合])"), "an episode number"),
+    (re.compile(r"(?i)(?<![A-Za-z])(?:ep|episode)\s*\.?\s*#?\s*1\d\d(?!\d)"), "an episode number"),
+    (re.compile(r"(?<![\d.$#])1\d\d\s*[-_·]?\s*[Ee][1-9]\d?(?![\dA-Za-z])"), "an episode id"),
+    (re.compile(r"(?<![\d.$#])#1\d\d(?!\d)"), "an episode number"),
+    (re.compile(r"(?<![\d.$])1\d\d(?:[ 、,，/]+1\d\d)+(?![\d%A-Za-z\u3400-\u9fff])"), "episode numbers"),
+    (re.compile(r"第\s*[一二三四五六七八九十\d]+\s*版(?!本)"), "a version label"),
+    (re.compile(r"(?<![A-Za-z0-9])v\d+(?:\.\d+)?(?![A-Za-z0-9])"), "a version label"),
+    (re.compile(r"(?i)(?<![A-Za-z])(?:preview|draft|todo|tbd)(?![A-Za-z])|预览|草稿|占位"), "a work-in-progress word"),
+]
+# 5. original names (122: 「人道协会也要放英语」, 「欧胡岛要写oahu」): the first on-screen mention is bilingual
+GLOSSARY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "glossary.json")
+NAME_WINDOW_S = 5.0                  # the English may sit in a tag/note shown up to this many seconds later (a title, then the place tag)
+
+
+def load_glossary(path=GLOSSARY_PATH):
+    """{chinese: [accepted English forms, canonical first]} from src/editor/glossary.json."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            names = json.load(f).get("names", {})
+    except (OSError, ValueError):
+        return {}
+    return {k: [v] if isinstance(v, str) else list(v) for k, v in names.items() if v}
+
+
+def _fold(text):
+    """Lowercase, no accents/macrons, no ʻokina or apostrophes: Haleʻiwa == Haleiwa == hale'iwa."""
+    t = unicodedata.normalize("NFKD", text)
+    t = "".join(c for c in t if not unicodedata.combining(c))
+    return re.sub(r"[ʻʼ'’‘`]", "", t).lower()
+
+
+def onscreen_items(edl):
+    """Every piece of on-screen text in timeline order: dicts with t0/t1 (timeline s), sid, kind
+    (speech | note | title | tag | card | label) and text. Captions are clipped/skip-mapped like the render."""
+    rows, _total = E.timeline(edl)
+    items = []
+
+    def local(s, t):
+        try:
+            return E.src_to_local(s, float(t))
+        except (TypeError, ValueError):
+            return 0.0
+
+    for s, st in rows:
+        sid, dur = s.get("id", "?"), E.shot_dur(s)
+        t = s.get("title") or {}
+        for k in ("kicker", "text", "sub"):
+            if isinstance(t, dict) and str(t.get(k) or "").strip():
+                items.append({"t0": st, "t1": st + float(t.get("dur", 3.0)), "sid": sid, "kind": "title", "text": t[k]})
+        if str(s.get("tag") or "").strip():
+            ta = local(s, s["tag_at"]) if s.get("tag_at") is not None else 0.0
+            items.append({"t0": st + ta, "t1": st + ta + float(s.get("tag_dur", 3.0)), "sid": sid, "kind": "tag",
+                          "text": s["tag"]})
+        c = s.get("card") or {}
+        for k in ("text", "sub"):
+            if isinstance(c, dict) and str(c.get(k) or "").strip():
+                items.append({"t0": st, "t1": st + dur, "sid": sid, "kind": "card", "text": c[k]})
+        for m in (s.get("marks") or []) + (s.get("spots") or []):
+            if str(m.get("label") or "").strip():
+                items.append({"t0": st + local(s, m.get("t0", s["in"])), "t1": st + local(s, m.get("t1", s["out"])),
+                              "sid": sid, "kind": "label", "text": m["label"]})
+        g = s.get("gauge") or {}
+        if isinstance(g, dict) and str(g.get("label") or "").strip():
+            items.append({"t0": st, "t1": st + dur, "sid": sid, "kind": "label", "text": g["label"]})
+        for i, x in enumerate(E.shot_subs(s)):
+            items.append({"t0": st + x["t0"], "t1": st + x["t1"], "sid": sid, "kind": x["kind"], "text": x["text"],
+                          "local0": x["t0"], "local1": x["t1"], "n": i})
+    items.sort(key=lambda x: x["t0"])
+    return items
+
+
+def _q(text, n=24):
+    return text if len(text) <= n else text[:n] + "…"
+
+
+def digits_fix(text):
+    """The caption with Chinese numerals as Arabic digits, set phrases left alone; == text if nothing to do."""
+    keep = []
+
+    def hide(m):
+        keep.append(m.group(0))
+        return chr(0xE000 + len(keep) - 1)
+    out = to_digits(DIGIT_KEEP.sub(hide, text))
+    return re.sub("[\ue000-\uf8ff]", lambda m: keep[ord(m.group(0)) - 0xE000], out)
+
+
+def filler_warn(text):
+    """Why a caption/note reads as filler, or None."""
+    t = text.strip()
+    if INTERJECTION.match(t) or FILLER_ONLY.match(t):
+        return "is only an interjection/filler: drop the cue"
+    for p in FILLER_PHRASES:
+        if p in t:
+            return f"has the interjection 「{p}」: cut it from the caption"
+    core = t.rstrip(_END_PUNCT)
+    if core and core[-1] in TRAIL_PARTICLES and not core.endswith(TRAIL_OK):
+        if core[-1] in QUESTION_PARTICLES and QUESTION_RX.search(t.rstrip(" \t")):
+            return None
+        return f"ends in the particle 「{core[-1]}」: drop it"
+    return None
+
+
+def split_sentence(a, b):
+    """True when cue b reads as the second half of cue a's sentence (caller checks same shot, gap <= 0.4 s)."""
+    ta, tb = a["text"].strip(), b["text"].strip()
+    if not ta or not tb or ta[-1] in _END_PUNCT:
+        return False
+    if count_hanzi(ta) + count_hanzi(tb) > SPLIT_MAX_HANZI:
+        return False
+    if ta.count("（") > ta.count("）") or ta.count("《") > ta.count("》"):
+        return True
+    return bool(DANGLING_END.search(ta) or CONT_START.match(tb))
+
+
+def onscreen_text(edl, glossary=None):
+    """(errors, warns) for on-screen text: fillers, split sentences, digits, internal refs, original names."""
+    errors, warns = [], []
+    items = onscreen_items(edl)
+    for x in items:
+        sid, kind, text = x["sid"], x["kind"], x["text"]
+        what = {"speech": "caption", "note": "note"}.get(kind, kind)
+        for rx, why in INTERNAL_RX:
+            m = rx.search(text)
+            if m:
+                errors.append(f"{sid}: {what} 「{_q(text)}」 shows {why} 「{m.group(0)}」: internal, never on screen")
+                break
+        if kind in ("speech", "note"):
+            why = filler_warn(text)
+            if why:
+                warns.append(f"{sid}: {what} 「{_q(text)}」 {why}")
+        new = digits_fix(text)
+        if new != text:
+            warns.append(f"{sid}: {what} 「{_q(text, 30)}」 → 「{_q(new, 30)}」: Arabic digits (src.editor.digits)")
+    by_shot = {}
+    for x in items:
+        if x["kind"] == "speech":
+            by_shot.setdefault(x["sid"], []).append(x)
+    for sid, cues in by_shot.items():
+        cues.sort(key=lambda c: c["local0"])
+        for a, b in zip(cues, cues[1:]):
+            if 0 <= b["local0"] - a["local1"] <= SPLIT_GAP_S and split_sentence(a, b):
+                warns.append(f"{sid}: 「{_q(a['text'], 18)}」 | 「{_q(b['text'], 18)}」 look like one sentence: "
+                             f"merge into one cue joined with ，")
+    warns += original_names(items, load_glossary() if glossary is None else glossary)
+    return errors, warns
+
+
+def original_names(items, glossary):
+    """A glossary name whose first on-screen mention has no English original in sight."""
+    warns, groups = [], {}
+    for zh, forms in glossary.items():
+        groups.setdefault(_fold(forms[0]), (forms[0], set()))[1].update(_fold(f) for f in forms)
+    canon_of = {zh: _fold(forms[0]) for zh, forms in glossary.items()}
+    seen = set()
+    for x in items:
+        for zh in sorted(glossary, key=len, reverse=True):
+            key = canon_of[zh]
+            if key in seen or zh not in x["text"]:
+                continue
+            seen.add(key)
+            eng, forms = groups[key]
+            near = [y["text"] for y in items if y["t0"] <= x["t0"] + NAME_WINDOW_S and y["t1"] >= x["t0"] - 0.5]
+            if not any(f in _fold(t) for t in near for f in forms):
+                where = {"speech": "caption", "note": "note"}.get(x["kind"], x["kind"])
+                warns.append(f"{x['sid']}: first mention of {zh} ({where} 「{_q(x['text'])}」) has no original name: "
+                             f"add {eng}")
     return warns
 
 

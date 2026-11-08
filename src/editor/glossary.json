@@ -1,0 +1,30 @@
+{
+  "_about": "Original names for unfamiliar proper nouns (src.editor.lint warns when a name's FIRST on-screen mention in an episode lacks the English). Chinese name -> accepted English/local forms, canonical first; keys sharing a canonical form are one name (钻石头山 / 钻石山). Matching ignores case, ʻokina, apostrophes and macrons. Common names (斐济, 萨摩亚, 夏威夷, 汤加, 大溪地) stay out on purpose (creator, #86). Grow it as reviews add names. Not the per-episode edit/glossary.json, which is captions_clean's ASR-fix map.",
+  "names": {
+    "欧胡岛": ["Oʻahu"],
+    "可爱岛": ["Kauaʻi"],
+    "檀香山": ["Honolulu"],
+    "威基基": ["Waikīkī"],
+    "都乐菠萝园": ["Dole Plantation", "Dole"],
+    "哈雷瓦": ["Haleʻiwa"],
+    "夏威夷人道协会": ["Hawaiian Humane Society"],
+    "松本刨冰": ["Matsumoto"],
+    "纳帕利海岸": ["Nā Pali"],
+    "卡拉劳": ["Kalalau"],
+    "皇家夏威夷购物中心": ["Royal Hawaiian Center"],
+    "卡拉卡瓦大道": ["Kalākaua Avenue", "Kalākaua"],
+    "古兰尼": ["Kualoa"],
+    "莫科利伊": ["Mokoliʻi"],
+    "科奥劳": ["Koʻolau"],
+    "波利尼西亚文化中心": ["Polynesian Cultural Center"],
+    "莱伊": ["Lāʻie"],
+    "杨百翰大学": ["Brigham Young", "BYU"],
+    "珍珠港": ["Pearl Harbor"],
+    "亚利桑那号": ["USS Arizona", "Arizona"],
+    "密苏里号": ["USS Missouri", "Missouri"],
+    "钻石头山": ["Diamond Head"],
+    "钻石山": ["Diamond Head"],
+    "马卡普乌": ["Makapuʻu"],
+    "怀马纳洛": ["Waimānalo"]
+  }
+}
