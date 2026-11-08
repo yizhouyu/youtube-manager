@@ -1,3 +1,38 @@
+## YouTube API needs an explicit proxy in this Mac environment (2026-11-01)
+
+During the Codex App trial, the YouTube API call hung even though ordinary `requests` calls worked. macOS has an HTTP proxy at `127.0.0.1:7890`, but Python's Google API transport (`httplib2`) did not pick up the system proxy automatically. The uploader now supports `YOUTUBE_API_PROXY` in `src/auth/youtube_auth.py`; `PySocks` is in `requirements.txt`. With the variable unset, the existing direct connection behavior is unchanged.
+
+For the normal Orca-launched Claude workflow on this Mac, pass the proxy explicitly and keep the Mac awake. Example for episode 120 (Codex Desktop should use the foreground-session form below):
+
+```bash
+cd ~/Desktop/youtube-manager/sessions/upload_chains/ep120pub
+YOUTUBE_API_PROXY=http://127.0.0.1:7890 YOUTUBE_HTTP_TIMEOUT=600 CHUNK_MB=8 \
+  caffeinate -i ./chain120.sh >> chain120.log 2>&1 &
+```
+
+Use the matching `chain121.sh` / `chain122.sh` and log in each episode folder. Choose `CHUNK_MB` based on the uplink; 8 MB worked as the retry size for 120, while 4 MB was used for the longer 121–122 sequence. The proxy setting is only needed when this Mac requires that local proxy; do not hard-code it into account configuration.
+
+Before retrying a stalled-looking upload, inspect the chain log and episode `ids`/resumable-session state. A slow transfer may still be active. Never start a second uploader or delete `long_session.json` while a resumable upload is in progress; let the idempotent chain resume it. For the approved 120–122 sequence, use `sessions/upload_chains/approved_120_122.log` to follow the supervisor and each episode's own chain log to see step-level progress.
+
+This was a one-off Codex App test. The creator's normal desktop workflow remains Orca launching Claude Code; keep that as the default and reuse only the proxy diagnosis/command when the same Mac transport issue appears.
+
+## Running upload chains from Codex Desktop (2026-11-01)
+
+For a long upload chain started from Codex Desktop, run it in the foreground through the terminal tool so Codex returns a persistent session ID; poll that session for output instead of detaching it with `nohup`. The chain's `busy()` guard calls `ps`, which may be blocked by the default desktop sandbox; if that happens, retry the same authorized chain with process-list access approved for that command. Example:
+
+```bash
+cd ~/Desktop/youtube-manager/sessions/upload_chains/ep120pub
+export YOUTUBE_API_PROXY=http://127.0.0.1:7890 YOUTUBE_HTTP_TIMEOUT=600 CHUNK_MB=4
+caffeinate -i ./chain120.sh
+```
+
+In Codex, use a short initial wait and keep the returned session ID for later polling. If a chain is only in its outer retry sleep and has no uploader child, it is safe to restart the idempotent chain **with its existing resumable session intact**; first query the session status and confirm the server still has it. Never run a second uploader while the original uploader child is active, and never delete its session file to “unstick” it.
+
+For this Mac's proxy transport, explicitly remove HTTP 308 from `httplib2.Http.redirect_codes`. YouTube uses 308 plus a `Range` header to report resumable-upload progress; otherwise `httplib2` raises `RedirectMissingLocation` before `googleapiclient` can consume the response. `googleapiclient.http.build_http()` already applies this workaround, but a custom `ProxyInfo` transport must apply it itself. A read-only status query can confirm the retained offset: PUT the saved session URI with an empty body and `Content-Range: bytes */<master-size>` through the local proxy; expect HTTP 308 and inspect `Range` without printing the session URI. In the 120 run, this exposed 8 MB retained server-side; after fixing the transport, the same session resumed and advanced to 1%.
+
+## Bilibili comments through Chrome Computer Use (2026-11-01)
+
+The public video page's comments can look stuck on “正在玩命加载…” until the page is scrolled down to the comments area. In this run, scrolling revealed the comment composer. For Chinese text in the Bilibili contenteditable composer, `typeText()` produced only the trailing digits under the active input method, and `setValue()` changed the accessibility value without changing what Publish actually submitted. Use `paste(text, {format:"text"})`, inspect the visible composer text before clicking Publish, then verify the posted comment and pin toast/menu. A mistaken `33` was posted during the first attempt; do not assume the AX value is the browser's real editor contents.
 
 - **Raw page vs bogus rotation (2026-10-15):** clips in `noautorotate` render upright, but the browser on 8765 obeys their bogus display matrix (105 0511 showed upside down). footage_player now serves a stream-copied copy with `-display_rotation:v:0 0` (cached in /tmp/yt-editor/<project>/upright). If he says a raw clip is flipped, check the preview first.
 - **ASR stops early under music (2026-10-15):** 105 0516 lost its last line (52.6–58.6 s) and the rough cut ended the shot there. clip_index now flags `⚠ 转写止于 Xs/Ys`; for flagged clips that are used, re-transcribe the tail from the voice stem before 审片.

@@ -2,13 +2,17 @@
 
 import os
 import pickle
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Optional
 
 from google.auth.transport.requests import Request
+from google_auth_httplib2 import AuthorizedHttp
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+import httplib2
+import socks
 
 
 # YouTube API scopes - we need force-ssl to update video metadata
@@ -97,6 +101,28 @@ class YouTubeAuthenticator:
         """
         if not self.credentials:
             self.authenticate()
+
+        proxy_url = os.environ.get("YOUTUBE_API_PROXY")
+        if proxy_url:
+            proxy = urlparse(proxy_url)
+            if proxy.scheme not in ("http", "https") or not proxy.hostname or not proxy.port:
+                raise ValueError("YOUTUBE_API_PROXY must be an http(s) proxy URL with an explicit port")
+            proxy_info = httplib2.ProxyInfo(
+                socks.PROXY_TYPE_HTTP, proxy.hostname, proxy.port
+            )
+            http = httplib2.Http(
+                proxy_info=proxy_info,
+                timeout=int(os.environ.get("YOUTUBE_HTTP_TIMEOUT", "120")),
+            )
+            # YouTube resumable uploads use HTTP 308 as "Resume Incomplete",
+            # not as a redirect. build_http() applies this for its own transport,
+            # but this custom proxy transport must do it too or httplib2 raises
+            # RedirectMissingLocation before googleapiclient can read Range.
+            http.redirect_codes = http.redirect_codes - {308}
+            return build(
+                "youtube", "v3",
+                http=AuthorizedHttp(self.credentials, http=http),
+            )
 
         return build('youtube', 'v3', credentials=self.credentials)
 

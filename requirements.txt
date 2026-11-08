@@ -2,6 +2,7 @@
 google-api-python-client==2.147.0
 google-auth-oauthlib==1.2.1
 google-auth-httplib2==0.2.0
+PySocks==1.7.1  # httplib2 HTTP proxy transport for YouTube API uploads
 
 # Thumbnail rendering / polish
 pillow>=9.0.0
