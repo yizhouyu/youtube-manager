@@ -42,6 +42,9 @@ This brief is for one episode of 「Yizhou的一周」, a New York-based softwar
    - **[剪辑可改]** (doable with existing footage) or **[需要新素材]**. The editor can't reshoot.
    - **objective** (typo, level jump, unreadable caption) or **taste**.
 
+## Both seats, when `edit/qa/opens/` has variants
+Score each cold-open variant from 1 to 10 on hook, clarity and promise-match, and say which one you'd keep and why, in one line each. The coordinator ships the highest weighted score: hook ×2, clarity ×1, promise ×1.
+
 ## The viewer adds
 5. **Swipe-away moments:** timestamps where you'd leave, and why.
 6. **Lean-in moments:** timestamps, and the comment or 弹幕 you'd write there.
@@ -79,6 +82,7 @@ Final message: a 5-line summary plus the report path.
 - After each run, improve this brief: what you wanted to know but didn't get. Log it below.
 
 ## Changelog
+- v8 2026-11-08: scoring of the 3 cold-open variants (edit SKILL §2b-open).
 - v7 2026-10-22: the viewer experiences the packaging like a real viewer: covers at feed size with titles before watching, then the promise check, the description and chapters, and what they would do after the end. Creator: 「也可以看看封面图、简介和标题什么的，就把他们当做一个真正的观众」.
 - v1 2026-10-22: first version (123 trailer, 120).
 - v2 2026-10-22, after 120:

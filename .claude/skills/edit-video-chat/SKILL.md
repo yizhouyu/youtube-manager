@@ -241,6 +241,16 @@ see LESSONS.md for sources). Treat them as the bar every cut must clear:
     It never talks over speech, and the build stops if the line can't fit. No 「关注」 pill. Note
     labels sit centred on their dark plate.
 
+### 2b-open. Three cold-open variants, panel picks one (2026-11-08, from the AIE content-system talk)
+Viewers leave at 0:08–0:30 (see 2b-data). For every new rough cut, build **3 structurally different openings** for the first ~30 s, then let the review panel choose.
+- Example structures:
+  - (a) the episode's payoff moment first, then rewind;
+  - (b) a spoken question or line from the footage, then the answer teased;
+  - (c) a fast 3-shot montage on the beat, then the title.
+- Same footage pool; no new style per variant beyond what the episode already uses.
+- The panel (viewer + peer director, `audience_panel.md`) scores each on hook strength, clarity of what this video is, and whether it promises what the cover/title promise.
+- Put **only the winner** in the preview. Keep the other two as EDL snippets in `edit/qa/opens/`, so the creator can ask for them, and log the scores in HANDOFF. This must not add time to his review.
+
 ### 2b-data. What our own retention curves say (YouTube Analytics, pulled 2026-10-08)
 Source: `sessions/research/2026-10-08/retention.md`. The samples are small (11–63 effective viewers per recent curve), but 81–86, 91 and about 70 back-catalogue curves agree on where people leave. These rules **override** the conflicting lines in §2b and §2b+ below. Re-check around 10/20, once 92–99 and the moved-map cuts have curves.
 1. **0:08–0:30 is live content only.**
