@@ -146,6 +146,10 @@ as "old" comparison options), and use his face only in a clearly flattering fram
 - Use at most 2 big text elements.
 - Show the 360 px previews next to each candidate on the review page.
 
+**Outlier scan + feed simulator (2026-11-08, research `video_CFbnVpSsDFQ` #1; CTR is 1–3%):**
+- **Monthly:** run `./venv/bin/python scripts/outlier_scan.py --ours`. It uses yt-dlp, no API quota. Channels are in `sessions/growth/reference_channels.txt`. Output is `sessions/growth/outliers_<date>.md/.json`. Before writing the cover/title brief, read the latest file and borrow 2–3 *frameworks* from it, not topics.
+- **For every cover pick, before showing covers to the creator:** run `./venv/bin/python scripts/feed_sim.py <cover(s)> --title "<title>" [--title2 …]`. It writes `sessions/growth/feed_sim.html`: our cover(s) shuffled among ~11 real outliers at 360 px (Home) and 168 px (sidebar). Open it and ask "does ours stand out within 2 seconds?" before pressing 「显示我们的」. Drop or rework any candidate that disappears. Put the feed_sim link on the review page.
+
 **Local review pages get a favicon (creator, 2026-09-29):** every HTML page made for the creator
 (thumbnail `review.html`, Shorts compare pages, …) includes a clean favicon so its tab is
 recognisable: `from src.editor.favicon import link` → put `link("thumb")` (or "short"/"cut"/"raw")
