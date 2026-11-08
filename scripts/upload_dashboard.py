@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live upload progress page for the creator: ~/Desktop/上传进度.html (auto-refreshes every 5 s).
+"""Live upload progress page for the creator: youtube-manager/sessions/上传进度.html (auto-refreshes every 5 s).
 
 Reads only local state (chain logs + youtube_ids.json), never the API.
   scripts/upload_dashboard.py 120 121 122          # write once
@@ -15,7 +15,7 @@ import time
 
 DESK = os.path.expanduser("~/Desktop")
 CHAINS = os.path.join(DESK, "youtube-manager/sessions/upload_chains")
-OUT = os.path.join(DESK, "上传进度.html")
+OUT = os.path.join(DESK, "youtube-manager/sessions/上传进度.html")  # not on the Desktop (creator 11/08)
 
 STEPS = [  # (ids key, label)
     ("long", "YouTube 长视频"),

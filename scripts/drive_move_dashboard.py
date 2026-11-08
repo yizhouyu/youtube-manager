@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live progress page for moving finished projects to the external drive: ~/Desktop/搬硬盘进度.html.
+"""Live progress page for moving finished projects to the external drive: youtube-manager/sessions/搬硬盘进度.html.
 
   scripts/drive_move_dashboard.py "117 - Big Island & Manta Rays" "118 - Na Pali Coast" ... [--loop]
 Copied = bytes already on the drive / project size (measured once at start). Done = local folder gone + drive copy present.
@@ -11,7 +11,7 @@ import time
 
 DESK = os.path.expanduser("~/Desktop")
 DRIVE = "/Volumes/YZY's drive/YouTube Channel"
-OUT = os.path.join(DESK, "搬硬盘进度.html")
+OUT = os.path.join(DESK, "youtube-manager/sessions/搬硬盘进度.html")  # not on the Desktop (creator 11/08)
 
 
 def size(path):
