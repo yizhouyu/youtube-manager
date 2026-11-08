@@ -613,6 +613,14 @@ Once both uploads are verified, delete this episode's review renders:
 
 Keep the `.mov` master, the EDL and the thumbnails.
 
+## Step 7.95 — Publish audit (mandatory; retro 2026-11-08 #4)
+After 11/8's Codex uploads, 120 was missing its zh/en captions and English title, and nobody noticed. A chain that exits 0 is not proof the episode is done.
+- **Run `venv/bin/python scripts/episode_audit.py <ep>` after every upload chain**, whichever agent ran it (Claude, Codex, an Orca worker). A RESUME/handoff file ends with "run `episode_audit.py --all` and fix every ✗".
+- **Run it again before moving a project to the drive.** Move only on `READY FOR DRIVE`.
+- **Fix every ✗.** `…` (waiting for the long to go public: Related video, comment, pin) clears through the Orca 「YouTube 发布后跟进」 automation. `?` means the item can't be seen through the API or state files, so check it in the browser and record it in `sessions/FOLLOWUPS.json`.
+- It's read-only, about 55 quota units per episode (captions.list is 50), and never uses search.list. On `quotaExceeded` it prints `✗ API quota exhausted — re-run after 03:00 ET`; don't retry.
+- `--json` gives machine output. `scripts/status.py` is the one-screen board for 「小弟在跑吗 / 进度？」.
+
 ## Step 8 — Self-evolving loop
 
 After publishing, append a record to a **persistent packaging log** (a JSON/MD in `$REPO`):
