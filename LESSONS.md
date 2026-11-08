@@ -64,3 +64,20 @@ He rejected the whole first draft of the falling-cat film on sight: 「这个猫
 - Any animal or character in a code-made film is tested blind next to real photos of that animal, at phone size, with a pet-owner seat and an animator seat, before animation.
 - Real footage (archival or licensed) leads; animation only where footage can't show the idea.
 - Chinese narration: he hears a Taiwan accent and unnatural prosody at once. Audition across models (ElevenLabs v2 had tone errors, v3 drifted to Taiwan readings, v4 was cleanest for the same voices) and send him clips with on-screen text; edge-tts voices aren't licensed for commercial use.
+
+## YouTube API quota: uploads first, bulk fixes after (2026-11-08)
+
+The Data API has 10,000 units a day; it resets at midnight Pacific (03:00 ET). Costs:
+- video upload: 1,600
+- caption insert: 400
+- videos.update: 50
+- commentThreads.insert: 50
+- search.list: 100
+- list calls: 1
+
+On 11/08 a channel-wide cleanup ran while the 120–122 chains were uploading, and the quota ran out in the middle of 121's caption step. The cleanup was 35 localization updates, 62 comments, embedding fixes and audits. Two Shorts uploads plus one long already take about 5,000 units.
+
+Rules:
+- Run the publish chains first, and do bulk metadata or comment passes after them, or the next day.
+- Before a bulk pass, estimate its cost (count × unit cost). Keep about 3,500 units free for each long-plus-Shorts upload still to come that day.
+- On `quotaExceeded`, stop the chains; don't let them retry. Resume after 03:00 ET. Chains are idempotent, so see `sessions/upload_chains/resume_after_quota.sh`.
