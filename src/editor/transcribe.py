@@ -101,9 +101,12 @@ def main():
             clips = [c for c in clips if os.path.basename(c)[:-4] in a.only.split(",")]
         for c in clips:
             name = os.path.basename(c)[:-4]
+            if os.path.exists(os.path.join(out, name + ".srt")) and not a.only:
+                continue  # already transcribed (rerun after a crash or a folder rename)
             with tempfile.NamedTemporaryFile(suffix=".wav") as f:
-                subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", c, "-vn", "-ac", "1", "-ar", "16000", f.name],
-                               check=True)
+                if subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", c, "-vn", "-ac", "1", "-ar", "16000", f.name]).returncode:
+                    print(f"{name}: SKIPPED, no readable audio (empty or broken clip)", flush=True)
+                    continue
                 r = transcribe(f.name, model=model, context=a.context, return_timestamps=True)
             words = [dict(w, text=t2s(w["text"])) for w in (r.segments or [])]
             lines = _lines(t2s(r.text or ""), words)
