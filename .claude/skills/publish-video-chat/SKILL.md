@@ -125,6 +125,15 @@ His AI and editing workflow is fine to publish. Check for these in QA and before
 
 ## Step 3 — Design the thumbnail (by looking)
 
+**Packaging gate and what the 2026-11-09 studies found** (`sessions/growth/packaging_study_zh_2026-11-09.md`: 17 Chinese channels, 139 outliers; `packaging_study_en_2026-11-09.md`: 13 English channels plus Hitfactor/Eden/1of10 data). The creator looks at the cover first, then the title (2026-11-09), so the cover carries the click.
+- **Gate before any design:** write one line on why a stranger would click, and name the single subject that still reads at 168 px. If you can't write it, change the angle, not the styling.
+- **The subject matters most, not the styling.** Inside a channel, color, contrast, face size and text amount don't separate outliers from typical videos (±2–6% in large studies). What does: the *state of the moment*: night views (24% of Chinese outliers vs 4% of controls), a festival, weather or extreme temperature (16% vs 0%), and an animal (5/39 English outliers vs 0/26). Use them whenever the footage has them; with an animal, make one animal-hero version.
+- **Iterate on different subjects, not on grading.** The candidates you compare should differ in what they show.
+- **Text:** one line, ≤10 Chinese characters (or ≤5 English words), readable at 168 px. A question on the cover helped in Chinese (27% vs 9%).
+- **Blind read:** before showing him, a viewer sub-agent looks at `scripts/feed_sim.py` output at 168 px without being told which tile is ours and says what it sees and what it would click.
+- His two reference covers (both 3.45× their channel's median): 大白小宇 ygFnBtfS1Cg and Lumie tGnWt45xTWo. Both have a real expression, one big saturated color block, and a short Chinese line.
+- Pending his decision (asked 2026-11-09): a face + landmark version for A/B, and Chinese big text as the main line for China episodes.
+
 **What the creator actually picks (88–94, 2026-09-29):** a calm, iconic *hero photo that says the
 place* (the dunes at sunset, the carrier, the UFO welcome sign, the cove, the sunset tide pools), or
 the most *unusual close-up* of the day (the teddy-bear cholla on a shoe beat a generic Joshua tree);
@@ -266,6 +275,8 @@ show a **4:3 centre crop** and every card overlays duration (bottom-right) and p
 (bottom-left) — so keep the title inside the central 4:3 zone and off the bottom ~15% corners.
 
 ## Step 4 — Metadata in the channel's OWN style
+
+**Titles from the 2026-11-09 studies:** a famous, searchable place plus one concrete point (a number, a question, a time, an identity view like 「大陆人第一次…」 or an event word). Numbers held up in both studies (Chinese: more in outliers on 13 channels, fewer on 3; English 52% vs 34%). 「第一次 / 最 / 竟然 / 攻略」 alone did nothing; facts beat adjectives; never hide the place for suspense. Generic list titles for big cities were the worst performers. Every episode stands alone (no Part numbers). Later parts of a series average ~0.58× of the first, so the **first episode of a trip gets the strongest packaging**.
 
 **Packaging rules from research (2026-10-01, our data + platform guidance):**
 - **Package the topic before editing.** One famous, nameable thing per episode. Topic choice explains far more than styling does.
