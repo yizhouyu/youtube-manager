@@ -88,6 +88,9 @@ after it (appends to `sessions/usage_log.tsv`; prints 5-hour + weekly utilizatio
 Use the measured per-video delta to decide whether another video fits: if the 5-hour window can't
 fit one more, wait for its reset; if the weekly quota is near its end, stop and leave HANDOFF notes.
 
+## Before a trip: one-page shot checklist (2026-11-08, the travel version of the talk's shot list)
+When a trip is coming (calendar, trip notes, or he mentions it), send him one phone-friendly checklist to tick on the way. It is a suggestion, never homework. Per place: one cover-grade single photo (his recent covers are one strong photo: 116, 118, 120), one live-sound moment that can open the video (82 kept 65% at 0:30 with live sound and fish), the sign or place name, an interaction with a local, and a closing shot.
+
 ## 0. Kick off in parallel
 
 As soon as the creator hands over a folder, start these side by side (subagents):
@@ -490,6 +493,8 @@ open -a "Google Chrome" "file://<project>/02 - Export/thumbnail/editorial.html" 
 
 Creator order (2026-10-09): cover/thumbnail page first, then 8765, then 8766. Use the exact port assignments in that episode's `edit/HANDOFF.md` if they override the defaults.
 Opening the URLs does not start either server or the chat listener.
+
+**Three questions with the first preview (2026-11-08, from the AIE talk's "interview me").** At the top of the cut page's notes, ask at most 3 short questions he can skip or answer by voice, for example: what surprised him most that day, which moment he most wants viewers to see, and one number or detail worth putting on screen. Use his answers for the opening card, title seeds and Shorts question lines, and log them in `sessions/taste/README.md`. Never send them as a separate round.
 
 **Hover thumbnails (creator, 2026-10-21).** Both pages show a YouTube-style frame preview + time while
 hovering/dragging the timeline (8766: the native seek bar and the slim bar under the picture, which also
