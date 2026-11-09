@@ -82,6 +82,7 @@ Final message: a 5-line summary plus the report path.
 - After each run, improve this brief: what you wanted to know but didn't get. Log it below.
 
 ## Changelog
+- v10 2026-11-09 (125): when a cut has cold-open variants that exist only as EDL snippets, tell both seats they judge b/c from the snippets + raw sheets (the 125 seats split a/c by 1 point) — next time render the three openings as a 40 s side file so they can watch them. Both seats now also flag lines whose subject is not visible in the frame (陈毅, 摩天轮, dogs on 125).
 - v9 2026-11-09 (124): when the episode has a new technique (e.g. neon titles with synthesized sound), ask the director to measure whether it is actually audible/readable in the mix (M-loudness of the effect vs. the mix) — the 124 director found the hum 17–20 LU under the mix. When `draft_metadata.md` doesn't exist yet, give the viewer a working title so the packaging check still runs.
 - v8 2026-11-08: scoring of the 3 cold-open variants (edit SKILL §2b-open).
 - v7 2026-10-22: the viewer experiences the packaging like a real viewer: covers at feed size with titles before watching, then the promise check, the description and chapters, and what they would do after the end. Creator: 「也可以看看封面图、简介和标题什么的，就把他们当做一个真正的观众」.
