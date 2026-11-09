@@ -368,6 +368,7 @@ def plan_dialogue_levels(edl, shots, fps, cache):
 # segment output changes without the shot dict changing.
 VIDEO_CACHE_VERSION = 9
 AUDIO_CACHE_VERSION = 3
+_GLASS = object()   # marker in a segment's overlay list: the blurred patch under a glass note
 
 
 def render_segment(edl, shot, fps_str, preset, cache, clean=False):
@@ -405,7 +406,10 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
         extra.append(os.path.getmtime(ip) if os.path.exists(ip) else "missing")
     if E.is_vertical(edl):
         extra.append(["v-layout", overlays.V_LAYOUT])
-    vshot = {k: v for k, v in shot.items() if k != "_level_db"}   # audio-only field: keep the video cache
+    ns = edl.get("note_style", "yellow")
+    if ns not in ("yellow", "paper") and any(c.get("kind") == "note" for c in E.shot_subs(shot)):
+        extra.append(["note_style", ns, overlays.GLASS_VERSION])   # (yellow/paper keys kept: old caches stay valid)
+    vshot ={k: v for k, v in shot.items() if k != "_level_db"}   # audio-only field: keep the video cache
     key = json.dumps([vshot, grade, brg, fps_str, preset, clean, VIDEO_CACHE_VERSION, overlays.VERSION] + extra,
                      sort_keys=True, ensure_ascii=False)
     hid = hashlib.sha1(key.encode()).hexdigest()[:12]
@@ -536,11 +540,29 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
                 ovs.append((overlays.arrow(m.get("label", ""), m["x"], m["y"], w, h, ov_dir), a0, a1, 0))
         for s in E.shot_subs(shot):
             ns = edl.get("note_style", "yellow")
-            fade = 0.15 if ns == "paper" and s.get("kind") == "note" else 0
+            fade = 0.15 if ns in ("paper", "glass") and s.get("kind") == "note" else 0
+            if ns == "glass" and s.get("kind") == "note" and min(s["t1"], dur) > s["t0"]:
+                # frosted pane: blur the video under the note's box first, then the tint/text PNG on top
+                ovs.append((_GLASS, s["t0"], min(s["t1"], dur), fade,
+                            (overlays.glass_box(s["text"], w, h, s.get("pos", "bottom")),
+                             overlays.glass_mask(s["text"], w, h, ov_dir, s.get("pos", "bottom")))))
             ovs.append((overlays.subtitle(s["text"], w, h, ov_dir, s.get("kind", "speech"), s.get("pos", "bottom"), ns),
                         s["t0"], min(s["t1"], dur), fade))
     for i, ov in enumerate(ovs, base_inputs):
         png, t0, t1, fade = ov[:4]
+        if png is _GLASS:  # blurred patch behind a glass note (its input = the rounded-corner mask)
+            (bx, by, bw, bh, _r), mask = ov[4]
+            fd = max(fade, 0.04)
+            inputs += ["-loop", "1", "-framerate", fps_str, "-t", f"{t1:.3f}", "-i", mask]
+            chains.append(f"[{last}]split[ga{i}][gb{i}]")
+            chains.append(f"[gb{i}]crop={bw}:{bh}:{bx}:{by},gblur=sigma={overlays.glass_blur_sigma(h)},"
+                          f"format=yuva420p[gc{i}]")
+            chains.append(f"[{i}:v]format=gray[gm{i}]")
+            chains.append(f"[gc{i}][gm{i}]alphamerge,fade=t=in:st={t0:.3f}:d={fd}:alpha=1,"
+                          f"fade=t=out:st={max(0, t1 - fd):.3f}:d={fd}:alpha=1[gd{i}]")
+            chains.append(f"[ga{i}][gd{i}]overlay={bx}:{by}:eof_action=pass[v{i}]")
+            last = f"v{i}"
+            continue
         if len(ov) > 4:  # moving overlay: x/y offset expressions in t (tracked arrows)
             ex, ey = ov[4]
             inputs += ["-i", png]

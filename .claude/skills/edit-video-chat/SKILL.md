@@ -25,7 +25,7 @@ The goal is videos that viewers love and that grow subscribers, not conformity w
   - captions: Arabic digits, standard Mandarin, exact words, no fillers;
   - no companion names or pet names;
   - best take only;
-  - paper-style notes;
+  - glass-pane notes (`"note_style": "glass"`, from ep 124; the cream chip with a red bar was 「太丑」), with note copy that carries a concrete hook or detail, never a flat itinerary line;
   - fast pacing with rare close-ups kept.
 - **Write durable lessons back** here or into LESSONS.md.
 - **This file is a floor, not a ceiling (creator, 2026-10-22, second time):** 「我不希望…skills…把你的想象力框死了」. Know his taste, then go further on your own. When a section here conflicts with a better idea for *this* video, try the idea and say why in HANDOFF. Sub-agent specs give goals + hard constraints, not recipes, and invite one idea of the agent's own.
@@ -569,7 +569,13 @@ not the proxy.
 
 **Keep "showing" shots:** a silent 2–3 s shot where the camera clearly shows something (a sign,
 a menu, an animal) earns its place — give it an editor's caption (`subs` entry with
-`"kind": "note"`: soft yellow, doesn't duck music, never mixed up with dialogue).
+`"kind": "note"`: doesn't duck music, never mixed up with dialogue).
+**Note look = EDL `"note_style"`** (`overlays.DEFAULT_NOTE_STYLE`): new projects set `"glass"`, a frosted pane
+(the renderer crops and blurs the video under the box, dark tint, hairline edge, PingFang SC Semibold white; 0.15 s
+fades). `"paper"` (cream chip + red bar, ep 110–123) and `"yellow"` (plain soft-yellow text, the default when the key
+is missing) stay so old projects rebuild unchanged. Creator, 2026-11-09 on 124: 「这种红色label也太丑…这个label的text也很bland」:
+pick premium type, and make the opening note a concrete hook (a sourced number, a first, a contrast), not a summary
+of the route. Shorts: `make_short.py` spec `"note_style": "glass"` (tint only, no blur).
 Note captions have no speech to check against, so verify them across several frames (not one
 still): counts and species of animals are easy to get wrong (a "second stingray" was actually a
 small fish riding along). When unsure, stay generic ("小鱼") rather than guess.

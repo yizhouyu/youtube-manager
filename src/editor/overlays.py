@@ -301,10 +301,137 @@ def _note_paper(text, w, h, pos):
     return im
 
 
+# --- "glass" notes (default from ep 124, 2026-11-09) -------------------------------------------------
+# The creator called the cream chip + red bar 「太丑」 (124). Three designs were compared on real 124 frames
+# (thin-rule serif caption, frosted glass, big-year numerals); a blind viewer and the director both picked
+# the frosted glass: a rounded pane that blurs the video behind it (render.py crops + gblurs that region),
+# a dark tint, a hairline light edge and PingFang SC Semibold in white. It stays readable over bright neon
+# and dark streets alike, and it doesn't cover the picture with a flat colour.
+GLASS_VERSION = 1       # bump when the glass look changes (it is part of the segment cache key)
+GLASS_NOTE = {"tint": (14, 16, 22, 150), "edge": (255, 255, 255, 60), "fg": (255, 255, 255, 250),
+              "blur": 0.028}   # blur sigma as a share of the frame height
+_A8 = "/System/Library/AssetsV2/com_apple_MobileAsset_Font8/*/AssetData/"
+
+
+def _sys_face(pattern, index):
+    import glob as _g
+    hits = sorted(_g.glob(pattern))
+    return (hits[0], index) if hits else None
+
+
+GLASS_FONTS = [x for x in (_sys_face(_A8 + "PingFang.ttc", 11),                        # PingFang SC Semibold
+                           _sys_face("/System/Library/Fonts/PingFang.ttc", 11),
+                           _sys_face("/System/Library/Fonts/Hiragino Sans GB.ttc", 1))  # W6
+               if x] + [(p, 0) for p in SUB_FONTS]
+
+
+def _face(specs, size, text=""):
+    first = None
+    for p, i in specs:
+        try:
+            f = ImageFont.truetype(p, size, index=i)
+        except Exception:
+            continue
+        first = first or f
+        if not text or _covers(f, f"{p}#{i}", text):
+            return f
+    return first or ImageFont.load_default()
+
+
+def _note_glass_layout(d, text, w, h):
+    if _portrait(w, h):
+        size = int(w * 0.05)
+        f = _face(GLASS_FONTS, size, text)
+        lines = _wrap_balanced(d, text, f, w * (V_RIGHT - V_LEFT) - size * 1.7)
+    else:
+        size = int(h * 0.044)
+        f = _face(GLASS_FONTS, size, text)
+        lines = _wrap(d, text, f, w * 0.80)
+    lh = int(size * 1.36)
+    padx, pady = int(size * 0.8), int(size * 0.42)
+    tw = max(d.textlength(ln, font=f) for ln in lines)
+    bw = int(tw + 2 * padx)
+    bh = int(lh * len(lines) - (lh - size * 1.18) + 2 * pady)
+    return size, f, lines, lh, padx, pady, bw + bw % 2, bh + bh % 2
+
+
+def glass_box(text, w, h, pos="bottom"):
+    """(x, y, bw, bh, radius) of a glass note pane in the frame; x/y/bw/bh even (yuv420 crops)."""
+    d = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
+    size, f, lines, lh, padx, pady, bw, bh = _note_glass_layout(d, text, w, h)
+    if _portrait(w, h):
+        x0 = int(w * V_LEFT)
+        y0 = int(h * 0.16) if pos == "top" else int(h * V_CAPTION_BOTTOM) - bh
+    else:
+        x0 = (w - bw) // 2
+        y0 = int(h * 0.06) if pos == "top" else h - int(h * 0.07) - bh
+    return x0 - x0 % 2, y0 - y0 % 2, bw, bh, int(min(bh / 2, size * 0.55))
+
+
+def glass_blur_sigma(h):
+    return max(4.0, round(h * GLASS_NOTE["blur"], 1))
+
+
+def _rounded_mask(bw, bh, r, ss=4):
+    m = Image.new("L", (bw * ss, bh * ss), 0)
+    ImageDraw.Draw(m).rounded_rectangle([0, 0, bw * ss - 1, bh * ss - 1], radius=r * ss, fill=255)
+    return m.resize((bw, bh), Image.LANCZOS)
+
+
+def glass_mask(text, w, h, cache_dir, pos="bottom"):
+    """Pane-sized greyscale mask (rounded corners) for the blurred patch behind a glass note."""
+    x0, y0, bw, bh, r = glass_box(text, w, h, pos)
+    return _cached(cache_dir, f"glassmask|{GLASS_VERSION}|{bw}x{bh}r{r}", lambda: _rounded_mask(bw, bh, r))
+
+
+def _note_glass(text, w, h, pos, blur_bg=None):
+    """Tint, edge, soft shadow and text of a glass note (full-frame RGBA). The blur itself is done by the
+    renderer under this PNG; pass `blur_bg` (a frame) to bake it in for stills and mock-ups."""
+    from PIL import ImageChops
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    size, f, lines, lh, padx, pady, bw, bh = _note_glass_layout(d, text, w, h)
+    x0, y0, _, _, r = glass_box(text, w, h, pos)
+    mask = Image.new("L", (w, h), 0)
+    mask.paste(_rounded_mask(bw, bh, r), (x0, y0))
+    sh = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(sh).rounded_rectangle([x0, y0 + int(h * 0.004), x0 + bw, y0 + bh + int(h * 0.006)], radius=r,
+                                          fill=(0, 0, 0, 80))
+    sh = sh.filter(ImageFilter.GaussianBlur(h * 0.01))
+    sh.putalpha(ImageChops.multiply(sh.getchannel("A"), ImageChops.invert(mask)))  # shadow outside the pane only
+    im = Image.alpha_composite(im, sh)
+    if blur_bg is not None:
+        bg = blur_bg.convert("RGBA").resize((w, h)).filter(ImageFilter.GaussianBlur(glass_blur_sigma(h)))
+        im.paste(bg, (0, 0), mask)
+    tint = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    tint.paste(Image.new("RGBA", (w, h), GLASS_NOTE["tint"]), (0, 0), mask)
+    im = Image.alpha_composite(im, tint)
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle([x0, y0, x0 + bw - 1, y0 + bh - 1], radius=r, outline=GLASS_NOTE["edge"],
+                        width=max(1, int(h * 0.0012)))
+    y = y0 + pady
+    for ln in lines:
+        if _portrait(w, h):
+            d.text((x0 + padx, y - int(size * 0.08)), ln, font=f, fill=GLASS_NOTE["fg"])
+        else:
+            d.text((x0 + bw / 2, y - int(size * 0.08)), ln, font=f, fill=GLASS_NOTE["fg"], anchor="ma")
+        y += lh
+    return im
+
+
+NOTE_STYLES = ("yellow", "paper", "glass")
+DEFAULT_NOTE_STYLE = "glass"   # what new EDLs set; an EDL without "note_style" still means "yellow"
+
+
 def subtitle(text, w, h, cache_dir, kind="speech", pos="bottom", style="yellow"):
     """kind='speech' (what people say, white) or 'note' (editor's explanatory caption for a
     silent shot — soft yellow, slightly smaller, so viewers can tell it isn't dialogue).
-    style='paper' (EDL "note_style"): notes become a cream chip with navy text instead (ep 110)."""
+    style (EDL "note_style") for notes: 'glass' = frosted pane, the default from ep 124 (the renderer
+    blurs the video behind it, see glass_box); 'paper' = cream chip + red bar (ep 110–123, kept so old
+    projects rebuild unchanged); 'yellow' = plain soft-yellow caption (the original look)."""
+    if kind == "note" and style == "glass":
+        return _cached(cache_dir, f"sub|note-glass{GLASS_VERSION}|{text}|{_dims(w, h)}" + ("|top" if pos == "top" else ""),
+                       lambda: _note_glass(text, w, h, pos))
     if kind == "note" and style == "paper":
         return _cached(cache_dir, f"sub|note-paper|{text}|{_dims(w, h)}" + ("|top" if pos == "top" else ""),
                        lambda: _note_paper(text, w, h, pos))
@@ -349,6 +476,8 @@ def subtitle_top(text, w, h, kind="speech", style="yellow"):
     if kind == "note" and style == "paper":
         bottom = int(h * V_CAPTION_BOTTOM) if _portrait(w, h) else h - int(h * 0.07)
         return bottom - _note_paper_layout(d, text, w, h)[8]
+    if kind == "note" and style == "glass":
+        return glass_box(text, w, h, "bottom")[1]
     return _caption_layout(d, text, w, h, kind, "bottom")[4]
 
 

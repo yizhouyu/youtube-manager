@@ -59,7 +59,8 @@ Spec (all times in seconds; segment times and keyframes are SOURCE-clip seconds)
             "start": 0.0, "fade_in": 0.05, "gain_db": 0},  # output second the music enters
                                         # (natural sound first); file is relative to
                                         # <project>/02 - Export/edit/ or absolute; ducked under speech subs
-  "note_style": "paper",                # notes as the long video's cream paper chip (ep 110 on)
+  "note_style": "glass",                # notes as the long video's dark glass pane (ep 124 on;
+                                        # "paper" = the cream chip of ep 110-123)
   "voiceover": [{"t": 0.2, "text": "...", "voice": "zh-CN-YunxiNeural", "rate": "-5%",
                  "gain_db": 0, "caption": true}],   # edge-tts lines at OUTPUT seconds, levelled like the
                                         # CTA line (the bed ducks under them); caption: true = a speech
@@ -471,6 +472,46 @@ def paper_note_png(text, cache, bottom=CAPTION_BOTTOM):
         assert y0 + bh <= H - SAFE["bottom"] + 10, f"note runs into the bottom overlay: {text}"
         return im
     return O._cached(cache, f"paper|{text}|{bottom}|{W}x{H}", render)
+
+
+def glass_note_png(text, cache, bottom=CAPTION_BOTTOM):
+    """Note as the long video's glass pane (EDL note_style "glass", ep 124): dark tint, hairline light edge,
+    PingFang SC Semibold in white, centred in the Shorts safe zone, bottom edge at `bottom`. No blur here
+    (Shorts layers are plain PNGs), so the tint is a little darker than the long video's."""
+    def render():
+        from PIL import ImageChops
+        im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        size = 60
+        f = O._face(O.GLASS_FONTS, size, text)
+        max_w = W - SAFE["left"] - SAFE["right"] - 110
+        lines = [ln for part in text.split("\n") for ln in O._wrap(d, part, f, max_w)]
+        lh = int(size * 1.36)
+        padx, pady = int(size * 0.8), int(size * 0.42)
+        tw = max(d.textlength(ln, font=f) for ln in lines)
+        bw, bh = int(tw + 2 * padx), int(lh * len(lines) - (lh - size * 1.18) + 2 * pady)
+        cx = (SAFE["left"] + W - SAFE["right"]) / 2
+        x0, y0 = int(cx - bw / 2), max(SAFE["top"], int(H * bottom) - bh)
+        r = int(min(bh / 2, size * 0.55))
+        mask = Image.new("L", (W, H), 0)
+        mask.paste(O._rounded_mask(bw, bh, r), (x0, y0))
+        sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        ImageDraw.Draw(sh).rounded_rectangle([x0, y0 + 8, x0 + bw, y0 + bh + 10], radius=r, fill=(0, 0, 0, 80))
+        sh = sh.filter(ImageFilter.GaussianBlur(18))
+        sh.putalpha(ImageChops.multiply(sh.getchannel("A"), ImageChops.invert(mask)))
+        im = Image.alpha_composite(im, sh)
+        pane = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        pane.paste(Image.new("RGBA", (W, H), (14, 16, 22, 190)), (0, 0), mask)
+        im = Image.alpha_composite(im, pane)
+        d = ImageDraw.Draw(im)
+        d.rounded_rectangle([x0, y0, x0 + bw - 1, y0 + bh - 1], radius=r, outline=O.GLASS_NOTE["edge"], width=2)
+        y = y0 + pady
+        for ln in lines:
+            d.text((cx, y - int(size * 0.08)), ln, font=f, fill=O.GLASS_NOTE["fg"], anchor="ma")
+            y += lh
+        assert y0 + bh <= H - SAFE["bottom"] + 10, f"note runs into the bottom overlay: {text}"
+        return im
+    return O._cached(cache, f"glass{O.GLASS_VERSION}|{text}|{bottom}|{W}x{H}", render)
 
 
 def punch_caption_png(text, style, cache, bottom=CAPTION_BOTTOM):
@@ -1120,6 +1161,8 @@ def build(spec, out, check=False, check_dir=None):
                 bottom = min(bottom, cta_top - 0.01)   # keep the payoff line readable above the CTA
             if c["style"] == "note" and spec.get("note_style") == "paper":
                 png = paper_note_png(c["text"].replace("{", "").replace("}", ""), cache, bottom)
+            elif c["style"] == "note" and spec.get("note_style") == "glass":
+                png = glass_note_png(c["text"].replace("{", "").replace("}", ""), cache, bottom)
             elif punch and c["style"] != "headline":
                 png = punch_caption_png(c["text"], c["style"], cache, bottom)
             else:
