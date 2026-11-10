@@ -34,7 +34,7 @@ STEPS = [
     ("C11", "QA round 2 applied (raw restore)", ["qa/round2.md"], "reviewer also watches raw footage and restores missed moments"),
     ("C12", "Thumbnails (3 options, both platforms)", ["../thumbnail/*_bilibili.jpg"], "publish skill step 3; editorial.html; THUMBNAILS.md"),
     ("C13", "HANDOFF.md written", ["HANDOFF.md"], "all template sections filled (status line no longer '<project>')"),
-    ("C14", "Cleanup + usage logged", [], "delete edit/previews and /tmp/yt-editor/<project>; usage --log '<NNN> end'"),
+    ("C14", "Cleanup + usage logged", [], "usage --log '<NNN> end'; delete edit/previews and /tmp/yt-editor/<project> after upload (scripts/cleanup_previews.py --apply) -- before 审片 keep them: the cut page plays previews/ and re-renders reuse the cache"),
 ]
 IDS = [s[0] for s in STEPS]
 
