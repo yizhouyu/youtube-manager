@@ -495,6 +495,46 @@ body.dirty #bSave kbd{color:var(--accent);border-color:var(--accent-line)}
 #nowrow .keys{font-size:12px;color:var(--text-3);white-space:nowrap}
 #nowrow .keys kbd{font-size:11px;padding:1px 5px}
 #nowrow .keys span+span{margin-left:10px}
+/* inside the 审片 app (WebKit): no native controls on the picture (their bar and the buttons on it fought each other);
+   a quiet control row under the shot timeline instead. In fullscreen the strip + row sit on the picture. */
+#pvctl{display:none}
+html.in-app #pvwrap{width:min(100%,calc((100vh - var(--barh,0px) - 196px)*var(--ar)))}
+html.in-app body.edopen #pvwrap{width:min(100%,calc(max(240px,100vh - var(--barh,0px) - 480px)*16/9))}
+html.in-app #pvtools{display:none}
+html.in-app #pvctl{display:flex;align-items:center;gap:4px;height:36px;margin-top:2px;color:var(--text-2)}
+html.in-app #pvctl .sp{flex:1}
+html.in-app #pvctl>button{width:32px;height:32px;padding:0;border:0;border-radius:var(--r-sm);background:transparent;color:inherit;display:inline-grid;place-items:center}
+html.in-app #pvctl>button:hover{background:var(--surface-3);color:var(--text)}
+html.in-app #pvctl>button svg{width:18px;height:18px}
+html.in-app #pcTime{margin-left:4px;font-size:var(--fs);color:var(--text-3);font-variant-numeric:tabular-nums;white-space:nowrap}
+html.in-app #pcTime b{color:var(--text);font-weight:600}
+html.in-app #pcSpeeds{display:flex;gap:2px;padding:2px;border-radius:var(--r-sm);background:var(--surface-3);margin-right:6px}
+html.in-app #pcSpeeds button{height:24px;padding:0 9px;border:0;border-radius:5px;background:transparent;color:var(--text-2);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+html.in-app #pcSpeeds button.on{background:var(--surface);color:var(--text);font-weight:500;box-shadow:var(--sh-1)}
+/* the shot timeline: segments (one per shot), played part darker, playhead with a dot, question dots above */
+html.in-app #qstrip{height:26px;margin-top:4px}
+html.in-app #qstrip .tr{top:11px;height:10px;border-radius:3px;background:var(--seg);overflow:hidden}
+html.in-app #qstrip:hover .tr,html.in-app #qstrip.drag .tr{top:10px;height:12px}
+html.in-app #qstrip .tr .pl{position:absolute;left:0;top:0;bottom:0;background:var(--seg-past)}
+html.in-app #qstrip .tr i{position:absolute;top:0;bottom:0;width:1.5px;margin-left:-.75px;background:var(--bg)}
+html.in-app #qstrip .ph{top:8px;height:18px;background:var(--playhead);pointer-events:none}
+html.in-app #qstrip .ph::before{content:'';position:absolute;left:-3px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--playhead)}
+html.in-app #qstrip .qm{top:0}
+html.in-app .theater.fs #qstrip{bottom:48px;height:26px;pointer-events:auto}
+html.in-app .theater.fs #qstrip .tr,html.in-app .theater.fs #qstrip .ph{display:block}
+html.in-app .theater.fs #qstrip .tr{background:rgba(255,255,255,.3)}
+html.in-app .theater.fs #qstrip .tr .pl{background:rgba(255,255,255,.7)}
+html.in-app .theater.fs #qstrip .tr i{background:rgba(0,0,0,.6)}
+html.in-app .theater.fs #qstrip .ph,html.in-app .theater.fs #qstrip .ph::before{background:#fff}
+html.in-app .theater.fs #pvctl{position:absolute;left:0;right:0;bottom:0;z-index:5;height:auto;margin:0;padding:40px 12px 8px;color:#fff;
+  background:linear-gradient(transparent,rgba(0,0,0,.6));opacity:0;transition:opacity .2s;pointer-events:none}
+html.in-app .theater.fs #pv.act~#pvctl,html.in-app .theater.fs #pv.paused~#pvctl,html.in-app .theater.fs #pvctl:hover,
+html.in-app .theater.fs #pv.act~#qstrip,html.in-app .theater.fs #qstrip:hover{opacity:1;pointer-events:auto}
+html.in-app .theater.fs #pvctl>button:hover{background:rgba(255,255,255,.16);color:#fff}
+html.in-app .theater.fs #pcTime,html.in-app .theater.fs #pcTime b{color:#fff}
+html.in-app .theater.fs #pcSpeeds{background:rgba(255,255,255,.14)}
+html.in-app .theater.fs #pcSpeeds button{color:rgba(255,255,255,.85)}
+html.in-app .theater.fs #pcSpeeds button.on{background:#fff;color:#111}
 /* the shot-by-shot drawer */
 #edits{margin-top:14px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
 #edh{display:flex;align-items:center;gap:10px;padding:0 10px 0 14px;height:46px;cursor:pointer;user-select:none;flex:none}
@@ -524,6 +564,7 @@ body.nohelp #help{display:none}
 #listEnd b{color:var(--text)}
 #listEnd a{color:var(--accent);text-decoration:none}
 #qcard{flex:none}
+#qcard:empty,#qcard:has(>.qa-card[hidden]:only-child){display:none}   /* no card: no empty gap above the rail */
 #qcard .qa-card{margin:0;box-shadow:var(--sh-1)}
 #qside{display:none;flex:0 1 auto;min-height:0;max-height:min(30%,220px);overflow:hidden;flex-direction:column}
 body.hasq #qside{display:flex}
@@ -630,6 +671,8 @@ __QA_CSS__
 <main class="stage">
   <div id="pvwrap"><div id="pv"><div class="none">还没有预览，点右上角「更新预览」生成</div></div>
     <div id="qstrip" title="拖动或点一下跳到那里 · 黄色 = 有问题想问你，绿色 = 已回答"><div class="tr"></div><div class="ph"></div><div id="qmarks"></div></div>
+    <div id="pvctl"><button id="pcPlay" title="播放 / 暂停（空格）"></button><span id="pcTime"></span><span class="sp"></span>
+      <span id="pcSpeeds" title="速度（数字键 1–4）"></span><button id="pcMute" title="静音"></button><button id="pcFs"></button></div>
     <div id="sbtip"><div class="im"></div><div class="tx"></div></div>
     <div id="nowrow"><span id="nowt"></span><span class="sp"></span>
       <span class="keys"><span><kbd>空格</kbd> 播放/暂停</span><span><kbd>←</kbd><kbd>→</kbd> 5 秒</span><span><button id="fsHint" title="全屏时右边留着聊天（C 切换成悬浮）"><kbd>F</kbd> 全屏</button></span><span title="J 倒退 · K 暂停 · L 前进（再按加速 1×→2×→4×）· , . 逐帧 · C 写评论"><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd> <kbd>,</kbd><kbd>.</kbd> <kbd>C</kbd></span></span></div></div>
@@ -924,7 +967,7 @@ document.addEventListener('fullscreenchange',()=>setTimeout(()=>{
   const a=document.activeElement; if(a&&a.blur) a.blur(); document.body.focus&&document.body.focus()},0));
 // Click anywhere on the picture (not the control bar at the bottom) to play/pause, like YouTube.
 document.addEventListener('click',e=>{const v=e.target; if(!v||v.id!=='pvv') return;
-  const r=v.getBoundingClientRect(); if(e.clientY>r.bottom-Math.min(44,r.height*0.2)) return;  // native control bar
+  const r=v.getBoundingClientRect(); if(v.controls&&e.clientY>r.bottom-Math.min(44,r.height*0.2)) return;  // native control bar
   e.preventDefault(); v.paused?v.play().catch(()=>{}):v.pause()},true);
 // double-click the picture = fullscreen (ours, not the bare <video>'s)
 document.addEventListener('dblclick',e=>{if(!e.target||e.target.id!=='pvv') return; e.preventDefault(); e.stopPropagation(); pvToggleFs()},true);
@@ -939,13 +982,42 @@ $('#pv').addEventListener('click',e=>{const b=e.target.closest('#pvtools button'
 // speed presets, like the raw-footage page; remembered across reloads and new previews
 const PV_SPEEDS=[1,1.5,2,3];
 let pvSpeed=1;   // every page load starts at 1x (creator, 2026-10-15); the chosen speed carries over to new preview versions in this session
-function pvMarkSpeed(r){document.querySelectorAll('#pvspeeds button').forEach(b=>b.classList.toggle('on',+b.dataset.r===r))}
+function pvMarkSpeed(r){document.querySelectorAll('#pvspeeds button,#pcSpeeds button').forEach(b=>b.classList.toggle('on',+b.dataset.r===r))}
 function pvSetSpeed(r){pvSpeed=r;
   const v=document.getElementById('pvv'); if(v) v.playbackRate=r; pvMarkSpeed(r)}
-window.addEventListener('cbfs',()=>{const b=document.getElementById('pvfs'); if(b) fsIcon(b)});
+window.addEventListener('cbfs',()=>{['pvfs','pcFs'].forEach(id=>{const b=document.getElementById(id); if(b) fsIcon(b)})});
 const IC_FS='<svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
       IC_FSX='<svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5"/></svg>';
 function fsIcon(b){const on=window.cbFs&&window.cbFs.active(); b.innerHTML=on?IC_FSX:IC_FS; b.title=on?'退出全屏（F / Esc）':'全屏，右边留着聊天（F）'}
+// 审片 app: control row under the timeline instead of the native controls (play, time, speeds, mute, fullscreen),
+// and the timeline split into the shots (gaps), played part darker
+const IN_APP=window.top!==window;
+if(IN_APP){
+  const IC_PLAY='<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 2.8v10.4c0 .5.5.8.9.5l8-5.2a.6.6 0 0 0 0-1l-8-5.2c-.4-.3-.9 0-.9.5z"/></svg>',
+        IC_PAUSE='<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="2.5" width="3" height="11" rx="1"/><rect x="9.5" y="2.5" width="3" height="11" rx="1"/></svg>',
+        IC_VOL='<svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6v4h2.5l3.5 3V3L5 6z" fill="currentColor"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4"/></svg>',
+        IC_MUTE='<svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6v4h2.5l3.5 3V3L5 6z" fill="currentColor"/><path d="M11 6l3.5 4M14.5 6L11 10"/></svg>';
+  $('#pcSpeeds').innerHTML=PV_SPEEDS.map(r=>`<button data-r="${r}">${r}×</button>`).join('');
+  $('#pvctl').addEventListener('click',e=>{const b=e.target.closest('button'), v=$('#pvv'); if(!b) return; e.stopPropagation();
+    if(b.dataset.r) pvSetSpeed(+b.dataset.r);
+    else if(b.id==='pcFs') pvToggleFs();
+    else if(!v) return;
+    else if(b.id==='pcPlay') v.paused?v.play().catch(()=>{}):v.pause();
+    else if(b.id==='pcMute') v.muted=!v.muted;
+    pcTick()});
+  let segKey='';
+  function pcTick(){const v=$('#pvv'), d=v&&v.duration||0, t=v?v.currentTime||0:0;
+    $('#pvctl').style.visibility=v?'':'hidden';
+    const pl=$('#pcPlay'), pi=v&&!v.paused?IC_PAUSE:IC_PLAY; if(pl.dataset.i!==pi){pl.dataset.i=pi; pl.innerHTML=pi}
+    const mu=$('#pcMute'), mi=v&&v.muted?IC_MUTE:IC_VOL; if(mu.dataset.i!==mi){mu.dataset.i=mi; mu.innerHTML=mi; mu.title=v&&v.muted?'取消静音':'静音'}
+    $('#pcTime').innerHTML=d?`<b>${fmt(t)}</b> / ${fmt(d)}`:'';
+    const tr=$('#qstrip .tr'); if(!tr) return;
+    const st=D&&d?starts().slice(1).filter(x=>x>0&&x<d):[], k=d+'|'+st.join(',');
+    if(k!==segKey){segKey=k; tr.innerHTML='<div class="pl"></div>'+st.map(x=>`<i style="left:${(x/d*100).toFixed(3)}%"></i>`).join('')}
+    const p=tr.querySelector('.pl'); if(p) p.style.width=(d?Math.min(100,t/d*100):0)+'%'}
+  setInterval(pcTick,200);
+  fsIcon($('#pcFs')); pvMarkSpeed(pvSpeed);
+}
 // Preview player keys (also in fullscreen). Capture phase + preventDefault so the browser's own
 // media controls or a focused button don't handle the same key a second time.
 document.addEventListener('keydown',e=>{
@@ -988,6 +1060,7 @@ async function loadPreview(keep){
     :'<div class="none">还没有预览，点右上角「更新预览」生成</div>');
   const nv=$('#pvv');
   if(nv) nv.addEventListener('loadedmetadata',()=>{if(nv.videoWidth&&nv.videoHeight) $('#pvwrap').style.setProperty('--ar',(nv.videoWidth/nv.videoHeight).toFixed(4))});
+  if(nv&&IN_APP) nv.controls=false;   // the app has its own control row (pvctl below)
   if(nv){nv.muted=wasMuted; nv.playbackRate=pvSpeed; nv.defaultPlaybackRate=pvSpeed; pvMarkSpeed(pvSpeed)
     nv.addEventListener('ratechange',()=>{if(nv.playbackRate!==pvSpeed){pvSpeed=nv.playbackRate; pvMarkSpeed(pvSpeed)}})}
   if(nv&&!keep&&!PV_RESTORED){PV_RESTORED=true; keep=savedPos(n)}
@@ -1064,7 +1137,7 @@ function sbHide(by){if(by&&sbBy!==by) return; $('#sbtip').style.display='none'; 
 // the native seek bar on the picture: Chrome draws it NB.x px in from both edges, NB.y0–NB.y1 px above the bottom
 const NB={x:16, y0:0, y1:30};
 $('#pv').addEventListener('mousemove',e=>{
-  const v=$('#pvv'); if(!v||e.target!==v||!v.duration){sbHide('native'); return}
+  const v=$('#pvv'); if(!v||e.target!==v||!v.duration||!v.controls){sbHide('native'); return}
   const r=v.getBoundingClientRect(), dy=r.bottom-e.clientY;
   if(dy<NB.y0||dy>NB.y1||e.clientX<r.left+NB.x-4||e.clientX>r.right-NB.x+4){sbHide('native'); return}
   const W=$('#pvwrap').getBoundingClientRect(), t=Math.max(0,Math.min(1,(e.clientX-r.left-NB.x)/(r.width-2*NB.x)))*v.duration;
@@ -1250,7 +1323,7 @@ window.chatSeek=async m=>{try{const r=await (await fetch('/api/chat/locate?id='+
 window.chatVideo=()=>modalShot>=0?null:document.getElementById('pvv');
 window.appHooks={kind:'cut',video:()=>modalShot>=0?null:document.getElementById('pvv'),rate:()=>pvSpeed,setRate:r=>pvSetSpeed(r),
   here:()=>{const v=document.getElementById('pvv'),q={cut_t:Math.round(((v&&v.currentTime)||0)*100)/100};if(PVNAME)q.preview=PVNAME;return q},
-  btnHost:()=>document.querySelector('#nowrow .keys'),
+  btnHost:()=>document.getElementById('nowrow'),
   seek:d=>{const v=document.getElementById('pvv');if(!v)return;resumeFollow();v.pause();v.currentTime=Math.max(0,+d.t||0)}};</script></body>"""
 PAGE = AB.inject(CHAT.inject(QS.inject(PAGE.replace("__THEME_CSS__", THEME.CSS)).replace("</body>", CHAT_CTX, 1), "cut"))
 

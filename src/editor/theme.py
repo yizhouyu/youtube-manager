@@ -132,6 +132,12 @@ html #cbQuick button{background:var(--surface-3);border-color:transparent;color:
 html #cbIn{background:var(--surface-2);border-color:transparent}
 html .shot{border-color:transparent}
 html .item.cur{background:var(--surface);box-shadow:var(--sh-1)}
-/* inside the 审片 app the shell's toolbar names the episode and the page: drop the page's own title (actions stay) */
-html.in-app .hdr .kind,html.in-app .hdr .sep,html.in-app .hdr .pname{display:none}
+/* inside the 审片 app the shell's toolbar names the episode and shows the header's meta + buttons (appbridge.py) */
+html.in-app{--hdr:0px}
+html.in-app .hdr{display:none}
+/* dark appearance: the chat's own bubble text was a fixed dark blue */
+@media (prefers-color-scheme: dark){html:not([data-theme="light"]) .cbm.creator .bub{color:#dbe7ff}}
+/* question markers on the timelines: small dots instead of triangles */
+html .qm,html #qstrip .qm{width:9px;height:9px;margin-left:-4.5px;border:0;border-radius:50%;background:var(--q);box-shadow:0 0 0 1.5px var(--surface);filter:none}
+html .qm.done,html #qstrip .qm.done{background:var(--used)}
 """

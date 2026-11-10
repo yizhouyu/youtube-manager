@@ -367,6 +367,7 @@ main{display:flex;flex-direction:column;padding:16px;min-width:0;min-height:0}
   backdrop-filter:blur(4px);pointer-events:none;z-index:3;transition:opacity .2s ease,transform .2s ease}
 .bigplay::after{content:'';position:absolute;left:30px;top:22px;border-style:solid;border-width:16px 0 16px 26px;border-color:transparent transparent transparent #fff}
 .bigplay.hide{opacity:0;transform:scale(1.25)}
+.stage .msg:not(:empty)~.bigplay{display:none}   /* loading / no footage: the message, not a play button over it */
 .stage.ctl .cap{bottom:calc(92px + 3%)}
 .ov{position:absolute;left:0;right:0;bottom:0;padding:40px 14px 10px;z-index:4;color:var(--stage-ink);
   background:linear-gradient(to bottom,transparent,rgba(0,0,0,.72));

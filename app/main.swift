@@ -11,7 +11,7 @@ final class DragStrip: NSView {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKUIDelegate {
     var window: NSWindow!
     var web: WKWebView!
     var server: Process?
@@ -37,6 +37,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { true }
 
+    // Unsaved shot edits on the 成片 page: a browser tab would ask before closing; the app asks before quitting.
+    var discardOK = false
+    func confirmDiscard(_ done: @escaping (Bool) -> Void) {
+        guard let web = web else { done(true); return }
+        web.evaluateJavaScript("!!(window.shell&&shell.dirty&&shell.dirty())") { r, _ in
+            guard (r as? Bool) == true else { done(true); return }
+            let a = NSAlert()
+            a.messageText = "成片里有修改还没保存"
+            a.informativeText = "现在退出，这些修改会丢掉。"
+            a.addButton(withTitle: "取消")
+            a.addButton(withTitle: "不保存，退出")
+            done(a.runModal() == .alertSecondButtonReturn)
+        }
+    }
+
+    func windowShouldClose(_ w: NSWindow) -> Bool {
+        if discardOK { return true }
+        confirmDiscard { ok in if ok { self.discardOK = true; w.close() } }
+        return false
+    }
+
+    func applicationShouldTerminate(_ app: NSApplication) -> NSApplication.TerminateReply {
+        if discardOK { return .terminateNow }
+        confirmDiscard { ok in self.discardOK = ok; app.reply(toApplicationShouldTerminate: ok) }
+        return .terminateLater
+    }
+
     func applicationWillTerminate(_ note: Notification) {
         guard let s = server, s.isRunning else { return }
         s.terminate()   // app_server stops the episode servers it started on SIGTERM
@@ -52,13 +79,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         window.title = "审片"
+        window.delegate = self
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.toolbar = NSToolbar(identifier: "shenpian")
         window.toolbarStyle = .unified          // 52 pt bar, traffic lights centred in it
         window.minSize = NSSize(width: 980, height: 600)
         window.backgroundColor = Theme.bg
-        window.setFrameAutosaveName("ShenpianMain")
+        // SHENPIAN_BACKGROUND=1 (screenshots/tests while someone works on this Mac): never activate, never take
+        // clicks or keys, don't touch the saved window frame; SHENPIAN_SIZE=WxH sets the size.
+        let env = ProcessInfo.processInfo.environment
+        let background = env["SHENPIAN_BACKGROUND"] == "1"
+        if !background { window.setFrameAutosaveName("ShenpianMain") }
+        if let sz = env["SHENPIAN_SIZE"]?.split(separator: "x").compactMap({ Double($0) }), sz.count == 2 {
+            window.setContentSize(NSSize(width: sz[0], height: sz[1]))
+        }
         if window.frame.origin == .zero { window.center() }
 
         let root = NSView()
@@ -96,8 +131,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             drag.topAnchor.constraint(equalTo: root.topAnchor), drag.heightAnchor.constraint(equalToConstant: Theme.toolbarHeight),
         ])
         web.loadHTMLString("<html style='font:13px -apple-system;color:#86868b'><body style='display:grid;place-items:center;height:90vh;background:transparent'>启动中…</body></html>", baseURL: nil)
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        if background {
+            window.ignoresMouseEvents = true
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]   // on the Space in use, so it paints
+            window.level = .floating
+            window.orderFrontRegardless()
+        } else {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 
     // MARK: python server

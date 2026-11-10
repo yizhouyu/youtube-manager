@@ -21,6 +21,7 @@ RO_CSS = """<style>/* read-only (审片 app): nothing on this page can write */
 #cbForm,#cbQuick,#bSave,#bPrev,#bFinal,#qcard textarea,.qa-card button{display:none !important}
 #roBanner{position:fixed;left:50%;top:8px;transform:translateX(-50%);z-index:9999;padding:3px 12px;border-radius:999px;
   background:var(--q-soft);color:var(--q-ink);border:1px solid var(--q-line);font-size:12px;pointer-events:none}
+html.in-app #roBanner{display:none}   /* the app's toolbar says 只读 */
 </style><div id="roBanner">只读 · 这个文件夹不会被写入</div>"""
 
 
@@ -49,8 +50,25 @@ JS = r"""<style>
 #abJump{height:26px;padding:0 10px;font-size:12px;margin-left:8px;white-space:nowrap}
 </style><script>
 (function(){
-  const H=window.appHooks; if(!H) return;
   const inApp=window.top!==window;
+  // in the app the page's own header row is hidden (theme.FLAVOR): its meta text and buttons are shown in the app's
+  // toolbar instead. A click there comes back as {shenpian:'act', id} and clicks the page's own button.
+  const hdr=inApp&&document.querySelector('.hdr');
+  if(hdr){let qT=0;
+    const shown=el=>getComputedStyle(el).display!=='none';
+    const send=()=>{qT=0;const dirty=document.getElementById('dirty');
+      const acts=[...hdr.querySelectorAll('button[id]')].filter(shown).map(b=>{const k=b.querySelector('kbd');
+        return {id:b.id,label:[...b.childNodes].filter(n=>n!==k).map(n=>n.textContent).join('').trim(),kbd:k?k.textContent.trim():'',
+          pri:b.classList.contains('pri'),danger:b.classList.contains('danger'),title:b.title||'',disabled:!!b.disabled,dirty:b.id==='bSave'&&!!dirty&&shown(dirty)}});
+      const meta=[...hdr.querySelectorAll('.meta[id]')].map(m=>m.textContent.trim()).filter(Boolean).join('  ·  ');
+      parent.postMessage({shenpian:'hdr',acts,meta},'*')};
+    const later=()=>{if(!qT)qT=setTimeout(send,60)};
+    new MutationObserver(later).observe(hdr,{subtree:true,childList:true,attributes:true,characterData:true});
+    new MutationObserver(later).observe(document.body,{attributes:true,attributeFilter:['class']});
+    window.addEventListener('message',e=>{const d=e.data;if(!d||d.shenpian!=='act'||e.source!==parent)return;
+      const b=document.getElementById(d.id);if(b&&hdr.contains(b)&&b.tagName==='BUTTON'&&!b.disabled)b.click()});
+    send()}
+  const H=window.appHooks; if(!H) return;
   const typing=t=>t&&(/INPUT|SELECT|TEXTAREA/.test(t.tagName)||t.isContentEditable);
   let tT=0;
   function toast(s){let e=document.getElementById('abToast');if(!e){e=document.createElement('div');e.id='abToast';document.body.appendChild(e)}

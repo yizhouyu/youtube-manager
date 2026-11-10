@@ -333,6 +333,9 @@ def _write(path, text):
 
 def port_free(p):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        # like the servers themselves (werkzeug): a port the last episode just closed (TIME_WAIT) is free again, so
+        # reopening an episode gets its old port back (the pages keep their settings per port); a listener still fails
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s.bind(("127.0.0.1", p))
             return True
@@ -531,35 +534,51 @@ html.native .side{background:transparent}
 .side .lights{height:var(--hdr);flex:none}   /* the window's traffic lights sit here */
 #eps{flex:1;overflow-y:auto;padding:0 var(--sp-2)}
 .sec{font-size:var(--fs-xs);font-weight:500;color:var(--text-3);padding:var(--sp-3) var(--sp-3) var(--sp-1)}
-.ep{display:flex;align-items:center;gap:var(--sp-2);height:34px;padding:0 var(--sp-3);border-radius:var(--r-sm);cursor:default;
-  transition:background var(--dur-1) var(--ease)}
+.ep{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--sp-2);align-items:baseline;min-height:34px;padding:7px var(--sp-3);
+  border-radius:var(--r-sm);cursor:default;transition:background var(--dur-1) var(--ease)}
 .ep:hover{background:rgba(0,0,0,.04)}
 .ep.on{background:var(--sel-bg);color:var(--sel-ink)}
-.ep b{font:500 var(--fs) var(--font-num);font-variant-numeric:tabular-nums;color:var(--text-3);min-width:26px;flex:none}
-.ep .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ep b{font:500 var(--fs)/18px var(--font-num);font-variant-numeric:tabular-nums;color:var(--text-3);min-width:24px}
+.ep .nm{min-width:0;line-height:18px;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-word}
+.ep .chip{grid-column:2;justify-self:start;margin-top:3px}
 .chip{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-xs);line-height:20px;padding:0 8px;border-radius:999px;font-weight:500}
 .chip::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
 .chip.review{color:var(--st-review);background:var(--st-review-bg)}
 .chip.q{color:var(--st-open);background:var(--st-open-bg)}
 .chip.ok{color:var(--st-pass);background:var(--st-pass-bg)}
-.chip.up{color:var(--st-up);background:var(--st-up-bg);padding:0;font-weight:400}
-.chip.up::before,.chip.ro::before{display:none}
+.chip.up{display:none}   /* the 已完成 section already says so */
+.chip.ro::before{display:none}
 .chip.ro{color:var(--q-ink);background:var(--q-soft)}
 #other{margin:var(--sp-2) var(--sp-3) var(--sp-3);justify-content:flex-start;font-size:var(--fs);color:var(--text-2)}
 /* ---- toolbar: episode | centred segmented tabs | 审片通过 */
 .mainc{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg)}
-.top{height:var(--hdr);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:var(--sp-3);padding:0 var(--sp-5);
+.top{height:var(--hdr);display:grid;grid-template-columns:minmax(0,1fr) auto minmax(max-content,1fr);align-items:center;gap:var(--sp-3);padding:0 var(--sp-5);
   background:var(--bg-bar);flex:none}
-#ttl{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-lg)}
+#ttlw{min-width:0;display:flex;align-items:baseline;gap:10px}
+#ttl{min-width:0;flex:0 0 auto;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-lg)}
+#tmeta{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);color:var(--text-3);font-variant-numeric:tabular-nums}
 #ttl i{font-style:normal;color:var(--text-3);font-variant-numeric:tabular-nums;margin-right:8px;font-weight:400}
 #ttl b{font-weight:600}
+#ttl .chip{margin-left:10px;vertical-align:2px}
 #tabs{display:flex;gap:2px;padding:3px;border-radius:var(--r-sm);background:var(--surface-3)}
 #tabs:empty{display:none}
 #tabs button{border:0;background:transparent;color:var(--text-2);height:26px;padding:0 14px;border-radius:5px;font-size:var(--fs);
   transition:background var(--dur-1) var(--ease)}
 #tabs button:hover{color:var(--text)}
 #tabs button.on{background:var(--surface);color:var(--text);font-weight:500;box-shadow:var(--sh-1)}
-.top .right{display:flex;justify-content:flex-end;gap:var(--sp-2)}
+.top .right{display:flex;justify-content:flex-end;align-items:center;gap:var(--sp-2)}
+/* the open page's own header actions (保存 / 导出成片 / 更新预览), relayed by appbridge.py; clicks go back to the page */
+#pacts{display:flex;align-items:center;gap:2px}
+#pacts:empty{display:none}
+#pacts button{height:30px;padding:0 11px;font-size:var(--fs);border-color:transparent;background:transparent;color:var(--text-2);white-space:nowrap}
+#pacts button:hover{background:var(--surface-3);color:var(--text)}
+#pacts button kbd{font-size:11px;padding:1px 4px;margin-left:6px;color:var(--text-3);border-bottom-width:1px}
+#pacts button.dirty{color:var(--accent);background:var(--accent-soft)}
+#pacts button.dirty::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--danger);margin-right:6px;vertical-align:2px}
+#pacts button.pri{border-radius:999px;padding:0 16px;margin-left:4px;background:var(--btn-sec-bg);border-color:var(--btn-sec-line);color:var(--btn-sec-ink);font-weight:500}
+#pacts button.pri:hover{background:var(--surface-2)}
+#pacts button.danger,#pacts button.danger:hover{background:var(--danger);border-color:var(--danger);color:#fff}
+@media (max-width:1180px){.top{padding:0 var(--sp-3);gap:var(--sp-2)}#tabs button{padding:0 10px}#pacts button{padding:0 7px}#pacts kbd{display:none}#tmeta{display:none}}
 #approve{border-radius:999px;padding:0 16px;height:30px;background:var(--btn-pri-bg);border-color:var(--btn-pri-bg);color:var(--btn-pri-ink);font-weight:500}
 #approve:hover{background:var(--accent-hover)}
 #approve.on{background:var(--st-pass-bg);border-color:transparent;color:var(--st-pass)}
@@ -577,7 +596,8 @@ html.native .side{background:transparent}
 .cand.on{background:var(--st-pass-bg)}
 .cand img{width:96px;aspect-ratio:16/9;object-fit:cover;border-radius:var(--r-xs);background:var(--surface-3)}
 .cand .tx{display:flex;flex-direction:column;min-width:0;font-size:var(--fs-sm);color:var(--text-3)}
-.cand .tx b{font-size:var(--fs);color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.cand .tx b{font-size:var(--fs);line-height:1.4;color:var(--text);font-weight:600;max-width:300px;overflow:hidden;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-word}   /* a title must be readable to be picked */
 .cand button{flex:none;height:28px;font-size:var(--fs-sm);border-radius:999px;background:var(--btn-sec-bg);border-color:var(--btn-sec-line);color:var(--btn-sec-ink)}
 .cand.on button{color:var(--st-pass);border-color:transparent;background:transparent}
 body.ro .cand button,body.ro #approve{display:none}
@@ -586,8 +606,8 @@ body.ro .cand button,body.ro #approve{display:none}
 <aside class="side"><div class="lights"></div><div id="eps" class="scroll"></div>
   <button id="other" class="ghost" title="比如外接硬盘上的旧项目（只读）">打开其他文件夹…</button></aside>
 <section class="mainc">
-  <header class="top"><span id="ttl"></span><nav id="tabs"></nav>
-    <span class="right"><button id="approve" hidden title="这一期审片通过（只记下来，不会上传）">审片通过</button></span></header>
+  <header class="top"><span id="ttlw"><span id="ttl"></span><span id="tmeta"></span></span><nav id="tabs"></nav>
+    <span class="right"><span id="pacts"></span><button id="approve" hidden title="这一期审片通过（只记下来，不会上传）">审片通过</button></span></header>
   <div id="note"></div>
   <div class="views" id="views"><div class="view on" id="v-none"><div class="empty">左边点一期开始审片</div></div></div>
 </section></div>
@@ -595,7 +615,7 @@ body.ro .cand button,body.ro #approve{display:none}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const TABS=[['cover','封面'],['raw','素材'],['cut','成片'],['shorts','Shorts'],['titles','标题']];
-let EP=null, cur=null, others=[];
+let EP=null, cur=null, others=[], ACTS={};   // ACTS: tab -> the page's header {acts, meta} (appbridge.py)
 const post=(u,b)=>fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json());
 function chip(e){return e.ro?'<span class="chip ro">只读</span>':(e.chip?`<span class="chip ${e.chip}">${esc(e.chip_text)}</span>`:'')}
 function row(e){const n=/^\d+$/.test(e.label)?e.label:'';
@@ -604,12 +624,23 @@ async function list(){const eps=await (await fetch('/api/episodes')).json();
   const g=(t,a)=>a.length?`<div class="sec">${t}</div>`+a.map(row).join(''):'';
   $('eps').innerHTML=g('进行中',eps.filter(e=>e.chip!=='up'))+g('已完成',eps.filter(e=>e.chip==='up'))+g('其他文件夹',others);
   $('eps').querySelectorAll('.ep').forEach(el=>el.onclick=()=>openEp(el.dataset.p))}
+// Opening is one request at a time: quick clicks through the list open only the last one clicked (the server stops the
+// previous episode's servers on every open, so overlapping opens could leave the page pointing at stopped servers).
+let opening=false, wantOpen=null;
+const dirtyPages=()=>Object.values(ACTS).some(a=>(a.acts||[]).some(b=>b.dirty));
 async function openEp(p){
-  $('ttl').innerHTML='<i>启动中…</i>';document.querySelectorAll('.ep').forEach(e=>e.classList.toggle('on',e.dataset.p===p));
-  const j=await post('/api/open',{path:p});EP=j;cur=null;
+  if(EP&&p!==EP.path&&!opening&&dirtyPages()&&!confirm('成片里有修改还没保存，换一期会丢掉这些修改。\n还是要换吗？'))return;
+  wantOpen=p;document.querySelectorAll('.ep').forEach(e=>e.classList.toggle('on',e.dataset.p===p));
+  $('ttl').innerHTML='<i>启动中…</i>';$('tmeta').textContent='';$('tabs').innerHTML='';$('pacts').innerHTML='';$('approve').hidden=true;$('note').style.display='none';
+  $('views').innerHTML='<div class="view on" id="v-none"><div class="empty">启动中…</div></div>';EP=null;cur=null;ACTS={};
+  if(opening)return;opening=true;let j;
+  try{while(wantOpen){const q=wantOpen;wantOpen=null;j=await post('/api/open',{path:q}).catch(()=>null);
+    if(!wantOpen){if(j)showEp(j);else{$('ttl').innerHTML='';$('views').innerHTML='<div class="view on" id="v-none"><div class="empty">这一期打不开（日志在 ~/Library/Logs/审片/）</div></div>'}}}}
+  finally{opening=false}}
+function showEp(j){EP=j;cur=null;ACTS={};acts();
   if(j.ro&&!others.some(o=>o.path===j.path)&&!document.querySelector('.ep[data-p="'+CSS.escape(j.path)+'"]'))others.push(j);
   document.title='审片 · '+j.name;const num=/^\d+$/.test(j.label)?j.label:'';
-  $('ttl').innerHTML=(num?`<i>${esc(num)}</i>`:'')+`<b>${esc(num?j.name.replace(/^\d+ - /,''):j.name)}</b>`;document.body.classList.toggle('ro',!!j.ro);
+  $('ttl').innerHTML=(num?`<i>${esc(num)}</i>`:'')+`<b>${esc(num?j.name.replace(/^\d+ - /,''):j.name)}</b>`+(j.ro?'<span class="chip ro" title="这个文件夹不会被写入">只读</span>':'');document.body.classList.toggle('ro',!!j.ro);
   $('note').textContent=(j.notes||[]).join(' ');$('note').style.display=j.notes&&j.notes.length?'block':'none';
   const has={cover:j.tabs.cover||j.covers.length,raw:j.tabs.raw,cut:j.tabs.cut,shorts:j.tabs.shorts,titles:j.tabs.titles||j.titles.length};
   $('tabs').innerHTML=TABS.map(([k,n],i)=>has[k]?`<button data-k="${k}" title="⌘${i+1}">${n}</button>`:'').join('');
@@ -620,10 +651,10 @@ async function openEp(p){
   const first=['raw','cut','cover','shorts','titles'].find(k=>has[k]);tab(first||'none')}
 function tab(k){if(!EP)return;const v=$('v-'+k);if(!v)return;
   if(cur&&cur!==k){const f=document.querySelector('#v-'+cur+' iframe');if(f&&f.contentWindow)f.contentWindow.postMessage({shenpian:'pause'},'*')}
-  cur=k;document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x===v));
+  cur=k;acts();document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x===v));
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
   const f=v.querySelector('iframe');if(f&&!f.src)f.src=f.dataset.src;if(f)setTimeout(()=>f.focus(),50)}
-window.shell={tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p)};
+window.shell={tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),dirty:dirtyPages};   // dirty: the Swift app asks before quitting
 // 选这个 / 已选 · 撤销 (Q9): one APPROVALS.md line per click
 function cand(type,id,html){const P=EP.picks||{},on=type==='short'?(P.short||[]).includes(id):P[type]===id;
   return `<div class="cand${on?' on':''}">${html}<button data-t="${type}" data-c="${esc(id)}" data-u="${on?1:''}">${on?'已选 · 撤销':'选这个'}</button></div>`}
@@ -638,6 +669,16 @@ async function doPick(type,choice,undo){const j=await post('/api/pick',{path:EP.
 $('approve').onclick=()=>doPick('approve','审片通过',!!(EP.picks||{}).approve);
 $('other').onclick=()=>{if(window.webkit&&webkit.messageHandlers&&webkit.messageHandlers.shell)webkit.messageHandlers.shell.postMessage({cmd:'pickFolder'});
   else{const p=prompt('项目文件夹的路径');if(p)openEp(p)}};
+// the open page's header (meta text + 保存 / 导出成片 / 更新预览) shown in this toolbar; a click is sent back to the page,
+// which clicks its own (hidden) button, so the behaviour (⌘S, the two 导出成片 confirmations, read-only) is the page's own
+function frameOf(k){return document.querySelector('#v-'+k+' iframe')}
+function acts(){const a=ACTS[cur]||{};$('tmeta').textContent=$('tmeta').title=a.meta||'';
+  $('pacts').innerHTML=(a.acts||[]).map(b=>`<button data-id="${esc(b.id)}" class="${b.pri?'pri':''}${b.dirty?' dirty':''}${b.danger?' danger':''}" title="${esc(b.title)}"${b.disabled?' disabled':''}>${esc(b.label)}${b.kbd?`<kbd>${esc(b.kbd)}</kbd>`:''}</button>`).join('');
+  $('pacts').querySelectorAll('button').forEach(b=>b.onclick=()=>pageAct(b.dataset.id))}
+function pageAct(id){const f=frameOf(cur);if(!f||!f.contentWindow)return;f.contentWindow.postMessage({shenpian:'act',id},'*');f.focus()}
+window.addEventListener('message',e=>{const d=e.data;if(!d||d.shenpian!=='hdr')return;
+  const k=TABS.map(t=>t[0]).find(k=>{const f=frameOf(k);return f&&f.contentWindow===e.source});if(!k)return;
+  ACTS[k]={acts:Array.isArray(d.acts)?d.acts:[],meta:String(d.meta||'')};if(k===cur)acts()});
 // Q7: a page asks to jump to the other page at a moment
 window.addEventListener('message',e=>{const d=e.data;if(!d||d.shenpian!=='jump'||!EP)return;
   if(!$('v-'+d.to))return;tab(d.to);const f=document.querySelector('#v-'+d.to+' iframe');
@@ -645,7 +686,8 @@ window.addEventListener('message',e=>{const d=e.data;if(!d||d.shenpian!=='jump'|
   if(f.dataset.ready)send();else f.addEventListener('load',()=>{f.dataset.ready=1;setTimeout(send,1500)},{once:true})});
 document.addEventListener('load',e=>{if(e.target.tagName==='IFRAME')e.target.dataset.ready=1},true);
 // ⌘1–⌘5 also work here when the shell itself has focus (the Swift menu handles them everywhere else)
-document.addEventListener('keydown',e=>{if(e.metaKey&&e.key>='1'&&e.key<='5'){e.preventDefault();shell.tab(+e.key)}});
+document.addEventListener('keydown',e=>{if(e.metaKey&&e.key>='1'&&e.key<='5'){e.preventDefault();shell.tab(+e.key)}
+  else if(e.metaKey&&e.key==='s'){e.preventDefault();if((ACTS[cur]&&ACTS[cur].acts||[]).some(a=>a.id==='bSave'))pageAct('bSave')}});
 list();setInterval(list,30000);
 {const q=new URLSearchParams(location.search);if(q.get('open'))openEp(q.get('open')).then(()=>{if(q.get('tab'))tab(q.get('tab'))})}   // ?open=<path>&tab=cut
 </script></body></html>

@@ -22,6 +22,10 @@ launch time points it elsewhere, e.g. a worktree).
   previous episode's servers are stopped (only ones the app started). Logs: `~/Library/Logs/审片/`.
 - Look: option B of `DESIGN.md`; tokens in `src/editor/theme.py` (swap `TOKENS`/`DARK_TOKENS`/`FLAVOR` for A/C/D).
 
+Testing without disturbing the person at this Mac: `SHENPIAN_BACKGROUND=1` (never activates, ignores clicks, doesn't
+save the window frame, shows on the Space in use) and `SHENPIAN_SIZE=1280x800`; then `screencapture -l <window id>`.
+Quitting (or closing the window) with unsaved shot edits on 成片 asks first, like the browser tab did.
+
 ## Sidebar
 
 Every `~/Desktop/<N> - <name>` with `02 - Export/edit/`, newest first, with one chip read from files:
@@ -40,12 +44,23 @@ proofreading) and pick buttons are hidden.
 | Shorts ⌘4 | new page: each `02 - Export/shorts/*.mp4` with its cover and hook/label from `edit/shorts/<name>.json`; same chat (notes carry `ctx.short`) |
 | 标题 ⌘5 | newest `thumbnail/**/feed_sim*.html`, plus title candidates from `publish_prep/metadata_final.txt` (or `draft_metadata.md`) |
 
+## Toolbar
+
+Episode number + name, the open page's meta (e.g. 成片 9:35 · 80 段), the tabs, then the page's own header buttons
+(保存 ⌘S / 导出成片 / 更新预览) and 审片通过. The page's header row is hidden in the app; `appbridge.py` relays its
+buttons and meta to the toolbar, and a click is sent back to the page, which clicks its own button (same behaviour:
+导出成片 still needs the second click, read-only pages have no buttons, ⌘S works from the toolbar too).
+Switching episodes while 成片 has unsaved edits asks first; quick clicks through the list open only the last one.
+
 ## On the video pages (also in a browser)
 
 - 框选: drag a rectangle on the picture; it is saved with the next comment as `ctx.box = [x, y, w, h]` (0–1) and
   drawn again when the comment's time is clicked.
 - Keys (existing ones unchanged): J / K / L back · pause · forward (L or J again: 1× → 2× → 4×), `,` `.` one
   frame, C comment at this moment (in fullscreen C keeps switching the chat layout).
+- In the app the 成片 player has no native controls (they collided with the speed buttons and the storyboard tip):
+  the shot timeline (one segment per shot, question dots above) and a control row (▶, time, 1×–3×, mute,
+  fullscreen) sit under the picture, and on the picture in fullscreen. In a browser the page is unchanged.
 - R (and a small button), in the app only: 成片 → the same moment in 素材 (unused parts of the clip are shown);
   素材 → the same moment in 成片, or 「这段没用上」.
 
