@@ -27,7 +27,10 @@ This brief is for one episode of 「Yizhou的一周」, a New York-based softwar
 - Strangers' faces are fine.
 - No length limit: long is fine if it's worth watching.
 
-## Both seats deliver (≤ 800 words)
+## Scratch files
+Write temporary frames and sheets only under your own folder, `<scratchpad>/<ep>/panel_<seat>/`. Never delete a file you did not create: on 126 the director cleared the viewer's sheets from the shared scratchpad root.
+
+## Both seats deliver (≤ 800 words; a Chinese report ≤ about 1,500 字)
 1. **One sentence in your own words: what is this video about?** If you can't say it, that's a clarity problem.
 2. **Scores 1–10, each with a one-line reason:**
    - hook (0–30 s)
@@ -44,6 +47,13 @@ This brief is for one episode of 「Yizhou的一周」, a New York-based softwar
 
 ## Both seats, when `edit/qa/opens/` has variants
 Score each cold-open variant from 1 to 10 on hook, clarity and promise-match, and say which one you'd keep and why, in one line each. The coordinator ships the highest weighted score: hook ×2, clarity ×1, promise ×1.
+
+## Both seats, when the cut runs over about 15 minutes
+Say in one line whether this should stay one episode or become two, and if two, where the split goes and what each half opens and ends on. On 126 (20 min) both seats said split, independently, and the director's split plan went straight into HANDOFF.
+
+## Both seats: spoilers and sound under speech
+- Check that no map, card, tag or note gives away the episode's open question before its payoff (126: the 1:15 route map labelled stop ⑤ 「武林夜市 11:15」 and spoiled 「来得及吗」).
+- For every synthesized effect (clacks, hum, stamps), say whether it lands on speech or in a gap, and how many LU under the mix it sits.
 
 ## The viewer adds
 5. **Swipe-away moments:** timestamps where you'd leave, and why.
@@ -82,6 +92,7 @@ Final message: a 5-line summary plus the report path.
 - After each run, improve this brief: what you wanted to know but didn't get. Log it below.
 
 ## Changelog
+- v11 2026-11-10 (126): per-seat scratch folders and a no-delete rule (the director deleted the viewer's sheets); a one-vs-two-episodes verdict for cuts over ~15 min; a spoiler check on maps/cards/tags against the open question; synthesized effects must be judged as landing on speech or in a gap (126's magnet clacks sat 13–17 LU under his goodbye); Chinese report length stated in 字. Still open from v10: render the cold-open variants as a short side file so seats can watch b/c instead of reading snippets.
 - v11 2026-11-09 (127): every timing or note fix comes with **clip + source second** as well as the preview time, so it maps straight into the EDL (127's director did this for the counter and the chicken sign; the viewer gave preview times only). For a **two-part episode** (e.g. a festival night + a store two days later) both seats say which half should lead the title and cover, and whether the first minutes keep that promise. Both seats measure a new on-screen device against the captions in px at 1080p and in seconds on screen (127: the counter tags were 30 px vs 44 px captions and on screen 29 s of 3 min).
 - v10 2026-11-09 (125): when a cut has cold-open variants that exist only as EDL snippets, tell both seats they judge b/c from the snippets + raw sheets (the 125 seats split a/c by 1 point) — next time render the three openings as a 40 s side file so they can watch them. Both seats now also flag lines whose subject is not visible in the frame (陈毅, 摩天轮, dogs on 125).
 - v9 2026-11-09 (124): when the episode has a new technique (e.g. neon titles with synthesized sound), ask the director to measure whether it is actually audible/readable in the mix (M-loudness of the effect vs. the mix) — the 124 director found the hum 17–20 LU under the mix. When `draft_metadata.md` doesn't exist yet, give the viewer a working title so the packaging check still runs.

@@ -86,13 +86,45 @@ KINDS = {  # kind -> Overpass way selectors
     "minor": ('way["highway"~"^(%s)$"]' % "|".join(MINOR),),
     "paths": ('way["highway"~"^(%s)$"]' % "|".join(PATHS),),
     "coast": ('way["natural"="coastline"]',),
-    "water": ('way["natural"="water"]', 'way["waterway"~"^(river|stream|canal)$"]'),
+    "water": ('way["natural"="water"]', 'way["waterway"~"^(river|stream|canal)$"]',
+              'relation["natural"="water"]'),   # multipolygon lakes (e.g. West Lake) -> stitched rings
 }
 KEEP_TAGS = ("highway", "natural", "waterway", "oneway", "junction", "name", "ref", "access", "foot")
 
 
 def _bb(b):
     return "(" + ", ".join(str(v) for v in b) + ")"
+
+
+def stitch_rings(segs):
+    """Join unordered, arbitrarily directed way segments (a multipolygon's outer members) into closed
+    rings of (lat, lon); open leftovers (cut by the query bbox) are closed straight back to their start."""
+    segs = [list(s) for s in segs if len(s) > 1]
+    rings = []
+    while segs:
+        ch = segs.pop(0)
+        grown = True
+        while ch[0] != ch[-1] and grown:
+            grown = False
+            for i, s in enumerate(segs):
+                if s[0] == ch[-1]:
+                    ch += s[1:]
+                elif s[-1] == ch[-1]:
+                    ch += s[::-1][1:]
+                elif s[-1] == ch[0]:
+                    ch = s[:-1] + ch
+                elif s[0] == ch[0]:
+                    ch = s[::-1][:-1] + ch
+                else:
+                    continue
+                segs.pop(i)
+                grown = True
+                break
+        if ch[0] != ch[-1]:
+            ch.append(ch[0])
+        if len(ch) > 3:
+            rings.append(ch)
+    return rings
 
 
 def fetch(bbox, out_json, kinds=("major", "coast"), coast_bbox=None, around=(), around_radius=600,
@@ -128,6 +160,14 @@ def fetch(bbox, out_json, kinds=("major", "coast"), coast_bbox=None, around=(), 
         raise SystemExit("Overpass unavailable")
     els = []
     for e in raw["elements"]:
+        if e.get("type") == "relation" and e.get("members"):   # multipolygon water: stitch outer rings
+            segs = [[(round(p["lat"], 6), round(p["lon"], 6)) for p in m["geometry"]] for m in e["members"]
+                    if m.get("type") == "way" and m.get("role", "outer") in ("outer", "") and m.get("geometry")]
+            for i, ring in enumerate(stitch_rings(segs)):
+                els.append({"type": "way", "id": -(e["id"] * 100 + i), "nodes": [],
+                            "tags": {k: v for k, v in e.get("tags", {}).items() if k in KEEP_TAGS},
+                            "geometry": [{"lat": la, "lon": lo} for la, lo in ring]})
+            continue
         if e.get("type") != "way" or not e.get("geometry"):
             continue
         els.append({"type": "way", "id": e["id"],

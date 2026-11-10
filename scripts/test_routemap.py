@@ -100,4 +100,8 @@ with tempfile.TemporaryDirectory() as td:
         raise AssertionError("leg count mismatch must raise")
     except ValueError:
         pass
+# multipolygon lakes: unordered, reversed outer members stitch into one closed ring (ep 126, West Lake)
+rings = rm.stitch_rings([[(0, 0), (0, 1)], [(1, 1), (0, 1)], [(1, 1), (1, 0), (0, 0)]])
+assert len(rings) == 1 and rings[0][0] == rings[0][-1] and len(rings[0]) == 5, rings
+assert rm.stitch_rings([[(0, 0), (0, 1), (1, 1)]])[0][-1] == (0, 0), "open leftovers are closed"
 print("ok")
