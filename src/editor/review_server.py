@@ -32,6 +32,7 @@ from . import questions as QS
 from . import chat as CHAT
 from . import theme as THEME
 from . import storyboard as SB
+from . import appbridge as AB
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CACHE_ROOT = "/tmp/yt-editor"
@@ -78,7 +79,7 @@ def storyboard(v):
         return None
     root = os.path.join(edit_dir(), SB.SUB)
     j = SB.request(pf[0], os.path.join(root, pf[1]))
-    if not j.get("ready"):   # a new render: drop storyboards of versions that are gone
+    if not j.get("ready") and not SB.READ_ONLY:   # a new render: drop storyboards of versions that are gone
         vdir = os.path.join(edit_dir(), "previews")
         keep = {pf[1]} | {f[:-4] for f in (os.listdir(vdir) if os.path.isdir(vdir) else []) if f.endswith(".mp4")}
         if os.path.isfile(preview_path()):
@@ -631,7 +632,7 @@ __QA_CSS__
     <div id="qstrip" title="拖动或点一下跳到那里 · 黄色 = 有问题想问你，绿色 = 已回答"><div class="tr"></div><div class="ph"></div><div id="qmarks"></div></div>
     <div id="sbtip"><div class="im"></div><div class="tx"></div></div>
     <div id="nowrow"><span id="nowt"></span><span class="sp"></span>
-      <span class="keys"><span><kbd>空格</kbd> 播放/暂停</span><span><kbd>←</kbd><kbd>→</kbd> 5 秒</span><span><button id="fsHint" title="全屏时右边留着聊天（C 切换成悬浮）"><kbd>F</kbd> 全屏</button></span></span></div></div>
+      <span class="keys"><span><kbd>空格</kbd> 播放/暂停</span><span><kbd>←</kbd><kbd>→</kbd> 5 秒</span><span><button id="fsHint" title="全屏时右边留着聊天（C 切换成悬浮）"><kbd>F</kbd> 全屏</button></span><span title="J 倒退 · K 暂停 · L 前进（再按加速 1×→2×→4×）· , . 逐帧 · C 写评论"><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd> <kbd>,</kbd><kbd>.</kbd> <kbd>C</kbd></span></span></div></div>
   <section id="edits" class="panel">
     <div id="edh" role="button" tabindex="0" aria-controls="edBody" title="逐段修改：删镜头、改开始/结束、改字幕">
       <span class="chev"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5L10.5 8 6 12.5"/></svg></span>
@@ -1244,8 +1245,14 @@ CHAT_CTX = r"""<script>window.chatCtx=()=>{const v=document.getElementById('pvv'
 // click a note's time in the chat: the same moment in the preview on screen now (see locate.py)
 window.chatSeek=async m=>{try{const r=await (await fetch('/api/chat/locate?id='+m.id+(PVNAME?'&preview='+encodeURIComponent(PVNAME):''))).json();
   if(r.t==null)return null; seekPreview(Math.max(0,r.t-2));   // 2 s lead-in
-  return {label:'现在 '+fmt(r.t)+({near:'（这段改过，附近）',gone:'（这段已删，下一段）'}[r.how]||'')}}catch(e){return null}}</script></body>"""
-PAGE = CHAT.inject(QS.inject(PAGE.replace("__THEME_CSS__", THEME.CSS)).replace("</body>", CHAT_CTX, 1), "cut")
+  return {label:'现在 '+fmt(r.t)+({near:'（这段改过，附近）',gone:'（这段已删，下一段）'}[r.how]||'')}}catch(e){return null}};
+// 审片 app: 框选 on the preview, J/K/L etc., R = this moment in the raw footage (appbridge.py)
+window.chatVideo=()=>modalShot>=0?null:document.getElementById('pvv');
+window.appHooks={kind:'cut',video:()=>modalShot>=0?null:document.getElementById('pvv'),rate:()=>pvSpeed,setRate:r=>pvSetSpeed(r),
+  here:()=>{const v=document.getElementById('pvv'),q={cut_t:Math.round(((v&&v.currentTime)||0)*100)/100};if(PVNAME)q.preview=PVNAME;return q},
+  btnHost:()=>document.querySelector('#nowrow .keys'),
+  seek:d=>{const v=document.getElementById('pvv');if(!v)return;resumeFollow();v.pause();v.currentTime=Math.max(0,+d.t||0)}};</script></body>"""
+PAGE = AB.inject(CHAT.inject(QS.inject(PAGE.replace("__THEME_CSS__", THEME.CSS)).replace("</body>", CHAT_CTX, 1), "cut"))
 
 
 def main():
@@ -1254,10 +1261,13 @@ def main():
     ap.add_argument("project", help="project folder name under ~/Desktop, or a path")
     ap.add_argument("--port", type=int, default=8766)
     ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--read-only", action="store_true", help="never write into the project (审片 app, other folders)")
     a = ap.parse_args()
     PROJECT = os.path.abspath(E.project_dir(a.project))
     if not os.path.isfile(E.edl_path(PROJECT)):
         sys.exit(f"No EDL at {E.edl_path(PROJECT)}")
+    if a.read_only:
+        AB.read_only(app)
     vdir = os.path.join(edit_dir(), "previews")
     latest = sorted(f for f in os.listdir(vdir) if f.startswith("preview-")) if os.path.isdir(vdir) else []
     storyboard("previews/" + latest[-1] if latest else "preview.mp4")   # warm the hover thumbnails

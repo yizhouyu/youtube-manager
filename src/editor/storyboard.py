@@ -33,6 +33,7 @@ _queue = []                   # outdir, newest last (LIFO: what he hovers now go
 _jobs = {}                    # outdir -> (src, extra, noautorotate)
 _failed = {}                  # outdir -> key that failed (don't retry the same file forever)
 _thread = None
+READ_ONLY = False             # appbridge.read_only(): never generate (the project folder must stay untouched)
 
 
 def stamp(src, extra=""):
@@ -63,6 +64,8 @@ def request(src, outdir, noautorotate=False):
         return {"ready": False, "state": "error"}
     if idx:
         return dict(idx, ready=True)
+    if READ_ONLY:   # a read-only project (审片 app, --read-only): use what exists, never write
+        return {"ready": False, "state": "error"}
     key = stamp(src, extra)
     if _failed.get(outdir) == key:
         return {"ready": False, "state": "error"}

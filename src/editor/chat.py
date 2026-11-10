@@ -22,7 +22,10 @@ widget before </body>. The widget shows 「Agent 在听」 while a `watch` heart
 POST /api/chat takes `mode`: "comment" (pending), "handoff" (text optional; hands over all pending), or none
 (an old page: sent at once). /api/chat/status also lists the `pending` ids, so a page sees notes handed over
 from the other page turn ✓.
-A page sets `window.chatCtx = () => ({clip, clip_t} | {cut_t})` so messages carry the current position.
+A page sets `window.chatCtx = () => ({clip, clip_t} | {cut_t} | {short, short_t})` so messages carry the current position.
+Box notes (审片 app, Q6): when the page also sets `window.chatVideo = () => <video>`, the 「框选」 button lets him drag a
+rectangle on the picture; it goes out with the next note as `ctx.box = [x, y, w, h]` (0-1 of the frame) and is drawn
+again when he clicks that note's time. GET /api/chat/jump maps the playhead between cut and raw (locate.jump).
 
 Fullscreen with the chat: a page marks the element to make fullscreen with `data-fsroot` (it holds the
 video and the rail) and its rail with `data-fsrail`, and calls `cbFs.toggle()` for its fullscreen button / F
@@ -221,12 +224,28 @@ def handoff(project, text="", ctx=None):
 def _where(ctx):
     if not ctx:
         return ""
+    box = " ▭" if ctx.get("box") else ""
+    if ctx.get("short"):
+        return f"[Short {ctx['short']} @ {ctx.get('short_t') or 0:.1f}s{box}] "
     if ctx.get("clip"):
-        return f"[原片 {ctx['clip']} @ {ctx.get('clip_t', 0):.1f}s] "
+        return f"[原片 {ctx['clip']} @ {ctx.get('clip_t', 0):.1f}s{box}] "
     if ctx.get("cut_t") is not None:
         t = ctx["cut_t"]
-        return f"[成片 {int(t // 60)}:{t % 60:04.1f}] "
+        return f"[成片 {int(t // 60)}:{t % 60:04.1f}{box}] "
     return ""
+
+
+def clean_box(ctx):
+    """ctx.box must be [x, y, w, h], each 0-1 of the frame; anything else is dropped."""
+    if "box" not in ctx:
+        return ctx
+    b = ctx.pop("box")
+    if isinstance(b, list) and len(b) == 4 and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in b):
+        x, y, w, h = (min(1.0, max(0.0, float(v))) for v in b)
+        w, h = min(w, 1.0 - x), min(h, 1.0 - y)
+        if w > 0 and h > 0:
+            ctx["box"] = [round(x, 4), round(y, 4), round(w, 4), round(h, 4)]
+    return ctx
 
 
 def register(app, get_project):
@@ -273,6 +292,21 @@ def register(app, get_project):
         except Exception as e:
             return jsonify({"t": None, "how": "error", "error": str(e)[:200]}), 500
 
+    @app.get("/api/chat/jump")
+    def api_chat_jump():   # 审片 app (Q7): R on the cut page -> raw clip/time; R on the raw page -> cut time, or none
+        from .locate import jump
+        a = request.args
+        target = a.get("preview") or None
+        if target and not re.fullmatch(r"preview-\d{8}-\d{6}\.mp4", target):
+            target = None
+        try:
+            if a.get("cut_t") is not None:
+                return jsonify(jump(get_project(), cut_t=a.get("cut_t", type=float, default=0.0), preview=target))
+            return jsonify(jump(get_project(), clip=a.get("clip", ""), clip_t=a.get("clip_t", type=float, default=0.0),
+                                preview=target))
+        except Exception as e:
+            return jsonify({"t": None, "clip": None, "error": str(e)[:200]}), 500
+
     @app.post("/api/chat")
     def api_chat_post():
         body = request.get_json(silent=True) or {}
@@ -280,8 +314,9 @@ def register(app, get_project):
         if not isinstance(text, str) or len(text) > 4000 or not isinstance(ctx, dict):
             return jsonify({"ok": False}), 400
         page = body.get("page")
-        if page in ("raw", "cut"):
+        if page in ("raw", "cut", "shorts"):
             ctx["page"] = page
+        clean_box(ctx)
         if mode == "handoff":   # text optional: hand over whatever is pending
             return jsonify(dict(handoff(get_project(), text, ctx), ok=True))
         if not text.strip():
@@ -358,6 +393,13 @@ WIDGET = r"""
 #cbKeys b{font-weight:500;color:var(--text-2)}
 #cbKeys span{white-space:nowrap}
 #cbKeys.flash{color:var(--ok);font-weight:500}
+/* 框选 (Q6): the rectangle drawn on the picture */
+#cbBox{height:30px;padding:0 10px;flex:none;white-space:nowrap;display:none}
+#cbBox.has{display:inline-flex;align-items:center}
+#cbBox.on{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
+.cbBoxEl{position:absolute;z-index:6;border:2px solid var(--box);border-radius:3px;pointer-events:none;display:none;
+  box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.cbBoxDraw{position:absolute;z-index:7;cursor:crosshair;background:var(--box-veil)}
 #cbNote,#cbSend{height:30px;padding:0 12px;flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
 #cbSend .n{display:none;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:rgba(255,255,255,.24);
   font:600 11px/18px var(--font);text-align:center;font-variant-numeric:tabular-nums}
@@ -433,6 +475,7 @@ WIDGET = r"""
  <div id="cbBody"><div id="cbList" class="scroll"><div id="cbEmpty">还没有消息。边看边写意见，Agent 会在这里回复。</div></div>
   <form id="cbForm"><div id="cbQuick"></div><textarea id="cbIn" rows="1" placeholder="边看边写意见…（自动带上当前位置）"></textarea>
    <div id="cbRow"><span id="cbKeys"></span>
+    <button id="cbBox" type="button" title="在画面上拖一个框，跟下一条评论一起存（Esc 取消）">框选</button>
     <button id="cbNote" type="button" title="先存着，不叫 Agent（Shift+回车）">评论</button>
     <button id="cbSend" type="submit" class="pri" title="连同待交的评论一起交给 Agent">交给 Agent<span class="n"></span></button></div></form>
   <div id="cbHint"></div></div>
@@ -452,7 +495,8 @@ WIDGET = r"""
   try{if(localStorage.getItem('cb_min')==='1')setMin(true)}catch(e){}
   document.getElementById('cbHead').onclick=()=>{setMin(!box.classList.contains('min'));
     try{localStorage.setItem('cb_min',box.classList.contains('min')?'1':'0')}catch(e){}};
-  const where=c=>!c?'':c.clip?`原片 ${c.clip} @ ${(+c.clip_t||0).toFixed(1)}s`:(c.cut_t!=null?`成片 ${Math.floor(c.cut_t/60)}:${(c.cut_t%60).toFixed(1).padStart(4,'0')}`:'');
+  const where0=c=>!c?'':c.short?`Short ${c.short} @ ${(+c.short_t||0).toFixed(1)}s`:c.clip?`原片 ${c.clip} @ ${(+c.clip_t||0).toFixed(1)}s`:(c.cut_t!=null?`成片 ${Math.floor(c.cut_t/60)}:${(c.cut_t%60).toFixed(1).padStart(4,'0')}`:'');
+  const where=c=>{const w=where0(c);return w&&c.box?w+' ▭':w};
   function add(m){const e=document.getElementById('cbEmpty');if(e)e.remove();
     if(m.react_to){const t=list.querySelector('[data-mid="'+m.react_to+'"]');
       if(t){let r=t.querySelector('.react');if(!r){r=document.createElement('span');r.className='react';t.appendChild(r)}r.textContent=m.text}return}
@@ -465,7 +509,8 @@ WIDGET = r"""
       if(window.chatSeek&&m.role==='creator'){lc.className='loc';lc.title='点一下：跳到当前视频里的这个位置（剪辑改过也会对上）';
         lc.onclick=async e=>{e.stopPropagation();const r=await window.chatSeek(m);
           let n=w.querySelector('.locnow');if(!n){n=document.createElement('span');n.className='locnow';lc.after(n)}
-          n.textContent=r&&r.label?'→ '+r.label:'→ 找不到了'}}
+          n.textContent=r&&r.label?'→ '+r.label:'→ 找不到了';
+          if(r&&m.ctx.box)setTimeout(()=>BOX.show(m.ctx.box,5000),350)}}
       w.appendChild(lc)}
     const b=document.createElement('div');b.className='bub';b.textContent=m.text;
     d.appendChild(w);d.appendChild(b);list.appendChild(d);
@@ -529,7 +574,35 @@ WIDGET = r"""
     b.onmousedown=e=>e.preventDefault();   // keep the video's focus/selection logic out of it
     b.onclick=e=>{e.stopPropagation();const v=inp.value.trim();inp.value=v?(v+(/[，。！？,.!?]$/.test(v)?'':'，')+t):t;grow();inp.focus();
       inp.setSelectionRange(inp.value.length,inp.value.length)};qb.appendChild(b)});
-  const ctxNow=()=>{try{return (window.chatCtx&&window.chatCtx())||{}}catch(e){return {}}};
+  // 框选 (Q6): drag a rectangle on the picture; it rides along with the next note as ctx.box (0-1 of the frame)
+  const BOX=(function(){const btn=document.getElementById('cbBox');let pend=null,hideT=0;
+    const vid=()=>{try{return window.chatVideo&&window.chatVideo()}catch(e){return null}};
+    btn.classList.toggle('has',!!window.chatVideo);
+    function frame(v){const P=v.parentElement.getBoundingClientRect(),R=v.getBoundingClientRect(),vw=v.videoWidth||16,vh=v.videoHeight||9,
+      k=Math.min(R.width/vw,R.height/vh),w=vw*k,h=vh*k;return {x:R.left-P.left+(R.width-w)/2,y:R.top-P.top+(R.height-h)/2,w,h}}
+    function el(v){let e=v.parentElement.querySelector(':scope>.cbBoxEl');if(!e){e=document.createElement('div');e.className='cbBoxEl';v.parentElement.appendChild(e)}return e}
+    function draw(v,b){const f=frame(v),e=el(v);Object.assign(e.style,{left:f.x+b[0]*f.w+'px',top:f.y+b[1]*f.h+'px',width:b[2]*f.w+'px',height:b[3]*f.h+'px',display:'block'})}
+    function hide(){document.querySelectorAll('.cbBoxEl').forEach(e=>e.style.display='none')}
+    function mark(){btn.classList.toggle('on',!!pend);btn.textContent=pend?'已框选 ✕':'框选'}
+    function start(){const v=vid();if(!v||!v.videoWidth){flash('没有画面可以框');return}
+      v.pause();hide();const f=frame(v),ov=document.createElement('div');ov.className='cbBoxDraw';
+      Object.assign(ov.style,{left:f.x+'px',top:f.y+'px',width:f.w+'px',height:f.h+'px'});v.parentElement.appendChild(ov);flash('在画面上拖一个框');
+      let p0=null;const at=e=>{const r=ov.getBoundingClientRect();return [Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))]};
+      const rect=(a,b)=>[Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.abs(a[0]-b[0]),Math.abs(a[1]-b[1])];
+      const esc=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(null)}};
+      const done=b=>{ov.remove();document.removeEventListener('keydown',esc,true);
+        if(b&&b[2]>0.01&&b[3]>0.01){pend=b.map(x=>Math.round(x*10000)/10000);draw(v,pend);inp.focus();flash('框好了 · 写评论发出去')}else{pend=null;hide()}mark()};
+      document.addEventListener('keydown',esc,true);
+      ['click','dblclick','mousedown'].forEach(ev=>ov.addEventListener(ev,e=>e.stopPropagation()));
+      ov.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();p0=at(e);ov.setPointerCapture(e.pointerId)});
+      ov.addEventListener('pointermove',e=>{if(p0)draw(v,rect(p0,at(e)))});
+      ov.addEventListener('pointerup',e=>{if(p0)done(rect(p0,at(e)))})}
+    btn.addEventListener('mousedown',e=>e.preventDefault());
+    btn.onclick=e=>{e.stopPropagation();if(pend){pend=null;hide();mark()}else start()};
+    return {take:()=>pend,clear(){pend=null;hide();mark()},
+      show(b,ms){const v=vid();if(!v)return;const go=()=>{draw(v,b);clearTimeout(hideT);hideT=setTimeout(()=>{if(!pend)hide()},ms||5000)};
+        v.videoWidth?go():v.addEventListener('loadedmetadata',go,{once:true})}}})();
+  const ctxNow=()=>{let c={};try{c=(window.chatCtx&&window.chatCtx())||{}}catch(e){}const b=BOX.take();if(b)c.box=b;return c};
   let busy=false;
   async function postChat(mode){if(busy)return;const t=inp.value.trim();
     if(mode==='comment'&&!t)return;
@@ -538,6 +611,7 @@ WIDGET = r"""
     try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,ctx:ctxNow(),page:PAGE,mode})});
       const j=await r.json();if(!r.ok||!j.ok)throw 0;
       if(mode==='handoff'){(j.ids||[]).forEach(setSent);flash(`已交给 Agent（${j.count} 条）`)}
+      if(t)BOX.clear();
     }catch(e){if(!inp.value)inp.value=t;grow();flash('没发出去，再试一次')}
     busy=false;await poll()}
   document.getElementById('cbForm').onsubmit=e=>{e.preventDefault();postChat('handoff')};

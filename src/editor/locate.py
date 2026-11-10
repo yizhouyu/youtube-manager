@@ -140,6 +140,27 @@ def place(shots, a):
     return None, "missing"
 
 
+def jump(project, cut_t=None, preview=None, clip=None, clip_t=None):
+    """审片 app R key (Q7). Cut moment on `preview` (default newest) -> {"clip", "clip_t"} of the raw source
+    ({"clip": None} on a title card); raw moment -> {"t"} on that preview, or {"t": None} when the cut doesn't use it."""
+    target = preview or (previews(E.edit_dir(project)) or [None])[-1]
+    shots = shots_for(project, target)
+    if cut_t is not None:
+        a = anchor(shots, float(cut_t))
+        if not a or a.get("card"):
+            return {"clip": None, "clip_t": None, "preview": target}
+        return {"clip": a["clip"], "clip_t": round(a["src"], 2), "preview": target}
+    t, how = place(shots, {"clip": clip, "src": float(clip_t or 0)})
+    if how != "same":   # "near" = the clip is in the cut, but not this moment
+        t = None
+        try:   # b-roll inserts count as used on the raw page too
+            from .questions import clip_to_cut
+            t = clip_to_cut(E.load(project), clip, float(clip_t or 0))
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+    return {"t": None if t is None else round(t, 2), "preview": target}
+
+
 def locate(project, msg, target=None):
     """{t, how, preview} for a chat message on the cut page's `target` preview (default: newest)."""
     edit = E.edit_dir(project)

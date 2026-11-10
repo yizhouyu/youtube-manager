@@ -32,6 +32,8 @@ from . import questions as QS
 from . import chat as CHAT
 from . import theme as THEME
 from . import storyboard as SB
+from . import appbridge as AB
+from . import shorts_page as SHORTS
 
 CACHE_ROOT = "/tmp/yt-editor"
 DEFAULT_SOURCE = "01 - Unedited"
@@ -43,6 +45,7 @@ _clips = {"key": None, "list": []}
 _thumb_sem = threading.Semaphore(3)
 QS.register(app, lambda: PROJECT)
 CHAT.register(app, lambda: PROJECT)
+SHORTS.register(app, lambda: PROJECT)   # /shorts: the 审片 app's Shorts tab (same chat thread)
 
 
 # ---------------------------------------------------------------- helpers
@@ -73,7 +76,7 @@ def srt_path(clip):
     if not os.path.exists(os.path.join(E.edit_dir(PROJECT), "scan", ".proofread")):
         return path + ".not-yet"  # the agent hasn't proofread this project yet: show no captions
     raw = os.path.join(E.edit_dir(PROJECT), "scan", "srt", clip + ".srt")
-    if os.path.exists(raw):
+    if os.path.exists(raw) and not AB.RO:   # read-only project: show the proofread captions as they are
         deps = [E.edl_path(PROJECT), os.path.join(E.edit_dir(PROJECT), "glossary.json"), raw]
         newest = max((os.path.getmtime(d) for d in deps if os.path.exists(d)), default=0)
         if not os.path.exists(path) or os.path.getmtime(path) < newest:
@@ -503,6 +506,9 @@ __QA_CSS__
       <div><span>切换速度 1x–3x</span><span><kbd>1</kbd>–<kbd>5</kbd></span></div>
       <div><span>全屏（右边留着聊天）</span><span><kbd>F</kbd></span></div>
       <div><span>全屏时聊天：右边 / 悬浮</span><span><kbd>C</kbd></span></div>
+      <div><span>倒退 / 暂停 / 前进（再按加速）</span><span><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd></span></div>
+      <div><span>上一帧 / 下一帧</span><span><kbd>,</kbd><kbd>.</kbd></span></div>
+      <div><span>写评论（不全屏时）</span><span><kbd>C</kbd></span></div>
       <div><span>跳到任意位置</span><span>点进度条</span></div>
     </div></div>
   </div>
@@ -793,7 +799,15 @@ PAGE = CHAT.inject(QS.inject(PAGE.replace("__THEME_CSS__", THEME.CSS)).replace("
     "window.chatSeek=async m=>{const c=m.ctx||{};let clip=c.clip,t=c.clip_t;"
     "if(!clip){try{const r=await (await fetch('/api/chat/locate?id='+m.id)).json();clip=r.clip;t=r.clip_t}catch(e){}}"
     "const i=clips.findIndex(x=>x.clip===clip);if(i<0)return null;show(i,Math.max(0,(+t||0)-2),true);"
-    "return {label:'原片 '+clip.slice(-6,-2)+' @ '+(+t||0).toFixed(1)+'s'}}</script></body>", 1), "raw")
+    "return {label:'原片 '+clip.slice(-6,-2)+' @ '+(+t||0).toFixed(1)+'s'}};"
+    # 审片 app: 框选 on the picture, J/K/L etc., R = the same moment in the cut (appbridge.py)
+    "window.chatVideo=()=>clips.length?cur:null;"
+    "window.appHooks={kind:'raw',video:()=>clips.length?cur:null,rate:()=>speed,setRate:r=>setSpeed(r),"
+    "here:()=>({clip:(clips[idx]||{}).clip,clip_t:Math.round((cur.currentTime||0)*100)/100}),btnHost:()=>document.querySelector('.below'),"
+    "seek:d=>{const i=clips.findIndex(x=>x.clip===d.clip);if(i<0){window.abToast&&abToast('找不到这段原片');return}"
+    "const su=$('showuse');if(!su.checked){su.checked=true;su.onchange&&su.onchange({target:su})}show(i,Math.max(0,+d.t||0),false)}};"
+    "</script></body>", 1), "raw")
+PAGE = AB.inject(PAGE)
 
 
 def main():
@@ -802,10 +816,13 @@ def main():
     ap.add_argument("project", help="project folder name under ~/Desktop, or a path")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--read-only", action="store_true", help="never write into the project (审片 app, other folders)")
     a = ap.parse_args()
     PROJECT = os.path.abspath(E.project_dir(a.project))
     if not os.path.isdir(PROJECT):
         raise SystemExit(f"No project folder: {PROJECT}")
+    if a.read_only:
+        AB.read_only(app)
     n = len(clip_list())
     print(f"{n} clips in {source_dir()}")
     print(f"Footage player: http://{a.host}:{a.port}/")
