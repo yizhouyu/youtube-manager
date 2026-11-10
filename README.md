@@ -1,219 +1,179 @@
 # YouTube Manager
 
-An **agent-first** toolkit for running a travel-vlog channel by *talking to an agent* (Claude Code)
-instead of clicking through editing and upload UIs. You hand it a folder of raw action-cam clips,
-and it:
-- watches and transcribes every clip;
-- cuts a story-driven vlog with subtitles, music, zooms, arrows and title cards;
-- has sub-agent reviewers QA the cut;
-- designs the thumbnail by *looking* at frames;
-- writes bilingual (Chinese-first) metadata in your channel's own voice;
-- publishes to **YouTube and Bilibili**, with captions, scheduling and regional playlists/合集.
+The toolchain behind the travel-vlog channel 「Yizhou的一周」 (YouTube + Bilibili). It is **agent-first**:
+Claude Code (or another coding agent) watches the footage, cuts the episode, makes covers and metadata,
+uploads, and does the follow-ups. The creator reviews in a small Mac app (「审片.app」) and approves.
 
-> This started as a Flask web app + CLI (see the original write-up: [vibe-coding with Claude Code](https://yizhouyu.dev/blog/posts/vibe-coding-with-claude-code/)). It has since been rebuilt around conversational **skills**, and the UI was deleted on purpose ([here is why](https://yizhouyu.dev/blog/posts/deleted-the-ui/)). A UI can only expose the buttons you thought to build. An agent you talk to isn't capped that way.
+There is no editing software and no web dashboard to click through. The procedure lives in skills
+(`.claude/skills/`), and the code here is what those skills call. Background:
+[vibe-coding with Claude Code](https://yizhouyu.dev/blog/posts/vibe-coding-with-claude-code/) and
+[why the UI was deleted](https://yizhouyu.dev/blog/posts/deleted-the-ui/).
 
-**What it feels like (2026-10):**
-- The creator drops a trip's footage into a folder and points the agent at it, with the trip plan in Notion.
-- The agent splits the trip into episodes and runs one director per episode in parallel. It cuts, captions, scores, maps and packages each one.
-- When the creator says 「审片」, three local pages open:
-  - the cover picker;
-  - the raw-footage page;
-  - the cut page.
-- He types notes into a chat box on either page. Each note is tagged with the clip and second he was looking at; the agent hears it instantly, edits and re-renders.
-- On 「可以上传」 it publishes to YouTube and Bilibili, Shorts included.
+## Quick start
 
-No editing software is involved. The repo *is* the harness, and anyone can build their own the same way.
-
-**For any editing agent:** start with [`AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md), then read the relevant edit/publish skill and its `LESSONS.md`. These repository rules apply regardless of which agent performs the work.
-
-## The two skills
-
-| Skill | What it does |
-|---|---|
-| [`edit-video-chat`](.claude/skills/edit-video-chat/SKILL.md) | Raw clips → a finished, reviewed cut (EDL-driven, rendered with ffmpeg). |
-| [`publish-video-chat`](.claude/skills/publish-video-chat/SKILL.md) | Finished export → thumbnail, metadata, captions, upload/schedule, playlists, Bilibili mirror. |
-
-Both skills learn. [`LESSONS.md`](.claude/skills/edit-video-chat/LESSONS.md) records every creator
-correction and every editing experiment, with a table of what worked. Each new video has to be
-better than the last.
-
-## Editing (`edit-video-chat`)
-
-The whole edit is one JSON file, `edit/edl.json`. It holds the shots, trims, subtitles, B-roll,
-Ken Burns zoom, speed/timelapse, labelled arrows, freeze-frame and title cards, and the music
-sections (with ducking and music-free "breathing room"). Agents write it; the renderer turns it
-into video.
-
-1. **Transcribe** with [Qwen3-ASR](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) on Apple Silicon
-   via MLX.
-   - It gets a per-trip proper-noun context.
-   - A glossary (`{"heard": "correct"}`) fixes known mishearings, and OpenCC converts the text to
-     Simplified Chinese.
-   - Captions stay hidden until they pass a proofread gate.
-2. **Scan**: contact sheets and metadata for every clip (`src/editor/scan.py`). The agent *looks*
-   at every sheet.
-3. **Build the cut**: the agent writes a first-cut script that emits the EDL, following retention
-   rules:
-   - a hook in the first 8 s, and a mini-arc per place;
-   - no long static shots; dull stretches are timelapsed;
-   - one comment question, and an end screen with a teaser for the next episode.
-4. **Tighten**: Silero VAD removes dead air and fillers (`src/editor/tighten.py`).
-5. **Render** (`src/editor/render.py`):
-   - per-shot HEVC segments (VideoToolbox), cached and then concatenated;
-   - overlays drawn as Pillow PNGs;
-   - music sections crossfaded, loudness-matched, and ducked under speech;
-   - two-pass loudnorm to −14 LUFS, plus a limiter;
-   - output as a 1080p preview or a 4K 10-bit master.
-   - **Alternate comparison cuts** use `scripts/render_variant.py`: it stages a separate project
-     with a symlink to protected raw media, copies and delivers version-scoped edit assets, and
-     exports a 4K master, SRT, editable source-time EDL, and render manifest. It refuses to
-     overwrite existing companion deliverables or write into raw-media/source-edit folders.
-6. **QA (mandatory)**: every round, a reviewer sub-agent:
-   - watches dense frames of the render *and* the raw footage;
-   - re-transcribes the rendered audio and diffs it against the captions;
-   - checks loudness and scores each 30 s window as a viewer would;
-   - proposes improvements.
-
-   Rounds continue until the reviewer reports no further issues. After the director's rounds, a **fresh strongest-model reviewer** does an independent pass:
-   - `src/editor/xcheck.py`: a second ASR (MOSS-Transcribe-Diarize) with speaker labels. It diffs every caption and flags a voice change inside a caption or speech with no caption.
-   - **Who is speaking:** checked by pitch and faces.
-   - **Names:** checked against official rosters.
-   - **Song lyrics:** a Demucs voice stem plus ASR finds lyrics under speech. These are removed through the shot field `audio_src`.
-   - **Overlap:** text must never overlap text. The renderer lifts titles clear of captions, and lint flags the rest.
-7. **Retention-data rules**: the creator's own YouTube Analytics curves set the opening and ending (§2b-data): live content in 0:08–0:30, route maps after the first scene, short outros.
-8. **Checkpoints**: `src/editor/checkpoint.py` (steps C0–C14) and publish steps P1–P13. Any agent can resume after a usage limit or a context overflow without redoing work or uploading twice.
-9. **Tools that came out of tool scouting**:
-   - `src/editor/interp.py`: RIFE frame-interpolated slow motion.
-   - `src/editor/words.py`: word timestamps for exact stumble cuts.
-   - `src/editor/tally.py` and `scripts/splitflap.py`: experiment cards.
-
-Local pages for the human (Claude Code built them; the creator and the agent iterated on them together):
-- **Raw-footage page** (`src/editor/footage_player.py`, port 8765): every clip back-to-back at 1–3×, with proofread captions. An in-cut lamp shows whether the current moment made the cut.
-- **Cut page** (`src/editor/review_server.py`, port 8766): the rendered preview with 1/1.5/2/3× presets and a shot list.
-- **Open the review pages on macOS:** once both servers are running, open the first-look/raw-footage page on 8765, then the cut page on 8766, directly in Chrome from Terminal. Use the ports listed in that episode's `edit/HANDOFF.md` if they override the defaults:
-  ```bash
-  open -a "Google Chrome" "http://127.0.0.1:8765/" "http://127.0.0.1:8766/"
-  ```
-  This opens the pages only; it does not start the servers or the review-chat listener.
-- **Cover picker** (`thumbnail/editorial.html`, `scripts/cover_picker.py`): click to pick the main thumbnail and the A/B set.
-- **Review chat** (`src/editor/chat.py`), built into both video pages:
-  - Enter hands a note to the agent; Shift+Enter keeps it pending while you collect more.
-  - Every note carries its clip and second.
-  - The agent watches the chat live (`chat … watch`), replies in place, and re-renders.
-
-### Turn on “和 Agent 聊” listening
-
-The chat panel is part of the review page, but opening the page does **not** start its listener.
-Run one `watch` process for the episode in a persistent terminal/Monitor whose output is visible
-to the same Claude Code or Codex agent that is reviewing the video:
+macOS on Apple Silicon. Projects live at `~/Desktop/<NNN> - <Place>/` by default.
 
 ```bash
-cd /path/to/youtube-manager
-./venv/bin/python -u -m src.editor.chat "/absolute/path/to/NN - Place Name" watch
+# main env (Python 3.9+)
+python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
+# ASR env (Python 3.12, MLX): Qwen3-ASR for src.editor.transcribe
+uv venv -p 3.12 asrvenv && uv pip install -p asrvenv/bin/python mlx-qwen3-asr opencc-python-reimplemented
+# external tools
+brew install ffmpeg whisper-cpp
 ```
 
-Keep that process running while reviewing. The page should switch to **Agent 在听** within a few
-seconds; if it says **Agent 没在听**, check that the watcher is still running and that its terminal
-output is attached to the agent (a separate, unobserved shell only prints the notes—it cannot
-notify the agent). The watcher prints handed-over notes as `CHAT #…` / `CHAT BATCH …`; it updates
-the heartbeat every two seconds, and the UI considers it stale after eight seconds.
+- `models/` (gitignored): whisper.cpp ggml models (large-v3 / large-v3-turbo) and the Silero VAD model.
+- `.tools/` (gitignored, optional): third-party envs/binaries some steps use, e.g. `mlx-audio` for
+  `xcheck.py`, `rife` for `interp.py`.
+- Credentials, all gitignored, provided by you:
+  - `config/client_secrets.json`: Google OAuth desktop client for the YouTube Data API.
+  - `config/token.pickle`: written on first auth (captions need the `youtube.force-ssl` scope).
+  - `~/.config/biliup/cookies.json`: Bilibili login, made once with `biliup -u ~/.config/biliup/cookies.json login`.
+- Optional env vars: `YOUTUBE_API_PROXY` / `YOUTUBE_HTTP_TIMEOUT` (when the Mac needs an explicit proxy for the
+  Google API), `YT_EDITOR_JOBS` or `~/.config/yt-editor/jobs` (ffmpeg worker cap).
+- 审片.app: `app/build.sh --install` (see [`app/README.md`](app/README.md)).
 
-- **评论** (Shift+Enter) saves a pending draft only. **交给 Agent** (Enter or Cmd+Enter) hands over
-  the current text and all pending drafts; only then will `watch` print them.
-- To reply in the panel, run `./venv/bin/python -m src.editor.chat "NN - Place Name" reply "…"`
-  from the agent's session. Replies are labeled Claude Code/Codex from the active runtime; set
-  `CHAT_AGENT=claude-code` or `CHAT_AGENT=codex` only if automatic detection needs an override.
-- A watcher is per episode. Start a new one when switching episodes; restart it if the terminal
-  session or Monitor stops.
+Then, in Claude Code: "edit this trip" / "publish NNN", pointing at a project folder.
 
-**Batch mode.** Many trips can be rough-cut unattended:
-- A "master director" agent dispatches one "episode director" per video, in parallel, as
-  sub-agents or Orca workers.
-- The master answers the directors' questions. Each director writes a `HANDOFF.md` with open
-  questions for the creator's review session.
-- `scripts/claude_usage.py` reads the plan's 5-hour and weekly usage, so the batch can pace itself
-  and resume after a reset.
-- `~/.config/yt-editor/jobs` caps the number of ffmpeg workers live, so parallel episodes don't
-  swamp the machine.
+## Episode lifecycle
 
-## Publishing (`publish-video-chat`)
+1. **Footage → project.** `scripts/new_project.sh "NNN - Place"` creates the folder from
+   `templates/vlog-project/`; raw clips go in `01 - Unedited/` and are never modified. Multi-episode trips are
+   split by a master director (`templates/briefs/trip_brief.md`), one episode director per video, in parallel.
+2. **Watch.** `src.editor.scan` (contact sheets the agent looks at), `src.editor.transcribe` (Qwen3-ASR with a
+   per-trip `--context`, glossary fixes, Simplified Chinese), `src.editor.captions_clean` (only proofread captions
+   reach the creator). Research with sources goes to `edit/research.md`.
+3. **Edit.** The whole cut is one JSON file, `02 - Export/edit/edl.json` (`src/editor/edl.py`): shots, trims,
+   captions, notes, B-roll, speed, cards, music sections. The agent writes a first-cut script, then tightens
+   (`tighten`), lints (`lint`) and renders (`render --preview`): per-shot cached HEVC segments, Pillow overlays,
+   music ducked under speech, loudness to −14 LUFS. Extras: route maps on OSM roads (`routemap`), RIFE slow motion
+   (`interp`), flight trails, collection counters, tracked arrows, split-flap and photo-print cards.
+4. **QA.** Reviewer sub-agents watch frames of the render *and* the raw footage, re-transcribe the audio against the
+   captions, check loudness, and restore missed moments (C10/C11). `xcheck` runs a second ASR with speaker labels.
+   A viewer + peer-director panel (`.claude/skills/edit-video-chat/audience_panel.md`) runs before 审片.
+5. **审片 in the app.** The creator watches the cut and the raw footage, answers timestamped questions, and leaves
+   notes in the chat; the agent applies them and re-renders right away. Approval and picks are logged.
+6. **Covers and titles.** Covers come from retouched real frames (`src/thumbnail_generator/`), judged at feed size
+   (`scripts/feed_sim.py`), exported for YouTube 16:9 and Bilibili 16:10. Titles come from a sub-agent debate and are
+   checked for phone width (`src.editor.title_check`). The creator picks in the app's 封面 / 标题 tabs.
+7. **Publish** (publish-video-chat, steps P1–P13): 4K final render, zh + en captions, bilingual metadata, scheduled
+   YouTube upload of the master (resumable), English localization, regional playlist, Bilibili mirror + 合集, two
+   Shorts per long video (`scripts/make_short.py`), Studio chores in the browser. Long upload chains run as Orca
+   workers; `scripts/upload_dashboard.py --loop` shows progress.
+8. **Follow-ups.** `scripts/episode_audit.py` after every upload chain (fix every ✗);
+   `scripts/post_publish_followups.py` once a scheduled long goes public (pinned comment, Shorts' Related video,
+   48 h alerts); `scripts/cleanup_previews.py --apply` once the YouTube long is verified (rebuild files are kept);
+   `scripts/check_bili_vs_yt.py` for mirror gaps.
 
-1. **QA the export** (`scripts/preprocess_video.sh`): extract frames, transcribe, and flag broken
-   exports.
-2. **Thumbnail** (`src/thumbnail_generator/`):
-   - designed by looking at frames, then polished: grade, vignette, dual-stroke text;
-   - checked with a mobile-legibility self-audit;
-   - exported per platform by `export.py`: YouTube 1280×720, Bilibili 16:10.
-3. **Metadata**: bilingual SEO in the channel's learned style. Sub-agent critics (CTR + accuracy)
-   check it before a human sees it.
-4. **Captions**: uploaded with `scripts/upload_captions.py`.
-5. **Upload + schedule** (`publishAt`) via `src/uploader/`. Each travel video goes into its
-   **regional playlist** (阿拉斯加 | Alaska, 加州 | California, 美东 | US East Coast, …), so
-   viewers can binge a place.
-6. **Bilibili mirror**: uploaded and scheduled with [biliup](https://github.com/biliup/biliup-rs).
-   `scripts/bili_season.py` then puts it into the matching regional **合集**.
-7. **Shorts**: two per long video (`scripts/make_short.py`). Each is cut as an open loop that sends viewers to the long video through the Related-video link: a bell, an arrow and a spoken line.
-8. **Studio chores**: the agent does location, end screen, the A/B thumbnail test, pinned comments and the Shorts' Related video in the creator's browser. Anything left goes on a checklist.
-9. **Copyright**:
-   - Recorded music under speech (car stereos, shops, DJs, PA) is removed or separated out.
-   - Street sound stays.
-   - Unclear cases are flagged for the creator.
+## 审片.app
+
+A native Mac app (`app/main.swift` + `src/editor/app_server.py`): episode sidebar with status chips, tabs for
+封面 / 素材 (raw footage, `footage_player`) / 成片 (cut, `review_server`) / Shorts (`shorts_page`) / 标题, a chat with
+the agent on every video page (notes carry clip + second, optional 框选 box), J/K/L keys, cut↔raw jump, and
+「选这个」 / 「审片通过」 picks. It never uploads or calls an agent. Details: [`app/README.md`](app/README.md).
+
+The same pages still run in a browser (`scripts/review_open.sh <ep>`; `scripts/review_stop_all.sh`). In both cases
+the agent must run a chat listener whose output it can see:
+
+```bash
+./venv/bin/python -u -m src.editor.chat "<project>" watch        # prints handed-over notes (CHAT #… / CHAT BATCH …)
+./venv/bin/python -m src.editor.chat "<project>" reply "…"       # answer in the panel
+```
+
+「评论」 (Shift+Enter) keeps a note pending; 「交给 Agent」 (Enter) hands over it and all pending ones. The page shows
+「Agent 在听」 while a watcher heartbeat is fresh.
 
 ## Repo layout
 
 ```
 .claude/skills/
-  edit-video-chat/      # editing procedure + LESSONS.md (what worked, what didn't)
-  publish-video-chat/   # publishing procedure
+  edit-video-chat/        raw clips -> reviewed cut (SKILL.md, LESSONS.md, audience_panel.md)
+  publish-video-chat/     covers, metadata, captions, upload, Bilibili, Shorts, audit
+  grow-channel/           weekly growth loop
+app/                      审片.app (Swift shell, build.sh, DESIGN.md, icons)
 src/
-  editor/               # edl.py (schema), render.py, overlays.py, transcribe.py, scan.py,
-                        # tighten.py, captions_clean.py, review_server.py, footage_player.py
-  thumbnail_generator/  # compositor + polish + per-platform export
-  uploader/             # resumable upload + thumbnail + playlist
-  youtube_client/  auth/  analytics/
-scripts/
-  new_project.sh        # new vlog project from templates/vlog-project
-  claude_usage.py       # plan usage (5-hour / weekly) for batch pacing
-  render_variant.py     # non-destructive 4K comparison-master renderer
-  tts_voices.py         # voice audition page: one line in many edge-tts voices (zh/en/fr)
-  bili_season.py        # Bilibili 合集 (create + add episodes)
-  preprocess_video.sh  transcribe_accurate.sh  upload_captions.py  render_thumbnails.py
-templates/vlog-project/ # 01 - Unedited/, 02 - Export/{thumbnail, edit/{glossary, music, sfx, HANDOFF}}
-config/  models/  sessions/   # credentials, whisper models, local batch state (all gitignored)
+  editor/                 EDL, ASR, scan, render, overlays, review pages, chat, questions, checkpoints, lint, QA tools
+  thumbnail_generator/    retouch, editorial / layered covers, polish, per-platform export
+  uploader/               resumable YouTube upload + thumbnail + playlist
+  auth/  youtube_client/  OAuth service; channel video listing
+  analytics/              channel metrics for the packaging loop
+scripts/                  Shorts, publish/follow-up/audit, Bilibili, growth, dashboards, cards, tests
+templates/
+  vlog-project/           new project skeleton (01 - Unedited, 02 - Export/{edit,thumbnail,shorts})
+  briefs/                 master-director trip brief, QA brief
+examples/                 routemap config example
+assets/                   fonts, CTA bell SFX
+LESSONS.md                operational lessons (API proxy, upload chains, other agent runtimes)
+config/ models/ sessions/ docs/   local only (gitignored or never committed)
 ```
 
-A project is a folder `NN - Place/`:
-- `01 - Unedited/`: raw clips, never modified.
-- `02 - Export/edit/`: everything about this video's edit.
-- `02 - Export/thumbnail/`: the thumbnails.
-- `02 - Export/NN - Place.mov`: the master.
+A project: `01 - Unedited/` (raw, read-only), `02 - Export/edit/` (EDL, scan, captions, cards, maps, music,
+HANDOFF.md, questions.json, chat.jsonl, publish_prep/), `02 - Export/thumbnail/`, `02 - Export/shorts/`, and the master.
 
-## Setup
+## Key scripts
 
-1. Create the main env: `python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt`
-2. Install the external tools with `brew install ffmpeg whisper-cpp`, then put the whisper and
-   Silero VAD models in `models/`.
-3. Create the ASR env (Apple Silicon): `python3.12 -m venv asrvenv && asrvenv/bin/pip install mlx-qwen3-asr opencc-python-reimplemented`
-4. **YouTube auth**: put an OAuth2 desktop `client_secrets.json` in `config/`. The first run opens
-   a browser and saves the token. Captions need the `youtube.force-ssl` scope.
-5. **Bilibili (optional)**: install `biliup`, then run
-   `biliup -u ~/.config/biliup/cookies.json login` once (QR scan).
-6. In Claude Code, say "edit this trip" or "publish this video" and point it at a project folder.
+Run from the repo root with `./venv/bin/python` (ASR with `asrvenv/bin/python`).
 
-## Notes
+| Command | What it does |
+|---|---|
+| `-m src.editor.checkpoint "<project>"` | Status table + next step; `done C<n> "note"`, `note "…"` |
+| `-m src.editor.scan "<project>"` | Contact sheets + clip metadata |
+| `asrvenv/bin/python -m src.editor.transcribe "<project>" --context "…"` | Qwen3-ASR per clip (takes the ASR lock) |
+| `-m src.editor.render "<project>" --preview\|--final\|--package` | 1080p preview, 4K master, or clip package |
+| `-m src.editor.lint "<project>"` | Pre-render EDL checks (trims, captions, on-screen text) |
+| `-m src.editor.xcheck "<project>" clips\|preview` | Second-model caption cross-check with speakers |
+| `-m src.editor.routemap <config.json> [fetch] [route]` | Animated route map on real roads |
+| `-m src.editor.questions "<project>" add\|list` | Timestamped questions for the creator |
+| `-m src.editor.clip_index "<project>"` | One line per raw clip: used where, what was left out |
+| `-m src.editor.digits "<project>" [--apply]` | Chinese numerals → digits in captions |
+| `-m src.editor.title_check "标题" …` | How much of a title a phone shows |
+| `scripts/make_short.py <spec.json>` | Vertical Short from source clips |
+| `scripts/render_variant.py` | Non-destructive comparison cut (own EDL, SRT, manifest) |
+| `scripts/upload_captions.py <id> <srt> [lang]` | Caption track upload |
+| `scripts/localize_metadata.py <drafts.json> [--apply]` | Localized titles/descriptions (dry run by default) |
+| `scripts/bili_season.py`, `scripts/bili_cover.py` | Bilibili 合集; swap a scheduled cover |
+| `scripts/episode_audit.py <ep>\|--all` | Publish audit + drive-ready verdict |
+| `scripts/post_publish_followups.py --due\|--alerts` | Pinned comment, Shorts Related video, 48 h alerts |
+| `scripts/upload_dashboard.py <eps> --loop` | Live upload page at `sessions/上传进度.html` |
+| `scripts/drive_move_dashboard.py <projects> --loop` | Progress page for moving projects to the archive drive |
+| `scripts/cleanup_previews.py [--apply]` | Delete previews of verified uploads |
+| `scripts/status.py` | One-screen board: heavy jobs, upload chains, render queue, review servers |
+| `scripts/outlier_scan.py`, `scripts/feed_sim.py` | Reference-channel outliers; covers in a mock feed |
+| `scripts/claude_usage.py [--log "…"]` | Claude plan 5-hour / weekly usage for batch pacing |
+| `scripts/splitflap.py`, `scripts/photo_coda.py`, `scripts/tts_voices.py` | Cards; voice audition page |
 
-- The agent makes the editing decisions. You review once, and your notes become its memory: `LESSONS.md` (with an Experiments table), the skills, and the creator-preference memory it keeps. Every episode tries one new technique, and every conversation leaves the skills a little better for the next video.
-- `templates/briefs/` holds the master director's brief templates: splitting a trip across parallel directors, and the independent-QA / upgrade pass.
-- Music comes from the YouTube Audio Library (no attribution required). Each project keeps its
-  tracks and a `LICENSES.md`.
-- A comparison delivery keeps its `.edl.json` as the source of truth, plus an `.srt`,
-  `.manifest.json`, and a version-scoped `.assets/` directory when the alternate EDL uses extra
-  media. Change subtitle text or timing in the EDL, then render to a new versioned output; never
-  treat the rendered SRT as the source file or reuse a version number. The renderer preflights all
-  destination paths before starting.
-- When approved by the creator, original generated music, brief TTS, and clearly illustrative
-  transitions can be used as editorial layers. They must not fabricate the real trip, and an
-  alternate version records its generated assets in its manifest.
-- `src/analytics/` feeds the packaging loop, which biases future titles and thumbnails toward what
-  beat the channel's baseline.
+## Conventions
+
+- **One heavy job at a time.** Renders, bakes, Demucs and whisper batches go through
+  `scripts/render_lock.sh <cmd…>` (`PRIO=1|2|3`); ASR goes through `src.editor.asrlock` (one model on the machine).
+- **Checkpoints.** Edit steps C0–C14 via `src.editor.checkpoint`; publish steps P1–P13 as checkpoint notes plus
+  `sessions/STATE.md`. Any agent resumes from disk without redoing work or uploading twice.
+- **EDL is the source of truth.** Change the EDL and re-render; never edit the rendered SRT/MOV. Comparison cuts go
+  through `render_variant.py` with a new versioned filename.
+- **Never commit `sessions/` or `docs/`.** Channel data, upload chains, growth logs and dashboards stay local.
+  Credentials stay in `config/` and `~/.config/`. Uploads are public: no sensitive personal info in metadata.
+- **Approvals log.** Picks and 审片通过 from the app append to `sessions/APPROVALS.md` (append-only). Agents act on
+  approvals only from that log or the creator's own words.
+- Raw footage and the archive drive are read-only.
+
+## Testing
+
+Tests are standalone scripts (no pytest):
+
+```bash
+./venv/bin/python scripts/test_app.py                                            # one
+for t in scripts/test_*.py; do ./venv/bin/python "$t" || echo "FAIL $t"; done   # all
+```
+
+## Agent notes
+
+- Start with [`AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md) (rules for any editing agent), then
+  [`CLAUDE.md`](CLAUDE.md), then the skill for the task and its lessons:
+  [`edit-video-chat/SKILL.md`](.claude/skills/edit-video-chat/SKILL.md) +
+  [`LESSONS.md`](.claude/skills/edit-video-chat/LESSONS.md),
+  [`publish-video-chat/SKILL.md`](.claude/skills/publish-video-chat/SKILL.md),
+  [`grow-channel/SKILL.md`](.claude/skills/grow-channel/SKILL.md).
+- Skills are experience, not a rulebook: every creator correction becomes a lesson, and each episode tries one new
+  technique (logged in the Experiments table of LESSONS.md).
+- After a reset, run `checkpoint` for the episode and read its `HANDOFF.md` before acting.
 - License: MIT.
