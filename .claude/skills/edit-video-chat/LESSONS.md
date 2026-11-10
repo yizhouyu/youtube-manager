@@ -184,6 +184,12 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **Two loudspeakers at once (124 0151).** Qwen heard one loop (「…禁止放飞无人机」, the PA) and whisper heard only the
   other (「不要停留，不要拍照」, a staff megaphone). MOSS labelled two speakers and had both. When two models disagree
   completely on a PA or announcement, check for overlapping sources with MOSS before calling either one wrong.
+- **Look for speech with NO caption, not only wrong captions (126 C11, 2026-11-10).** After C7 and the panel round, a
+  Demucs vocal stem of the whole mix + whisper large-v3 (`--vad`) still found 5 bits of his voice playing uncaptioned: a
+  restart lead-in at the head of a kept shot (「现在这里看到了」 → 「这里上面真的写的是…」), a short line he says about a
+  visible stall, two unclear lines (both models unsure) and a 0.6 s tail fragment. Diffing caption→ASR misses them; diff
+  ASR→captions too (every whisper segment that overlaps no caption). Then: caption it if it's his and clear, trim the
+  shot if it's a restart or unclear, leave it if a stranger. 19 min of mix: Demucs ~2 min + whisper ~4 min, one lock.
 
 ## Picking and cutting shots
 
@@ -510,6 +516,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   halves (a diagonal split failed the art director), and at 168 px the festival/night covers won the blind read. Lead
   the packaging with the stronger *state* (festival, night) and name the second half in the title's second clause. A
   title that leads with the half that starts at 3:22 is a promise the first minutes don't keep.
+- **A Short's open loop needs a payoff the long video SHOWS (126).** 「大屏格子里全是真人」 was proposed, but the reveal is its own
+  payoff and the long video only *tells* (a note) that the screen opens, so the 「what's behind it?」 hook would be fake. The
+  fridge-magnet wall worked instead: stop on 「我应该就买一个杭州」, the long video shows what he bought (99元) and ends on the
+  magnets, and it echoes the main cover. `make_short.py` needs ~2.9 s after the last spoken line for the CTA: plan a quiet
+  tail shot (the clip's own end may be too close; the build tells you how much is missing).
 
 ## Sources behind the retention rules (research 2026-09-28)
 
@@ -675,3 +686,11 @@ A narrated explainer is a different job from a travel cut. What made 113 work, a
   or trim the shot.
 - **Punch-style Short captions wrap by width, mid-word (125 Shorts).** Without `\n` a 9-character line broke as 「现在我们来 /
   到了沈大成」. Put `\n` at the phrase break of every punch caption longer than ~7 汉字 and check the phone sheet.
+- **A Short's 9:16 crop can't follow a fast pan or a subject that walks past the lens (127 Shorts).** `x` keyframes are
+  smoothed, so on a 1 s whip across a menu the window lagged onto the wrong panels, and two costumes that crossed the frame
+  in 2 s were gone before the counter popped. Use `"mode": "letterbox"` for such segments (whole frame over the blurred
+  fill) and check the 1 fps sheet.
+- **Carry a long video's persistent graphic into its Short as full-frame `overlays` (127).** The costume-counter pills were
+  composited onto 1080×1920 transparent PNGs (top-right, inside the safe zone), timed per segment from the source counts,
+  with the tick as `sfx`; a state that would last < 0.25 s at a cut is skipped (the pop starts at the cut), and the pill
+  ends where the closing headline takes the top of the frame. Script: 127 `edit/shorts/build_shorts.py`.
