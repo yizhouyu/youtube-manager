@@ -861,7 +861,7 @@ def _pip_chain(edl, pp, j, dur, fps_str, preset, inputs, idx, last, chains):
     Source is an edit/ file (`file`: .png/.jpg still or .mp4/.mov animation, e.g. a live mini-map)
     or another raw clip (`clip` + `in`, optional `grade`, `speed`) for a second angle / reaction.
     `x`, `y` = top-left of the inset as frame fractions, `w` = width fraction, `aspect` (w/h,
-    default 16/9), `border` = white frame in px at 1080p (default 6, 0 = none), `fade` (s).
+    default 16/9), `border` = white frame in px at 1080p (default 6, 0 = none), `fade` (s; `fade_in`/`fade_out` per side).
     Appends one input; returns the new video label, or None if the entry is unusable."""
     w, h = preset["w"], preset["h"]
     t0 = max(0.0, float(pp.get("t0", 0.0)))
@@ -894,8 +894,13 @@ def _pip_chain(edl, pp, j, dur, fps_str, preset, inputs, idx, last, chains):
     if b:
         vf.append(f"pad={pw + 2 * b}:{ph + 2 * b}:{b}:{b}:color=white")
     vf.append("format=rgba")
-    if fade:
-        vf += [f"fade=t=in:st=0:d={fade}:alpha=1", f"fade=t=out:st={max(0, span - fade):.3f}:d={fade}:alpha=1"]
+    # `fade_in` / `fade_out` override `fade` per side (127, 2026-11-10: a full-frame RIFE slow-mo pip over
+    # its own clip cuts in hard and fades out with the film's last shot)
+    fin, fout = float(pp.get("fade_in", fade)), float(pp.get("fade_out", fade))
+    if fin:
+        vf.append(f"fade=t=in:st=0:d={fin}:alpha=1")
+    if fout:
+        vf.append(f"fade=t=out:st={max(0, span - fout):.3f}:d={fout}:alpha=1")
     vf.append(f"setpts=PTS+{t0:.3f}/TB")
     x = int(w * float(pp.get("x", 0.66)))
     y = int(h * float(pp.get("y", 0.06)))
