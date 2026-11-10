@@ -40,7 +40,7 @@ for w, h in [(1920, 1080), (3840, 2160), (1080, 1920)]:
             # no hard edge: the plate-less look never reaches near-opaque outside the glyphs' neighbourhood
             assert a.getpixel((max(0, ab[0] - int(h * 0.05)), (ab[1] + ab[3]) // 2)) < 200
     # wrap: the long note breaks into two lines, never inside a number or before closing punctuation
-    lines = O._title_lines(ImageDraw.Draw(Image.new("L", (8, 8))), O._title_parse(LONG, ACC, FG), O._face(O.TITLE_FONTS, int(O.TITLE_NOTE["size"] * min(w, h))),
+    lines = O._title_lines(ImageDraw.Draw(Image.new("L", (8, 8))), O._title_parse(LONG, ACC, FG), O._face(O.TITLE_NOTE_FONTS, int(O.TITLE_NOTE["size"] * min(w, h))),
                            0, w * 0.5, 1.0)
     assert len(lines) == 2 and lines[1][0][0] not in "，、。；：！？”）"
     assert not (lines[0][-1][0].isdigit() and lines[1][0][0].isdigit())
@@ -50,5 +50,6 @@ for w, h in [(1920, 1080), (3840, 2160), (1080, 1920)]:
         assert bb and bb[1] < h * 0.15 and ((bb[0] < w * 0.2) if pos == "tl" else (bb[2] > w * 0.8)), (pos, bb)
     # the old pill is unchanged for other styles
     assert O.place_tag("傍晚 5:51", w, h, td) == O.place_tag("傍晚 5:51", w, h, td, "tl", "glass")
+assert all(isinstance(p, str) for p in O.TITLE_FONTS)   # title cards keep their own font list
 assert O.DEFAULT_NOTE_STYLE == "title" and O.DEFAULT_NOTE_STYLE in O.NOTE_STYLES
 print("ok: title notes")

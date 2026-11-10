@@ -434,7 +434,7 @@ TITLE_NOTE = {"size": 0.052, "track": 0.04, "grow": 0.0009, "top": 0.062, "max_w
               "scrim": ((8, 10, 14), 0.48, 0.07, 0.034, 0.06, 0.050),   # colour, alpha, pad x, pad y, radius, sigma
               "halo": ((6, 8, 12), 0.60, 0.018), "drop": (0.72, 0.0030, 0.0040), "contact": (0.80, 0.0011),
               "blur": 0.012}    # all lengths are fractions of the short frame side (H in 16:9)
-TITLE_FONTS = [("/System/Library/Fonts/Supplemental/Songti.ttc", 1)] + GLASS_FONTS   # Songti SC Bold
+TITLE_NOTE_FONTS = [("/System/Library/Fonts/Supplemental/Songti.ttc", 1)] + GLASS_FONTS   # Songti SC Bold
 _SEP = "\x00"
 
 
@@ -517,7 +517,7 @@ def _note_title_layers(text, w, h, pos):
     S = TITLE_NOTE
     u = min(w, h)
     v = _portrait(w, h)
-    f = _face(TITLE_FONTS, int(round(S["size"] * u)), text)
+    f = _face(TITLE_NOTE_FONTS, int(round(S["size"] * u)), text)
     tr = S["track"] * f.size
     d = ImageDraw.Draw(Image.new("L", (8, 8)))
     cx = w * (V_LEFT + V_RIGHT) / 2 if v else w / 2
@@ -604,7 +604,7 @@ def _place_tag_title(text, w, h, pos="tl"):
     S = TITLE_NOTE
     u = min(w, h)
     v = _portrait(w, h)
-    f = _face(TITLE_FONTS, int(round((0.042 if v else 0.038) * u)), text)
+    f = _face(TITLE_NOTE_FONTS, int(round((0.042 if v else 0.038) * u)), text)
     tr = 0.06 * f.size
     d = ImageDraw.Draw(Image.new("L", (8, 8)))
     tw = sum(d.textlength(c, font=f) for c in text) + tr * max(0, len(text) - 1)
