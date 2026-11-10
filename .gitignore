@@ -76,3 +76,6 @@ asrvenv/
 
 # third-party tool venvs/binaries (scouting 2026-10-08)
 .tools/
+app/mock_*
+app/options.html
+app/build/
