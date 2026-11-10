@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>审片 · 图标方案</title>
+<style>
+:root{--bg:#f5f5f7;--card:#fff;--text:#1d1d1f;--text-2:#6e6e73;--line:#e5e5ea;--accent:#0071e3;--dock-l:#e9e9ee;--dock-d:#1e1e20}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111113;--card:#1c1c1f;--text:#ececee;--text-2:#9a9aa0;--line:#2a2a2e;--accent:#4c9bff}}
+:root[data-theme="dark"]{--bg:#111113;--card:#1c1c1f;--text:#ececee;--text-2:#9a9aa0;--line:#2a2a2e;--accent:#4c9bff}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;-webkit-font-smoothing:antialiased;padding:48px 16px 64px}
+.wrap{max-width:1120px;margin:0 auto}
+h1{font-size:28px;font-weight:700}
+.sub{color:var(--text-2);margin:6px 0 32px}
+.sub code{font:13px ui-monospace,"SF Mono",Menlo,monospace;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+.opt{display:grid;grid-template-columns:240px 1fr;gap:28px;align-items:center;background:var(--card);border-radius:18px;padding:24px;margin-bottom:20px;box-shadow:0 0 0 .5px var(--line),0 8px 28px rgba(0,0,0,.05)}
+.big{width:240px;height:240px;display:block}
+.h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.h b{font-size:19px}
+.h code{font:13px ui-monospace,"SF Mono",Menlo,monospace;color:var(--text-2)}
+.tag{font-size:12px;font-weight:600;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);padding:3px 9px;border-radius:999px}
+.opt p{color:var(--text-2);margin:6px 0 16px}
+.docks{display:flex;gap:10px;flex-wrap:wrap}
+.dock{display:flex;align-items:flex-end;gap:16px;padding:14px 18px;border-radius:14px}
+.dock.l{background:var(--dock-l)}.dock.d{background:var(--dock-d)}
+.dock img{display:block}
+@media (max-width:640px){.opt{grid-template-columns:1fr}.big{width:100%;height:auto;max-width:240px}}
+</style></head><body><div class="wrap">
+<h1>审片 · 图标方案</h1>
+<p class="sub">现在装的是 <b>A 「审」印</b>。想换的话，用对应的名字重新构建，例如 <code>SHENPIAN_ICON=paper app/build.sh --install</code>，或者改 <code>make_icon.py</code> 里的 <code>DEFAULT</code>。每个方案都在浅色和深色 Dock 上，按 128 / 64 / 32 / 16 像素展示。</p>
+
+<div class="opt"><img class="big" src="icons/seal.png" alt="">
+<div><div class="h"><b>A 「审」印</b><code>seal</code><span class="tag">现在用这个</span></div>
+<p>暖墨黑底，宋体粗「审」字配香槟金渐变，四角是细取景框。和封面的宋体加香槟金是同一套气质；一个字，缩到 32 像素也认得出来。</p>
+<div class="docks"><div class="dock l"><img src="icons/seal.png" width="128"><img src="icons/seal.png" width="64"><img src="icons/seal.png" width="32"><img src="icons/seal.png" width="16"></div>
+<div class="dock d"><img src="icons/seal.png" width="128"><img src="icons/seal.png" width="64"><img src="icons/seal.png" width="32"><img src="icons/seal.png" width="16"></div></div></div></div>
+
+<div class="opt"><img class="big" src="icons/paper.png" alt="">
+<div><div class="h"><b>B 白纸「审」</b><code>paper</code></div>
+<p>A 的反色版：瓷白底，墨黑「审」字，香槟金四角。更亮、更轻，和明亮风格的 app 界面更搭；但在浅色 Dock 上没有 A 那么醒目。</p>
+<div class="docks"><div class="dock l"><img src="icons/paper.png" width="128"><img src="icons/paper.png" width="64"><img src="icons/paper.png" width="32"><img src="icons/paper.png" width="16"></div>
+<div class="dock d"><img src="icons/paper.png" width="128"><img src="icons/paper.png" width="64"><img src="icons/paper.png" width="32"><img src="icons/paper.png" width="16"></div></div></div></div>
+
+<div class="opt"><img class="big" src="icons/film.png" alt="">
+<div><div class="h"><b>C 胶片 + 播放头</b><code>film</code></div>
+<p>石墨底，一条胶片，中间那格是外滩日出的颜色，一根香槟金播放头压在上面。最像剪辑软件，但 32 像素以下就看不清了。</p>
+<div class="docks"><div class="dock l"><img src="icons/film.png" width="128"><img src="icons/film.png" width="64"><img src="icons/film.png" width="32"><img src="icons/film.png" width="16"></div>
+<div class="dock d"><img src="icons/film.png" width="128"><img src="icons/film.png" width="64"><img src="icons/film.png" width="32"><img src="icons/film.png" width="16"></div></div></div></div>
+
+<div class="opt"><img class="big" src="icons/finder.png" alt="">
+<div><div class="h"><b>D 取景框 + 播放</b><code>finder</code></div>
+<p>瓷白底，粗黑取景框，中间一个香槟金播放三角。现在那个白底图标的精致版：干净，但比较像相机或扫码类 app。</p>
+<div class="docks"><div class="dock l"><img src="icons/finder.png" width="128"><img src="icons/finder.png" width="64"><img src="icons/finder.png" width="32"><img src="icons/finder.png" width="16"></div>
+<div class="dock d"><img src="icons/finder.png" width="128"><img src="icons/finder.png" width="64"><img src="icons/finder.png" width="32"><img src="icons/finder.png" width="16"></div></div></div></div>
+
+<div class="opt"><img class="big" src="icons/loupe.png" alt="">
+<div><div class="h"><b>E 放大镜看片</b><code>loupe</code></div>
+<p>白底，一张黄昏天际线的画面，上面压一个金边放大镜，意思是「细看」。比较好懂，但元素多，缩小后最乱。</p>
+<div class="docks"><div class="dock l"><img src="icons/loupe.png" width="128"><img src="icons/loupe.png" width="64"><img src="icons/loupe.png" width="32"><img src="icons/loupe.png" width="16"></div>
+<div class="dock d"><img src="icons/loupe.png" width="128"><img src="icons/loupe.png" width="64"><img src="icons/loupe.png" width="32"><img src="icons/loupe.png" width="16"></div></div></div></div>
+</div></body></html>

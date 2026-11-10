@@ -10,8 +10,8 @@ APP="$HERE/build/审片.app"
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 swiftc -O -swift-version 5 -o "$APP/Contents/MacOS/Shenpian" "$HERE/main.swift" "$HERE/Theme.swift" -framework AppKit -framework WebKit
 
-# icon: 1024 png -> iconset -> icns
-T=$(mktemp -d); "$PY" "$HERE/make_icon.py" "$T/icon.png"; mkdir "$T/AppIcon.iconset"
+# icon: 1024 png -> iconset -> icns. Candidates in app/icon_options.html; pick one with SHENPIAN_ICON=<name>
+T=$(mktemp -d); "$PY" "$HERE/make_icon.py" "$T/icon.png" ${SHENPIAN_ICON:+--variant $SHENPIAN_ICON}; mkdir "$T/AppIcon.iconset"
 for s in 16 32 128 256 512; do
   sips -z $s $s "$T/icon.png" --out "$T/AppIcon.iconset/icon_${s}x${s}.png" >/dev/null
   sips -z $((s*2)) $((s*2)) "$T/icon.png" --out "$T/AppIcon.iconset/icon_${s}x${s}@2x.png" >/dev/null
