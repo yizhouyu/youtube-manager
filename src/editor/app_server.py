@@ -16,6 +16,11 @@ The Swift app (app/Shenpian.swift) starts this, shows `/` in a WKWebView and sto
 Folders opened with 「打开其他文件夹…」 (or anywhere outside the episodes root) are read-only: their servers run
 with --read-only and every pick is refused.
 
+Agent control (scripts/shenpian, `shenpian://` URLs handled by the Swift app): open / switch tab / seek / status /
+screenshot / quit only. `parse_agent_url` turns a URL into an open request; the shell page reports what it shows to
+/api/app/state (GET = the status JSON); server.json next to the ports memory says where this server is. There is no
+route here that picks, approves, saves or renders for an agent: those stay the creator's clicks.
+
 Env (tests): SHENPIAN_ROOT (episodes root, default ~/Desktop), SHENPIAN_APPROVALS (APPROVALS.md),
 SHENPIAN_STATE (ports memory), SHENPIAN_LOGS, SHENPIAN_PORTS ("9100-9399").
 """
@@ -33,6 +38,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.parse
 import urllib.request
 
 from flask import Flask, Response, abort, jsonify, request, send_from_directory
@@ -329,6 +335,74 @@ def _write(path, text):
     os.replace(tmp, path)
 
 
+# ---------------------------------------------------------------- agent control (read-only: open / tab / seek)
+
+TAB_KEYS = {"cover": "cover", "raw": "raw", "cut": "cut", "shorts": "shorts", "titles": "titles",
+            "封面": "cover", "素材": "raw", "成片": "cut", "标题": "titles", "short": "shorts", "title": "titles"}
+
+
+def find_project(ep):
+    """'126' -> the episode folder under the episodes root; a path (absolute or ~) -> that folder. None if missing."""
+    ep = (ep or "").strip()
+    if re.fullmatch(r"\d+", ep):
+        return next((e["path"] for e in episodes() if e["num"] == int(ep)), None)
+    p = os.path.expanduser(ep)
+    return os.path.realpath(p) if os.path.isabs(p) and os.path.isdir(p) else None
+
+
+def parse_agent_url(url):
+    """shenpian://open?ep=126&tab=cut&t=83.5 (or path=<project>, clip=<raw clip> with t on the raw page)
+    -> {"action": "open", "path", "tab", "t", "clip"}; shenpian://quit -> {"action": "quit"}. Raises ValueError."""
+    u = urllib.parse.urlsplit(url or "")
+    if u.scheme != "shenpian":
+        raise ValueError("not a shenpian:// URL")
+    action = (u.netloc or u.path.strip("/")).lower()
+    if action == "quit":
+        return {"action": "quit"}
+    if action != "open":
+        raise ValueError(f"unknown action {action!r} (only open / quit)")
+    q = dict(urllib.parse.parse_qsl(u.query))
+    want = q.get("path") or q.get("ep")
+    if not want:
+        raise ValueError("ep= or path= is required")
+    proj = find_project(want)
+    if not proj:
+        raise ValueError(f"no project folder for {want!r}")
+    out = {"action": "open", "path": proj, "tab": None, "t": None, "clip": None, "bg": q.get("bg") in ("1", "true")}
+    if q.get("tab"):
+        out["tab"] = TAB_KEYS.get(q["tab"].strip().lower()) or TAB_KEYS.get(q["tab"].strip())
+        if not out["tab"]:
+            raise ValueError(f"unknown tab {q['tab']!r} (cover / raw / cut / shorts / titles)")
+    if q.get("t") not in (None, ""):
+        try:
+            out["t"] = round(float(q["t"]), 3)
+        except ValueError:
+            raise ValueError("t must be seconds") from None
+        if not 0 <= out["t"] < 86400:
+            raise ValueError("t out of range")
+    if q.get("clip"):
+        out["clip"] = q["clip"][:200]
+    return out
+
+
+def server_info_path():
+    return os.path.join(os.path.dirname(state_path()), "server.json")
+
+
+APP = {"port": None, "window_id": None, "parent_pid": None}
+SHOWN = {}   # what the shell page shows: project, tab, t, clip, dirty, error (it posts this on every change)
+
+
+def app_state():
+    proj = SHOWN.get("project")
+    info = episode_info(proj) if proj and os.path.isdir(proj) else {}
+    ports = {k: port for k, (_, port) in SERVERS.procs.items()} if proj and SERVERS.proj == proj else {}
+    return {"running": True, "pid": os.getpid(), "app_pid": APP["parent_pid"], "port": APP["port"],
+            "window_id": APP["window_id"], "project": proj, "name": info.get("name"), "label": info.get("label"),
+            "read_only": info.get("ro"), "tab": SHOWN.get("tab"), "t": SHOWN.get("t"), "clip": SHOWN.get("clip"),
+            "dirty": bool(SHOWN.get("dirty")), "error": SHOWN.get("error"), "ports": ports, "updated": SHOWN.get("at")}
+
+
 # ---------------------------------------------------------------- child servers
 
 def port_free(p):
@@ -437,6 +511,7 @@ SERVERS = Servers()
 # ---------------------------------------------------------------- app
 
 app = Flask(__name__)
+PAGE_TABS = ("cover", "raw", "cut", "shorts", "titles", "none")
 TOKENS = {}   # token -> project path (static routes for cover / feed_sim html)
 
 
@@ -508,6 +583,28 @@ def api_pick():
     except ValueError as e:
         return jsonify({"ok": False, "error": "只读文件夹，不能选" if str(e) == "read-only" else "无效的选择"}), 400
     return jsonify({"ok": True, "picks": cur, "chip": status(proj)})
+
+
+@app.get("/api/app/parse")
+def api_app_parse():
+    try:
+        return jsonify(dict(parse_agent_url(request.args.get("url")), ok=True))
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/app/state", methods=["GET", "POST"])
+def api_app_state():
+    if request.method == "POST":   # the shell page: what it shows now (display state only, nothing is written to disk)
+        b = request.get_json(silent=True) or {}
+        t = b.get("t")
+        SHOWN.update(project=b.get("project") if isinstance(b.get("project"), str) else None,
+                     tab=b.get("tab") if b.get("tab") in PAGE_TABS else None,
+                     t=round(float(t), 2) if isinstance(t, (int, float)) else None,
+                     clip=str(b["clip"])[:200] if b.get("clip") else None, dirty=bool(b.get("dirty")),
+                     error=str(b["error"])[:300] if b.get("error") else None, at=time.strftime("%Y-%m-%d %H:%M:%S"))
+        return jsonify({"ok": True})
+    return jsonify(app_state())
 
 
 @app.get("/f/<tok>/<path:rel>")
@@ -637,7 +734,7 @@ async function openEp(p){
   try{while(wantOpen){const q=wantOpen;wantOpen=null;j=await post('/api/open',{path:q}).catch(()=>null);
     if(!wantOpen){if(j)showEp(j);else{$('ttl').innerHTML='';$('views').innerHTML='<div class="view on" id="v-none"><div class="empty">这一期打不开（日志在 ~/Library/Logs/审片/）</div></div>'}}}}
   finally{opening=false}}
-function showEp(j){EP=j;cur=null;ACTS={};acts();
+function showEp(j){EP=j;cur=null;ACTS={};TIME={};acts();
   if(j.ro&&!others.some(o=>o.path===j.path)&&!document.querySelector('.ep[data-p="'+CSS.escape(j.path)+'"]'))others.push(j);
   document.title='审片 · '+j.name;const num=/^\d+$/.test(j.label)?j.label:'';
   $('ttl').innerHTML=(num?`<i>${esc(num)}</i>`:'')+`<b>${esc(num?j.name.replace(/^\d+ - /,''):j.name)}</b>`+(j.ro?'<span class="chip ro" title="这个文件夹不会被写入">只读</span>':'');document.body.classList.toggle('ro',!!j.ro);
@@ -651,10 +748,10 @@ function showEp(j){EP=j;cur=null;ACTS={};acts();
   const first=['raw','cut','cover','shorts','titles'].find(k=>has[k]);tab(first||'none')}
 function tab(k){if(!EP)return;const v=$('v-'+k);if(!v)return;
   if(cur&&cur!==k){const f=document.querySelector('#v-'+cur+' iframe');if(f&&f.contentWindow)f.contentWindow.postMessage({shenpian:'pause'},'*')}
-  cur=k;acts();document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x===v));
+  cur=k;acts();report();document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x===v));
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
-  const f=v.querySelector('iframe');if(f&&!f.src)f.src=f.dataset.src;if(f)setTimeout(()=>f.focus(),50)}
-window.shell={tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),dirty:dirtyPages};   // dirty: the Swift app asks before quitting
+  const f=v.querySelector('iframe');if(f&&!f.getAttribute('src')){delete f.dataset.ready;f.src=f.dataset.src}if(f)setTimeout(()=>f.focus(),50)}
+window.shell={tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),dirty:dirtyPages,agent:agentOpen};   // dirty: the Swift app asks before quitting
 // 选这个 / 已选 · 撤销 (Q9): one APPROVALS.md line per click
 function cand(type,id,html){const P=EP.picks||{},on=type==='short'?(P.short||[]).includes(id):P[type]===id;
   return `<div class="cand${on?' on':''}">${html}<button data-t="${type}" data-c="${esc(id)}" data-u="${on?1:''}">${on?'已选 · 撤销':'选这个'}</button></div>`}
@@ -678,25 +775,55 @@ function acts(){const a=ACTS[cur]||{};$('tmeta').textContent=$('tmeta').title=a.
 function pageAct(id){const f=frameOf(cur);if(!f||!f.contentWindow)return;f.contentWindow.postMessage({shenpian:'act',id},'*');f.focus()}
 window.addEventListener('message',e=>{const d=e.data;if(!d||d.shenpian!=='hdr')return;
   const k=TABS.map(t=>t[0]).find(k=>{const f=frameOf(k);return f&&f.contentWindow===e.source});if(!k)return;
-  ACTS[k]={acts:Array.isArray(d.acts)?d.acts:[],meta:String(d.meta||'')};if(k===cur)acts()});
+  ACTS[k]={acts:Array.isArray(d.acts)?d.acts:[],meta:String(d.meta||'')};if(k===cur)acts();report()});
+// seek the page of tab k (cut: t = seconds of the cut; raw: clip + t), once its page has loaded
+function seekIn(k,m){const f=frameOf(k);if(!f)return;const send=()=>f.contentWindow.postMessage({shenpian:'seek',clip:m.clip,t:m.t},'*');
+  if(f.dataset.ready)send();else f.addEventListener('load',()=>setTimeout(send,1500),{once:true})}
 // Q7: a page asks to jump to the other page at a moment
 window.addEventListener('message',e=>{const d=e.data;if(!d||d.shenpian!=='jump'||!EP)return;
-  if(!$('v-'+d.to))return;tab(d.to);const f=document.querySelector('#v-'+d.to+' iframe');
-  const send=()=>f.contentWindow.postMessage({shenpian:'seek',clip:d.clip,t:d.t},'*');
-  if(f.dataset.ready)send();else f.addEventListener('load',()=>{f.dataset.ready=1;setTimeout(send,1500)},{once:true})});
-document.addEventListener('load',e=>{if(e.target.tagName==='IFRAME')e.target.dataset.ready=1},true);
+  if(!$('v-'+d.to))return;tab(d.to);seekIn(d.to,d)});
+// what is on screen -> /api/app/state (scripts/shenpian status): episode, tab, the playhead each page reports
+let TIME={}, agentErr=null, repT=0;
+window.addEventListener('message',e=>{const d=e.data;if(!d||d.shenpian!=='time')return;
+  const k=TABS.map(t=>t[0]).find(k=>{const f=frameOf(k);return f&&f.contentWindow===e.source});if(k){TIME[k]=d.here||{};if(k===cur)report()}});
+function report(){if(repT)return;repT=setTimeout(()=>{repT=0;const h=TIME[cur]||{};
+  post('/api/app/state',{project:EP&&EP.path,tab:EP?cur:null,t:h.cut_t!=null?h.cut_t:(h.clip_t!=null?h.clip_t:null),clip:h.clip||null,dirty:dirtyPages(),error:agentErr}).catch(()=>{})},300)}
+// agent control (the Swift app forwards shenpian://open?... here): open / tab / seek only — never a pick, save or render
+async function agentOpen(url){agentErr=null;let r;
+  try{r=await (await fetch('/api/app/parse?url='+encodeURIComponent(url))).json()}catch(e){r={ok:false,error:String(e)}}
+  if(!r.ok){agentErr=r.error||'bad url';report();return r}
+  if(r.action!=='open')return r;
+  if(!EP||EP.path!==r.path){
+    if(EP&&dirtyPages()){agentErr='成片有修改还没保存：没有换期（等他保存）';report();return {ok:false,error:agentErr}}
+    await openEp(r.path)}
+  if(r.tab){if(!$('v-'+r.tab)){agentErr='这一期没有 '+r.tab+' 页';report();return {ok:false,error:agentErr}}tab(r.tab)}
+  if(r.t!=null)seekIn(cur,{t:r.t,clip:r.clip});
+  report();return {ok:true}}
+// ready = its page has loaded (an iframe without src also fires load, for about:blank: that one doesn't count)
+document.addEventListener('load',e=>{if(e.target.tagName==='IFRAME'&&e.target.getAttribute('src'))e.target.dataset.ready=1},true);
 // ⌘1–⌘5 also work here when the shell itself has focus (the Swift menu handles them everywhere else)
 document.addEventListener('keydown',e=>{if(e.metaKey&&e.key>='1'&&e.key<='5'){e.preventDefault();shell.tab(+e.key)}
   else if(e.metaKey&&e.key==='s'){e.preventDefault();if((ACTS[cur]&&ACTS[cur].acts||[]).some(a=>a.id==='bSave'))pageAct('bSave')}});
 list();setInterval(list,30000);
-{const q=new URLSearchParams(location.search);if(q.get('open'))openEp(q.get('open')).then(()=>{if(q.get('tab'))tab(q.get('tab'))})}   // ?open=<path>&tab=cut
+{const q=new URLSearchParams(location.search);if(q.get('open'))openEp(q.get('open')).then(()=>{if(q.get('tab'))tab(q.get('tab'));
+  if(q.get('t'))seekIn(cur,{t:+q.get('t'),clip:q.get('clip')||undefined})})}   // ?open=<path>&tab=cut&t=83.5
 </script></body></html>
 """
 PAGE = PAGE.replace("__THEME_CSS__", THEME.CSS)
 
 
+def _drop_server_info():
+    try:
+        with open(server_info_path(), encoding="utf-8") as f:
+            if json.load(f).get("pid") == os.getpid():
+                os.remove(server_info_path())
+    except (OSError, ValueError):
+        pass
+
+
 def _shutdown(*_):
     SERVERS.stop()
+    _drop_server_info()
     os._exit(0)
 
 
@@ -705,8 +832,10 @@ def main():
     ap.add_argument("--port", type=int, default=0, help="0 = any free port")
     ap.add_argument("--port-file", help="write the chosen port here (the Swift app reads it)")
     ap.add_argument("--parent-pid", type=int, help="exit (and stop the episode servers) when this process is gone")
+    ap.add_argument("--window-id", type=int, help="the app window's id (status / screenshots for scripts/shenpian)")
     a = ap.parse_args()
     atexit.register(SERVERS.stop)
+    atexit.register(_drop_server_info)
     signal.signal(signal.SIGTERM, _shutdown)
     signal.signal(signal.SIGHUP, _shutdown)
     port = a.port
@@ -725,6 +854,14 @@ def main():
         threading.Thread(target=watch, daemon=True).start()
     if a.port_file:
         _write(a.port_file, str(port))
+    APP.update(port=port, window_id=a.window_id, parent_pid=a.parent_pid)
+    if a.parent_pid:   # the app's server (not a test run): tell scripts/shenpian where to find it
+        try:
+            os.makedirs(os.path.dirname(server_info_path()), exist_ok=True)
+            _write(server_info_path(), json.dumps({"pid": os.getpid(), "port": port, "app_pid": a.parent_pid,
+                                                   "window_id": a.window_id}))
+        except OSError:
+            pass
     print(f"审片 app server: http://127.0.0.1:{port}/", flush=True)
     app.run(host="127.0.0.1", port=port, threaded=True, debug=False)
 

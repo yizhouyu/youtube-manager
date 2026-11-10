@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import time
+import urllib.parse
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from flask import Flask  # noqa: E402
@@ -148,6 +149,36 @@ with tempfile.TemporaryDirectory() as tmp:
     assert SB.request(os.path.join(ed, "edl.json"), os.path.join(tmp, "sb")) == {"ready": False, "state": "error"}
     assert not os.path.exists(os.path.join(tmp, "sb"))
     SB.READ_ONLY = AB.RO = False
+
+    # agent control (scripts/shenpian, shenpian:// URLs): open / tab / seek only
+    P = A.parse_agent_url
+    assert P("shenpian://open?ep=124&tab=cut&t=83.5") == {"action": "open", "path": os.path.realpath(proj), "tab": "cut",
+                                                         "t": 83.5, "clip": None, "bg": False}
+    assert P("shenpian://open?path=" + urllib.parse.quote(other) + "&tab=%E7%B4%A0%E6%9D%90&bg=1")["path"] == os.path.realpath(other)
+    assert P("shenpian://open?path=" + urllib.parse.quote(other) + "&tab=%E7%B4%A0%E6%9D%90&bg=1")["tab"] == "raw", "Chinese tab names"
+    assert P("shenpian://open?ep=125")["path"].endswith("125 - Later") and P("shenpian://open?ep=125")["bg"] is False
+    assert P("shenpian://open?ep=124&tab=raw&clip=A&t=3")["clip"] == "A"
+    assert P("shenpian://quit") == {"action": "quit"}
+    for bad in ("http://open?ep=124", "shenpian://pick?ep=124&cover=F6", "shenpian://approve?ep=124", "shenpian://open",
+                "shenpian://open?ep=999", "shenpian://open?ep=124&tab=bogus", "shenpian://open?ep=124&t=-1",
+                "shenpian://open?ep=124&t=x", "shenpian://open?path=/no/such/folder"):
+        try:
+            P(bad)
+            raise AssertionError("accepted " + bad)
+        except ValueError:
+            pass
+    assert cl2.get("/api/app/parse?url=" + urllib.parse.quote("shenpian://open?ep=124&tab=cut")).get_json()["tab"] == "cut"
+    assert cl2.get("/api/app/parse?url=" + urllib.parse.quote("shenpian://save?ep=124")).status_code == 400
+    st = cl2.get("/api/app/state").get_json()
+    assert st["running"] and st["project"] is None and st["dirty"] is False
+    assert cl2.post("/api/app/state", json={"project": proj, "tab": "cut", "t": 61.234, "dirty": True}).get_json()["ok"]
+    st = cl2.get("/api/app/state").get_json()
+    assert (st["project"], st["tab"], st["t"], st["dirty"], st["label"], st["read_only"]) == (proj, "cut", 61.23, True, "124", False)
+    cl2.post("/api/app/state", json={"project": proj, "tab": "nonsense"})
+    assert cl2.get("/api/app/state").get_json()["tab"] is None
+    assert A.server_info_path() == os.path.join(tmp, "server.json")
+    assert not [r for r in A.app.url_map.iter_rules() if "/api/app/" in r.rule and "POST" in r.methods and r.rule != "/api/app/state"], \
+        "the agent interface has no write routes"
 
     # ports: never the live review ports, remembered per project
     p1 = A.pick_port(proj, "raw")

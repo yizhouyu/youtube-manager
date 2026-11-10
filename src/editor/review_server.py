@@ -1324,7 +1324,10 @@ window.chatVideo=()=>modalShot>=0?null:document.getElementById('pvv');
 window.appHooks={kind:'cut',video:()=>modalShot>=0?null:document.getElementById('pvv'),rate:()=>pvSpeed,setRate:r=>pvSetSpeed(r),
   here:()=>{const v=document.getElementById('pvv'),q={cut_t:Math.round(((v&&v.currentTime)||0)*100)/100};if(PVNAME)q.preview=PVNAME;return q},
   btnHost:()=>document.getElementById('nowrow'),
-  seek:d=>{const v=document.getElementById('pvv');if(!v)return;resumeFollow();v.pause();v.currentTime=Math.max(0,+d.t||0)}};</script></body>"""
+  seek:d=>{PV_RESTORED=true;let n=0;   // a seek that arrives before the preview has loaded wins over the remembered position
+    const go=()=>{const v=document.getElementById('pvv');if(!v){if(++n<40)setTimeout(go,250);return}
+      resumeFollow();v.pause();const set=()=>{v.currentTime=Math.max(0,+d.t||0)};
+      v.readyState>=1?set():v.addEventListener('loadedmetadata',set,{once:true})};go()}};</script></body>"""
 PAGE = AB.inject(CHAT.inject(QS.inject(PAGE.replace("__THEME_CSS__", THEME.CSS)).replace("</body>", CHAT_CTX, 1), "cut"))
 
 

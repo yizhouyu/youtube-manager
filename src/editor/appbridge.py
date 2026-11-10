@@ -105,6 +105,9 @@ JS = r"""<style>
     e.preventDefault();e.stopPropagation()},true);
   window.addEventListener('message',e=>{const d=e.data;if(!d||!d.shenpian)return;
     const v=H.video();if(d.shenpian==='pause'){stop();if(v)v.pause()}else if(d.shenpian==='seek'){stop();H.seek(d)}});
+  // the app's status (scripts/shenpian status): where the playhead is, sent when it changes (at most once a second)
+  if(inApp){let last='';setInterval(()=>{const v=H.video();if(!v)return;let h={};try{h=H.here()||{}}catch(e){}
+    const s=JSON.stringify(h);if(s===last)return;last=s;parent.postMessage({shenpian:'time',here:h},'*')},1000)}
   if(inApp&&H.kind!=='shorts'){const host=H.btnHost&&H.btnHost();if(host){const b=document.createElement('button');b.id='abJump';b.type='button';
     b.textContent=H.kind==='cut'?'R 看原片':'R 看成片';b.title=H.kind==='cut'?'跳到这一刻的原片（没用上的部分也看得到）':'跳到成片里的这一刻';
     b.addEventListener('mousedown',e=>e.preventDefault());b.onclick=e=>{e.stopPropagation();jump()};host.appendChild(b)}}

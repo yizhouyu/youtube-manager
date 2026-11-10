@@ -33,6 +33,10 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>NSHighResolutionCapable</key><true/>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
   <key>ShenpianRepo</key><string>$REPO</string>
+  <key>CFBundleURLTypes</key><array><dict>
+    <key>CFBundleURLName</key><string>dev.yizhouyu.shenpian</string>
+    <key>CFBundleURLSchemes</key><array><string>shenpian</string></array>
+  </dict></array>
 </dict></plist>
 EOF
 echo "built $APP (repo: $REPO)"

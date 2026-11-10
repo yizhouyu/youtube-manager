@@ -1,0 +1,171 @@
+#!/bin/sh
+''''exec "$(dirname "$0")/../venv/bin/python" "$0" "$@" # '''
+"""Agent control of the 审片 app (app/README.md "Agent control"). Only open / switch / seek / status / screenshot / quit:
+nothing here picks, approves, saves or renders — those are the creator's own clicks in the app.
+
+    scripts/shenpian open 126 [--tab cut] [--t 83.5] [--clip DJI_..._D] [--background]
+    scripts/shenpian open "/Volumes/YZY's drive/YouTube Channel/74 - Old Trip" --tab raw   # any folder: read-only
+    scripts/shenpian status            # JSON: running, project, tab, playhead, ports, window id
+    scripts/shenpian screenshot out.png   # the app window (screencapture -l), the app is not activated
+    scripts/shenpian quit              # refuses while 成片 has unsaved edits
+
+--background: never takes focus or clicks. If the app isn't running it starts with its window off screen (it still
+renders, so screenshots work); if it is running, the episode is opened without bringing it forward.
+Without --background the app comes to the front, like clicking it in the Dock.
+"""
+import argparse
+import glob
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.parse
+import urllib.request
+
+HOME = os.path.expanduser("~")
+APPS = [os.path.join(HOME, "Applications", "审片.app"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app", "build", "审片.app")]
+TABS = ("cover", "raw", "cut", "shorts", "titles")
+
+
+def info_path():
+    st = os.environ.get("SHENPIAN_STATE") or os.path.join(HOME, "Library", "Application Support", "审片", "ports.json")
+    return os.path.join(os.path.dirname(st), "server.json")
+
+
+def alive(pid):
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except (OSError, TypeError, ValueError):
+        return False
+
+
+def server():
+    """{pid, port, app_pid, window_id} of the running app's backend, or None."""
+    try:
+        with open(info_path(), encoding="utf-8") as f:
+            s = json.load(f)
+    except (OSError, ValueError):
+        return None
+    return s if alive(s.get("pid")) and alive(s.get("app_pid")) else None
+
+
+def state():
+    s = server()
+    if not s:
+        return {"running": False}
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{s['port']}/api/app/state", timeout=3) as r:
+            return json.load(r)
+    except Exception as e:  # starting up / shutting down
+        return {"running": True, "app_pid": s.get("app_pid"), "port": s.get("port"), "window_id": s.get("window_id"),
+                "error": f"backend not answering: {e}"}
+
+
+def project_path(ep):
+    if ep.isdigit():
+        root = os.environ.get("SHENPIAN_ROOT") or os.path.join(HOME, "Desktop")
+        hits = sorted(p for p in glob.glob(os.path.join(root, f"{ep} - *")) if os.path.isdir(p))
+        if not hits:
+            sys.exit(f"no episode {ep} under {root}")
+        return os.path.realpath(hits[0])
+    p = os.path.realpath(os.path.expanduser(ep))
+    if not os.path.isdir(p):
+        sys.exit(f"no such folder: {p}")
+    return p
+
+
+def app_bundle():
+    return next((os.path.abspath(a) for a in APPS if os.path.isdir(a)), None) or sys.exit("审片.app is not built (app/build.sh --install)")
+
+
+def cmd_open(a):
+    path = project_path(a.ep)
+    if a.tab and a.tab not in TABS:
+        sys.exit(f"--tab must be one of {', '.join(TABS)}")
+    q = {"path": path}
+    if a.tab:
+        q["tab"] = a.tab
+    if a.t is not None:
+        q["t"] = a.t
+    if a.clip:
+        q["clip"] = a.clip
+    if a.background:
+        q["bg"] = "1"
+    url = "shenpian://open?" + urllib.parse.urlencode(q, quote_via=urllib.parse.quote)
+    if not server() and a.background:   # start it off screen: no Dock bounce into the foreground, no focus
+        env = dict(os.environ, SHENPIAN_BACKGROUND="1", SHENPIAN_OPEN=path, SHENPIAN_TAB=a.tab or "",
+                   SHENPIAN_T="" if a.t is None else str(a.t))
+        subprocess.Popen([os.path.join(app_bundle(), "Contents", "MacOS", "Shenpian")], env=env, start_new_session=True,
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        subprocess.run(["open"] + (["-g"] if a.background else []) + [url], check=True)
+    deadline, shown_at, st = time.time() + a.wait, None, {}
+    while time.time() < deadline:   # until the shell shows it (and, with --t, the playhead got there: up to 10 s more)
+        time.sleep(0.5)
+        st = state()
+        if st.get("error") and st.get("project") == path:
+            break
+        if st.get("project") == path and (not a.tab or st.get("tab") == a.tab):
+            shown_at = shown_at or time.time()
+            there = st.get("t") is not None and abs(st["t"] - a.t) < 1.5 if a.t is not None else True
+            if there or time.time() - shown_at > 10:
+                break
+    print(json.dumps(st, ensure_ascii=False, indent=1))
+    ok = st.get("project") == path and (not a.tab or st.get("tab") == a.tab) and not st.get("error")
+    sys.exit(0 if ok else 1)
+
+
+def cmd_status(_):
+    print(json.dumps(state(), ensure_ascii=False, indent=1))
+
+
+def cmd_screenshot(a):
+    st = state()
+    if not st.get("running") or not st.get("window_id"):
+        sys.exit("审片 is not running")
+    out = os.path.abspath(a.out)
+    subprocess.run(["screencapture", "-x", "-o", "-l", str(st["window_id"]), out], check=True)
+    print(out)
+
+
+def cmd_quit(_):
+    s, st = server(), state()
+    if not s:
+        print(json.dumps({"running": False}))
+        return
+    if st.get("dirty"):
+        sys.exit("not quitting: 成片 has unsaved edits (he has to save or discard them himself)")
+    subprocess.run(["open", "-g", "shenpian://quit"], check=False)
+    for _ in range(40):
+        time.sleep(0.25)
+        if not alive(s["app_pid"]):
+            break
+    else:   # the URL didn't reach it: ask the process directly (its backend stops the episode servers on its own)
+        os.kill(int(s["app_pid"]), 15)
+        time.sleep(3)
+    print(json.dumps({"running": alive(s["app_pid"])}))
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="shenpian", description="Agent control of the 审片 app (no write actions).")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    o = sub.add_parser("open", help="open an episode (number or project path), optionally a tab and a moment")
+    o.add_argument("ep")
+    o.add_argument("--tab", help="cover / raw / cut / shorts / titles")
+    o.add_argument("--t", type=float, help="seconds: of the cut on the cut tab; of --clip on the raw tab")
+    o.add_argument("--clip", help="raw clip name (raw tab)")
+    o.add_argument("--background", action="store_true", help="never take focus (off-screen window if starting it)")
+    o.add_argument("--wait", type=float, default=90, help="seconds to wait for the episode to show (default 90)")
+    sub.add_parser("status", help="JSON: running, project, tab, playhead, ports, window id")
+    s = sub.add_parser("screenshot", help="capture the app window without activating it")
+    s.add_argument("out")
+    sub.add_parser("quit", help="quit the app (refused while there are unsaved edits)")
+    a = ap.parse_args()
+    {"open": cmd_open, "status": cmd_status, "screenshot": cmd_screenshot, "quit": cmd_quit}[a.cmd](a)
+
+
+if __name__ == "__main__":
+    main()

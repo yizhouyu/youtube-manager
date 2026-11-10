@@ -491,6 +491,10 @@ a browser-automation tab:
 open -a "Google Chrome" "file://<project>/02 - Export/thumbnail/editorial.html" "http://127.0.0.1:8765/" "http://127.0.0.1:8766/"
 ```
 
+**From now on open episodes for him in 审片.app (2026-11-10):** `scripts/shenpian open <ep> --tab cover|raw|cut [--t 83.5]`
+(add `--background` to prepare it without taking his screen; `scripts/shenpian status` / `screenshot <png>` to check).
+It cannot pick, approve or save: those stay his clicks. `scripts/review_open.sh` (browser) is the fallback.
+
 Creator order (2026-10-09): cover/thumbnail page first, then 8765, then 8766. Use the exact port assignments in that episode's `edit/HANDOFF.md` if they override the defaults.
 Opening the URLs does not start either server or the chat listener.
 
@@ -510,7 +514,7 @@ labels replies accordingly (`CHAT_AGENT=claude-code|codex` overrides detection w
 - **What it carries:** each message he sends records where he was (raw clip + time, or cut time). The messages are stored in `edit/chat.jsonl`.
 - **Prep lazily (creator, 2026-10-15):** read an episode's sheets/clip index only when its 审片 starts, not ahead of time.
 - **Brief yourself before every 审片 (creator, 2026-10-15):** the rough cut is often made by another agent, so the agent who chats with him may not know the video. Before opening the pages: read the episode's `HANDOFF.md` (structure table, cards, open questions), then re-run `python -m src.editor.clip_index` (EDL may have changed; reasons are kept) and read `scan/clip_index.md` and skim the rough-cutter's existing `scan/sheets/grid_*.jpg` (already low-res, ~320 px/frame; never regenerate raw sheets), plus a coarse contact sheet of the preview (`ffmpeg -vf fps=1/20,scale=320:-1,tile=6x5`, ~30 frames), and write 5–8 lines to `edit/review_brief.md` (spine, key sections with timestamps, cards, what's unresolved). Then start the chat watcher (`Monitor` on `chat … watch`). Re-read the brief when he asks about a moment.
-- **Open all three pages yourself (creator, 2026-10-03; order set 2026-10-08).** When review starts or moves to the next episode, `open` these right away, in this order:
+- **Open all three pages yourself (creator, 2026-10-03; order set 2026-10-08).** In the app: `scripts/shenpian open <ep> --tab cover` (then raw, cut). Browser fallback: when review starts or moves to the next episode, `open` these right away, in this order:
   1. the episode's cover page, `thumbnail/editorial.html` or `review.html`;
   2. the raw page, 8765;
   3. the cut page, 8766.

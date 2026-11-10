@@ -71,6 +71,8 @@ A native Mac app (`app/main.swift` + `src/editor/app_server.py`): episode sideba
 封面 / 素材 (raw footage, `footage_player`) / 成片 (cut, `review_server`) / Shorts (`shorts_page`) / 标题, a chat with
 the agent on every video page (notes carry clip + second, optional 框选 box), J/K/L keys, cut↔raw jump, and
 「选这个」 / 「审片通过」 picks. It never uploads or calls an agent. Details: [`app/README.md`](app/README.md).
+Agents open episodes in it with `scripts/shenpian open <ep> [--tab cut] [--t 83.5] [--background]` (also `status`,
+`screenshot`, `quit`; no picks or saves).
 
 The same pages still run in a browser (`scripts/review_open.sh <ep>`; `scripts/review_stop_all.sh`). In both cases
 the agent must run a chat listener whose output it can see:
@@ -127,6 +129,7 @@ Run from the repo root with `./venv/bin/python` (ASR with `asrvenv/bin/python`).
 | `-m src.editor.clip_index "<project>"` | One line per raw clip: used where, what was left out |
 | `-m src.editor.digits "<project>" [--apply]` | Chinese numerals → digits in captions |
 | `-m src.editor.title_check "标题" …` | How much of a title a phone shows |
+| `scripts/shenpian open <ep> --tab cut\|status\|screenshot <png>\|quit` | Drive 审片.app for the creator (open / tab / seek only) |
 | `scripts/make_short.py <spec.json>` | Vertical Short from source clips |
 | `scripts/render_variant.py` | Non-destructive comparison cut (own EDL, SRT, manifest) |
 | `scripts/upload_captions.py <id> <srt> [lang]` | Caption track upload |

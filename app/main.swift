@@ -11,8 +11,11 @@ final class DragStrip: NSView {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKUIDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKUIDelegate, WKNavigationDelegate {
     var window: NSWindow!
+    var background = false
+    var shellReady = false
+    var pendingURLs: [String] = []
     var web: WKWebView!
     var server: Process?
     let portFile = NSTemporaryDirectory() + "shenpian-\(getpid()).port"
@@ -86,10 +89,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         window.toolbarStyle = .unified          // 52 pt bar, traffic lights centred in it
         window.minSize = NSSize(width: 980, height: 600)
         window.backgroundColor = Theme.bg
-        // SHENPIAN_BACKGROUND=1 (screenshots/tests while someone works on this Mac): never activate, never take
-        // clicks or keys, don't touch the saved window frame; SHENPIAN_SIZE=WxH sets the size.
+        // SHENPIAN_BACKGROUND=1 (agents / tests while he works on this Mac, scripts/shenpian --background): the window
+        // sits under all his windows, never activates, never takes clicks or keys, doesn't touch the saved frame; it
+        // keeps rendering while covered, so `screencapture -l` works. SHENPIAN_SIZE=WxH sets the size.
         let env = ProcessInfo.processInfo.environment
-        let background = env["SHENPIAN_BACKGROUND"] == "1"
+        background = env["SHENPIAN_BACKGROUND"] == "1"
         if !background { window.setFrameAutosaveName("ShenpianMain") }
         if let sz = env["SHENPIAN_SIZE"]?.split(separator: "x").compactMap({ Double($0) }), sz.count == 2 {
             window.setContentSize(NSSize(width: sz[0], height: sz[1]))
@@ -113,6 +117,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         web.setValue(false, forKey: "drawsBackground")   // transparent: the sidebar vibrancy shows through the page
         web.underPageBackgroundColor = Theme.bg
         web.uiDelegate = self
+        web.navigationDelegate = self
+        // keep rendering while covered / off screen (background mode, screenshots of a window he doesn't see)
+        let occl = Selector(("_setWindowOcclusionDetectionEnabled:"))
+        if background && web.responds(to: occl) { web.perform(occl, with: nil) }   // nil = NO
         web.allowsMagnification = false
         if #available(macOS 13.3, *) { web.isInspectable = true }
 
@@ -131,10 +139,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             drag.topAnchor.constraint(equalTo: root.topAnchor), drag.heightAnchor.constraint(equalToConstant: Theme.toolbarHeight),
         ])
         web.loadHTMLString("<html style='font:13px -apple-system;color:#86868b'><body style='display:grid;place-items:center;height:90vh;background:transparent'>启动中…</body></html>", baseURL: nil)
-        if background {
+        if background {   // below every normal window, on every Space, clicks pass through: he never sees or hits it
             window.ignoresMouseEvents = true
-            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]   // on the Space in use, so it paints
-            window.level = .floating
+            window.level = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue - 1)
+            window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
             window.orderFrontRegardless()
         } else {
             window.makeKeyAndOrderFront(nil)
@@ -153,7 +161,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         try? FileManager.default.removeItem(atPath: portFile)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: python)
-        p.arguments = ["-m", "src.editor.app_server", "--port-file", portFile, "--parent-pid", "\(getpid())"]
+        p.arguments = ["-m", "src.editor.app_server", "--port-file", portFile, "--parent-pid", "\(getpid())",
+                       "--window-id", "\(window.windowNumber)"]
         p.currentDirectoryURL = URL(fileURLWithPath: repo)
         p.standardOutput = log
         p.standardError = log
@@ -167,7 +176,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             var u = URLComponents(string: "http://127.0.0.1:\(port)/")!
             let env = ProcessInfo.processInfo.environment   // SHENPIAN_OPEN=<project> [SHENPIAN_TAB=cut]: open straight into it
             if let open = env["SHENPIAN_OPEN"] {
-                u.queryItems = [URLQueryItem(name: "open", value: open), URLQueryItem(name: "tab", value: env["SHENPIAN_TAB"] ?? "")]
+                u.queryItems = [URLQueryItem(name: "open", value: open), URLQueryItem(name: "tab", value: env["SHENPIAN_TAB"] ?? ""),
+                                URLQueryItem(name: "t", value: env["SHENPIAN_T"] ?? "")]
             }
             web.load(URLRequest(url: u.url!))
             return
@@ -181,6 +191,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         a.messageText = "审片"
         a.informativeText = msg
         a.runModal()
+    }
+
+    // MARK: agent control (shenpian:// URLs, see scripts/shenpian): open / tab / seek / quit, nothing that writes
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.scheme == "shenpian" {
+            let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            if url.host == "quit" { agentQuit(); continue }
+            if q.first(where: { $0.name == "bg" })?.value != "1" { comeForward() }
+            pendingURLs.append(url.absoluteString)
+        }
+        flushURLs()
+    }
+
+    /// The shell page opens the episode (app_server.parse_agent_url decides what the URL may do).
+    func flushURLs() {
+        guard shellReady, web != nil else { return }
+        for u in pendingURLs {
+            guard let d = try? JSONSerialization.data(withJSONObject: [u]), let arr = String(data: d, encoding: .utf8) else { continue }
+            web.evaluateJavaScript("window.shell&&shell.agent(\(arr)[0])")
+        }
+        pendingURLs.removeAll()
+    }
+
+    func webView(_ w: WKWebView, didFinish nav: WKNavigation!) {
+        if w.url?.scheme == "http" { shellReady = true; flushURLs() }
+    }
+
+    /// From background mode to a normal window he can use.
+    func comeForward() {
+        if background {
+            background = false
+            window.ignoresMouseEvents = false
+            window.level = .normal
+            window.collectionBehavior = []
+            let occl = Selector(("_setWindowOcclusionDetectionEnabled:"))
+            if web.responds(to: occl) { web.perform(occl, with: NSNumber(value: true)) }   // non-nil = YES
+            window.setFrameAutosaveName("ShenpianMain")
+            _ = window.setFrameUsingName("ShenpianMain")
+        }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Quit only when nothing is unsaved (an agent never gets the 「不保存，退出」 dialog).
+    func agentQuit() {
+        guard let web = web else { NSApp.terminate(nil); return }
+        web.evaluateJavaScript("!!(window.shell&&shell.dirty&&shell.dirty())") { r, _ in
+            if (r as? Bool) == true { return }
+            self.discardOK = true
+            NSApp.terminate(nil)
+        }
     }
 
     // MARK: page -> app

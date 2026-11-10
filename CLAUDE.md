@@ -8,8 +8,8 @@ An **agent-first** YouTube publishing toolkit. There is no web UI and no CLI —
 procedure is a **skill** the agent runs conversationally:
 **[`.claude/skills/publish-video-chat/SKILL.md`](.claude/skills/publish-video-chat/SKILL.md)**.
 That skill is the source of truth for *how* to publish; this file just describes the code it
-leans on. (The repo used to be a Flask app + CLI + Anthropic-API generation; that was all
-removed — the agent now does the generating, looking, and listening itself.)
+leans on. The creator reviews in 审片.app (`app/`, backend `src/editor/app_server.py`); agents open an episode for
+him with `scripts/shenpian open <ep> --tab cut` (see `app/README.md`).
 
 ## Code the skill uses
 
@@ -42,8 +42,8 @@ Raw footage → finished vlog is the **edit-video-chat** skill
   cached segments (grade, B-roll, burned-in subs/titles/tags), frame-exact concat, section
   music ducked under speech, mastering loop to −14 LUFS / ≤ −1.5 dBTP (see render skill), timeline `captions.srt`.
 - **`overlays.py`** — Pillow-rendered subtitle / title card / place-tag PNGs (no `drawtext` here).
-- **`review_server.py`** — `-m src.editor.review_server "<project>"`: local page to toggle, trim,
-  split, reorder shots and edit subtitles, then re-render.
+- **`review_server.py`** / **`footage_player.py`** — the 成片 (cut) and 素材 (raw) pages inside 审片.app (also run
+  standalone in a browser): watch, answer questions, chat notes, trim/reorder shots, re-render.
 
 ## Setup / tools
 

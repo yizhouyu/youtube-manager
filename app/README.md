@@ -23,8 +23,28 @@ launch time points it elsewhere, e.g. a worktree).
 - Look: option B of `DESIGN.md`; tokens in `src/editor/theme.py` (swap `TOKENS`/`DARK_TOKENS`/`FLAVOR` for A/C/D).
 
 Testing without disturbing the person at this Mac: `SHENPIAN_BACKGROUND=1` (never activates, ignores clicks, doesn't
-save the window frame, shows on the Space in use) and `SHENPIAN_SIZE=1280x800`; then `screencapture -l <window id>`.
+save the window frame, sits under all other windows and keeps rendering) and `SHENPIAN_SIZE=1280x800`; then `screencapture -l <window id>`.
 Quitting (or closing the window) with unsaved shot edits on 成片 asks first, like the browser tab did.
+
+## Agent control
+
+`scripts/shenpian` lets an agent open / switch / seek / look; nothing else. Picks, 审片通过, save, render and export
+are not reachable from it (they count as his approval or change his work).
+
+    scripts/shenpian open 126 --tab cut --t 83.5 [--background]   # ep number or a project path (other folders: read-only)
+    scripts/shenpian open 127 --tab raw --clip DJI_20261031070701_0433_D --t 12
+    scripts/shenpian status                 # JSON: running, project, tab, t / clip, dirty, ports, window_id
+    scripts/shenpian screenshot out.png     # screencapture -l of the window; the app is not activated
+    scripts/shenpian quit                   # refused while 成片 has unsaved edits
+
+Under it: the `shenpian://open?ep=126&tab=cut&t=83.5` (or `path=<project>`, `clip=`, `bg=1`) and `shenpian://quit`
+URLs (Info.plist, registered by build.sh). The Swift app hands open URLs to the shell page, which asks
+`app_server.parse_agent_url` what they mean (open only) and then opens / switches / seeks like a click would; it never
+switches away from unsaved edits. The shell posts what it shows to `/api/app/state` (127.0.0.1 only); the backend
+writes `~/Library/Application Support/审片/server.json` (its port, the app pid, the window id) and removes it on exit.
+`--background`: if the app isn't running it starts under all his windows (`SHENPIAN_BACKGROUND=1`: no focus, no
+clicks, keeps rendering so screenshots work); if it is running the URL goes with `open -g` and the app stays where it
+is. A later open without `--background` brings the window forward as a normal window.
 
 ## Sidebar
 
