@@ -25,7 +25,7 @@ The goal is videos that viewers love and that grow subscribers, not conformity w
   - captions: Arabic digits, standard Mandarin, exact words, no fillers;
   - no companion names or pet names;
   - best take only;
-  - glass-pane notes (`"note_style": "glass"`, from ep 124; the cream chip with a red bar was 「太丑」), with note copy that carries a concrete hook or detail, never a flat itinerary line;
+  - 片头字 notes (`"note_style": "title"`: warm-white Songti, no plate; creator 2026-11-10 picked 片头字 note style over the dark glass pane, 「黑色底还是有点丑」), with note copy that carries a concrete hook or detail, never a flat itinerary line;
   - fast pacing with rare close-ups kept.
 - **Write durable lessons back** here or into LESSONS.md.
 - **This file is a floor, not a ceiling (creator, 2026-10-22, second time):** 「我不希望…skills…把你的想象力框死了」. Know his taste, then go further on your own. When a section here conflicts with a better idea for *this* video, try the idea and say why in HANDOFF. Sub-agent specs give goals + hard constraints, not recipes, and invite one idea of the agent's own.
@@ -570,9 +570,12 @@ not the proxy.
 **Keep "showing" shots:** a silent 2–3 s shot where the camera clearly shows something (a sign,
 a menu, an animal) earns its place — give it an editor's caption (`subs` entry with
 `"kind": "note"`: doesn't duck music, never mixed up with dialogue).
-**Note look = EDL `"note_style"`** (`overlays.DEFAULT_NOTE_STYLE`): new projects set `"glass"`, a frosted pane
-(the renderer crops and blurs the video under the box, dark tint, hairline edge, PingFang SC Semibold white; 0.15 s
-fades). `"paper"` (cream chip + red bar, ep 110–123) and `"yellow"` (plain soft-yellow text, the default when the key
+**Note look = EDL `"note_style"`** (`overlays.DEFAULT_NOTE_STYLE`): new projects set `"title"` (片头字, creator pick
+2026-11-10, mocks in 124 `edit/label_options/`): one line of warm-white Songti SC Bold, no plate and no outline,
+held by soft shadows and an edgeless feathered darkening; the renderer blurs the video through that feathered mask.
+The year (1908年 / 100年前) or a label before 「：」 is champagne, a label gets a hairline separator; place/time tags
+switch to the same voice (champagne rule + Songti, no pill). `"glass"` (frosted dark pane, PingFang white, ep 124's
+first cut; 「黑色底还是有点丑」) also stays. `"paper"` (cream chip + red bar, ep 110–123) and `"yellow"` (plain soft-yellow text, the default when the key
 is missing) stay so old projects rebuild unchanged. Creator, 2026-11-09 on 124: 「这种红色label也太丑…这个label的text也很bland」:
 pick premium type, and make the opening note a concrete hook (a sourced number, a first, a contrast), not a summary
 of the route. Shorts: `make_short.py` spec `"note_style": "glass"` (tint only, no blur).

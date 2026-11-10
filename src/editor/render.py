@@ -190,7 +190,7 @@ def _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath):
     chains = [f"[0:v]scale={w}:{h},{','.join(vf)},format={_pixfmt(preset)}[v]"]
     if shot.get("tag"):  # cards carry a tag too (e.g. a trip-series day marker on the title/route card)
         td = min(3.0, dur)
-        png_tag = overlays.place_tag(shot["tag"], w, h, ov_dir, shot.get("tag_pos", "tl"))
+        png_tag = overlays.place_tag(shot["tag"], w, h, ov_dir, shot.get("tag_pos", "tl"), edl.get("note_style"))
         inputs = inputs + ["-loop", "1", "-framerate", fps_str, "-t", f"{td:.3f}", "-i", png_tag]
         chains[0] = chains[0][:-3] + "[vc]"
         chains.append(f"[1:v]format=rgba,fade=t=in:st=0:d=0.3:alpha=1,"
@@ -407,7 +407,10 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
     if E.is_vertical(edl):
         extra.append(["v-layout", overlays.V_LAYOUT])
     ns = edl.get("note_style", "yellow")
-    if ns not in ("yellow", "paper") and any(c.get("kind") == "note" for c in E.shot_subs(shot)):
+    has_note = any(c.get("kind") == "note" for c in E.shot_subs(shot))
+    if ns == "title" and (has_note or shot.get("tag")):   # title style also restyles the place tag
+        extra.append(["note_style", ns, overlays.TITLE_VERSION])
+    elif ns not in ("yellow", "paper", "title") and has_note:
         extra.append(["note_style", ns, overlays.GLASS_VERSION])   # (yellow/paper keys kept: old caches stay valid)
     vshot ={k: v for k, v in shot.items() if k != "_level_db"}   # audio-only field: keep the video cache
     key = json.dumps([vshot, grade, brg, fps_str, preset, clean, VIDEO_CACHE_VERSION, overlays.VERSION] + extra,
@@ -500,7 +503,7 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
             # default = the shot start. tag_dur: how long it stays (default 3 s).
             ta = E.src_to_local(shot, shot["tag_at"]) if shot.get("tag_at") is not None else 0.0
             ta = max(0.0, min(ta, dur - 0.5))
-            ovs.append((overlays.place_tag(shot["tag"], w, h, ov_dir, shot.get("tag_pos", "tl")), ta,
+            ovs.append((overlays.place_tag(shot["tag"], w, h, ov_dir, shot.get("tag_pos", "tl"), edl.get("note_style")), ta,
                         min(ta + float(shot.get("tag_dur", 3.0)), dur), 0.3))
         for sp in shot.get("spots", []):  # spotlight: dim all but a circle on a hidden subject
             a0, a1 = E.src_to_local(shot, sp["t0"]), min(E.src_to_local(shot, sp["t1"]), dur)
@@ -540,22 +543,29 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
                 ovs.append((overlays.arrow(m.get("label", ""), m["x"], m["y"], w, h, ov_dir), a0, a1, 0))
         for s in E.shot_subs(shot):
             ns = edl.get("note_style", "yellow")
-            fade = 0.15 if ns in ("paper", "glass") and s.get("kind") == "note" else 0
+            fade = 0.15 if ns in ("paper", "glass", "title") and s.get("kind") == "note" else 0
             if ns == "glass" and s.get("kind") == "note" and min(s["t1"], dur) > s["t0"]:
                 # frosted pane: blur the video under the note's box first, then the tint/text PNG on top
                 ovs.append((_GLASS, s["t0"], min(s["t1"], dur), fade,
                             (overlays.glass_box(s["text"], w, h, s.get("pos", "bottom")),
-                             overlays.glass_mask(s["text"], w, h, ov_dir, s.get("pos", "bottom")))))
+                             overlays.glass_mask(s["text"], w, h, ov_dir, s.get("pos", "bottom")),
+                             overlays.glass_blur_sigma(h))))
+            elif ns == "title" and s.get("kind") == "note" and min(s["t1"], dur) > s["t0"]:
+                # 片头字: blur the video through the note's feathered (edgeless) scrim mask, then the type on top
+                ovs.append((_GLASS, s["t0"], min(s["t1"], dur), fade,
+                            (overlays.title_note_box(s["text"], w, h, s.get("pos", "bottom")),
+                             overlays.title_note_mask(s["text"], w, h, ov_dir, s.get("pos", "bottom")),
+                             overlays.title_blur_sigma(w, h))))
             ovs.append((overlays.subtitle(s["text"], w, h, ov_dir, s.get("kind", "speech"), s.get("pos", "bottom"), ns),
                         s["t0"], min(s["t1"], dur), fade))
     for i, ov in enumerate(ovs, base_inputs):
         png, t0, t1, fade = ov[:4]
-        if png is _GLASS:  # blurred patch behind a glass note (its input = the rounded-corner mask)
-            (bx, by, bw, bh, _r), mask = ov[4]
+        if png is _GLASS:  # blurred patch behind a glass/title note (its input = the rounded or feathered mask)
+            (bx, by, bw, bh, _r), mask, sigma = ov[4]
             fd = max(fade, 0.04)
             inputs += ["-loop", "1", "-framerate", fps_str, "-t", f"{t1:.3f}", "-i", mask]
             chains.append(f"[{last}]split[ga{i}][gb{i}]")
-            chains.append(f"[gb{i}]crop={bw}:{bh}:{bx}:{by},gblur=sigma={overlays.glass_blur_sigma(h)},"
+            chains.append(f"[gb{i}]crop={bw}:{bh}:{bx}:{by},gblur=sigma={sigma},"
                           f"format=yuva420p[gc{i}]")
             chains.append(f"[{i}:v]format=gray[gm{i}]")
             chains.append(f"[gc{i}][gm{i}]alphamerge,fade=t=in:st={t0:.3f}:d={fd}:alpha=1,"

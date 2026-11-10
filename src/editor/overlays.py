@@ -419,16 +419,238 @@ def _note_glass(text, w, h, pos, blur_bg=None):
     return im
 
 
-NOTE_STYLES = ("yellow", "paper", "glass")
-DEFAULT_NOTE_STYLE = "glass"   # what new EDLs set; an EDL without "note_style" still means "yellow"
+# --- "title" notes: 片头字 (default from 2026-11-10) ------------------------------------------------------
+# The creator called the dark glass pane 「黑色底还是有点丑」 (124). A 4-member design panel mocked four
+# directions on real 124/125 frames (124/02 - Export/edit/label_options/options.html + SPEC.md); he picked
+# 「片头字」: one line of warm-white Songti SC Bold, no plate, no outline, like a documentary title. It is held
+# up by layered soft shadows (edgeless feathered darkening, glyph halo, drop + contact shadow) and the video
+# under it is blurred through the same feathered mask (render.py: crop -> gblur -> alphamerge). The year
+# (1908年 / 1990年代 / 100年前) or the label before 「：」 is champagne; a label gets a champagne hairline
+# separator: 「广播 │ 不要停留，不要拍照」. Serif notes vs the sans speech captions = editor's voice vs his voice.
+TITLE_VERSION = 1       # bump when the title-note / title-tag look changes (part of the segment cache key)
+TITLE_NOTE = {"size": 0.052, "track": 0.04, "grow": 0.0009, "top": 0.062, "max_w": 0.80, "lead": 1.42,
+              "fg": (255, 251, 244), "accent": (244, 216, 164), "hair": (236, 206, 150),
+              "sep_w": 1.0, "sep_h": 0.70, "hair_w": 0.0022,
+              "scrim": ((8, 10, 14), 0.48, 0.07, 0.034, 0.06, 0.050),   # colour, alpha, pad x, pad y, radius, sigma
+              "halo": ((6, 8, 12), 0.60, 0.018), "drop": (0.72, 0.0030, 0.0040), "contact": (0.80, 0.0011),
+              "blur": 0.012}    # all lengths are fractions of the short frame side (H in 16:9)
+TITLE_FONTS = [("/System/Library/Fonts/Supplemental/Songti.ttc", 1)] + GLASS_FONTS   # Songti SC Bold
+_SEP = "\x00"
+
+
+def _title_parse(text, accent, fg):
+    """-> [(char, rgb)]: the label (before 「：」, 1-8 chars) or else the first year-like token in accent."""
+    import re
+    for sep in ("：", ":"):
+        a, _, b = text.partition(sep)
+        if b.strip() and 1 <= len(a) <= 8 and not a[-1:].isdigit():   # "6:28" is a time, not a label
+            return [(c, accent) for c in a] + [(_SEP, None)] + [(c, fg) for c in b.lstrip()]
+    chars = [(c, fg) for c in text]
+    m = re.search(r"\d{2,4}年(?:代|前)?", text)
+    if m:
+        for i in range(m.start(), m.end()):
+            chars[i] = (text[i], accent)
+    return chars
+
+
+def _title_adv(d, ch, f, sep_w):
+    return sep_w * f.size if ch == _SEP else d.textlength(ch, font=f)
+
+
+def _title_width(d, chars, f, tr, sep_w):
+    return sum(_title_adv(d, c, f, sep_w) for c, _ in chars) + tr * max(0, len(chars) - 1)
+
+
+def _title_lines(d, chars, f, tr, max_w, sep_w):
+    """One line, or two balanced lines (prefer a break after ，、；/ the label separator)."""
+    if _title_width(d, chars, f, tr, sep_w) <= max_w or len(chars) < 8:
+        return [chars]
+    n, best, bi = len(chars), None, len(chars) // 2
+    for i in range(4, n - 3):
+        if chars[i][0] in "，、。；：！？”）" or (chars[i - 1][0].isdigit() and chars[i][0].isdigit()):
+            continue   # no line may start with closing punctuation; never split a number
+        score = abs(i - n / 2) - (6 if chars[i - 1][0] in "，、；" + _SEP else 0)
+        if best is None or score < best:
+            best, bi = score, i
+    second = chars[bi:]
+    if second and second[0][0] == _SEP:
+        second = second[1:]
+    return [chars[:bi], second]
+
+
+def _ink_layers(mask, deco, colr, u, k, spec, scrim=None, scrim_alpha=None):
+    """The title look: [feathered scrim] + glyph halo + drop + contact shadow + type (+ champagne deco)."""
+    def lay(m, rgb, a):
+        L = Image.new("RGBA", m.size, rgb + (0,))
+        L.putalpha(m.point(lambda p: int(p * a)))
+        return L
+    blur = lambda im, r: im.filter(ImageFilter.GaussianBlur(r))
+    w, h = mask.size
+    ink = mask.copy()
+    ink.paste(255, (0, 0), deco)
+    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    if scrim is not None:
+        out = Image.alpha_composite(out, lay(scrim, spec["scrim"][0], scrim_alpha or spec["scrim"][1]))
+    hc, ha, hr = spec["halo"]
+    out = Image.alpha_composite(out, lay(blur(ink, hr * u), hc, ha))
+    da, doff, dbl = spec["drop"]
+    sh = Image.new("L", (w, h), 0)
+    sh.paste(ink, (0, max(1, int(round(doff * u)))))
+    out = Image.alpha_composite(out, lay(blur(sh, dbl * u), (0, 0, 0), da))
+    ca, cbl = spec["contact"]
+    out = Image.alpha_composite(out, lay(blur(ink, max(0.8, cbl * u)), (0, 0, 0), ca))
+    body = colr.filter(ImageFilter.MaxFilter(k)).convert("RGBA")
+    body.putalpha(mask)
+    out = Image.alpha_composite(out, body)
+    return Image.alpha_composite(out, lay(deco, spec["hair"], 1.0))
+
+
+_TITLE_MEMO = {}
+
+
+def _note_title_layers(text, w, h, pos):
+    """-> (overlay RGBA full frame, feathered scrim L full frame, glyph top y). Memoised: the renderer asks
+    for the box, the mask and the PNG of the same note one after another."""
+    key = (text, w, h, pos)
+    if key in _TITLE_MEMO:
+        return _TITLE_MEMO[key]
+    S = TITLE_NOTE
+    u = min(w, h)
+    v = _portrait(w, h)
+    f = _face(TITLE_FONTS, int(round(S["size"] * u)), text)
+    tr = S["track"] * f.size
+    d = ImageDraw.Draw(Image.new("L", (8, 8)))
+    cx = w * (V_LEFT + V_RIGHT) / 2 if v else w / 2
+    max_w = w * (V_RIGHT - V_LEFT) if v else w * S["max_w"]
+    lines = _title_lines(d, _title_parse(text, S["accent"], S["fg"]), f, tr, max_w, S["sep_w"])
+    lh = f.size * S["lead"]
+    asc = d.textbbox((0, 0), "中", font=f, anchor="la")
+    if pos == "top":
+        y = h * (0.16 if v else S["top"])
+    else:   # bottom: the last line's glyph bottom sits where the glass pane's bottom edge did
+        bottom = h * V_CAPTION_BOTTOM if v else h - h * 0.07
+        y = bottom - (len(lines) - 1) * lh - asc[3]
+    mask = Image.new("L", (w, h), 0)
+    colr = Image.new("RGB", (w, h), (0, 0, 0))
+    deco = Image.new("L", (w, h), 0)
+    dm, dc, dd = ImageDraw.Draw(mask), ImageDraw.Draw(colr), ImageDraw.Draw(deco)
+    x0s, x1s = [], []
+    for ln in lines:
+        lw = _title_width(d, ln, f, tr, S["sep_w"])
+        x = cx - lw / 2
+        x0s.append(x)
+        x1s.append(x + lw)
+        for ch, col in ln:
+            a = _title_adv(d, ch, f, S["sep_w"])
+            if ch == _SEP:
+                mx, my = x + a / 2, y + (asc[1] + asc[3]) / 2
+                hh, hw = S["sep_h"] * f.size / 2, max(1, round(S["hair_w"] * u))
+                dd.rectangle([mx - hw / 2, my - hh, mx + hw / 2, my + hh], fill=235)
+            else:
+                dm.text((x, y), ch, font=f, fill=255, anchor="la")
+                dc.text((x, y), ch, font=f, fill=col, anchor="la")
+            x += a + tr
+        y += lh
+    # light stroke thickening: Songti's thin horizontals survive the phone downscale and busy neon
+    k = max(3, int(round(S["grow"] * u)) * 2 + 1)
+    mask = mask.filter(ImageFilter.MaxFilter(k)).filter(ImageFilter.GaussianBlur(0.6 * u / 1080))
+    gb = mask.getbbox() or (int(cx), int(y), int(cx) + 1, int(y) + 1)
+    _, _, px, py, rr, sg = S["scrim"]
+    scrim = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(scrim).rounded_rectangle([min(x0s) - px * u, gb[1] - py * u, max(x1s) + px * u, gb[3] + py * u],
+                                            radius=rr * u, fill=255)
+    scrim = scrim.filter(ImageFilter.GaussianBlur(sg * u))
+    out = _ink_layers(mask, deco, colr, u, k, S, scrim)
+    if len(_TITLE_MEMO) > 3:
+        _TITLE_MEMO.clear()
+    _TITLE_MEMO[key] = (out, scrim, gb[1])
+    return _TITLE_MEMO[key]
+
+
+def title_note_box(text, w, h, pos="bottom"):
+    """(x, y, bw, bh, 0): the region whose video is blurred under a title note (the feathered scrim's
+    extent); x/y/bw/bh even and inside the frame (yuv420 crops)."""
+    _, scrim, _ = _note_title_layers(text, w, h, pos)
+    x0, y0, x1, y1 = scrim.point(lambda p: 255 if p > 2 else 0).getbbox() or (0, 0, 2, 2)
+    x0, y0 = x0 - x0 % 2, y0 - y0 % 2
+    x1, y1 = min(w - w % 2, x1 + x1 % 2), min(h - h % 2, y1 + y1 % 2)
+    return x0, y0, x1 - x0, y1 - y0, 0
+
+
+def title_note_mask(text, w, h, cache_dir, pos="bottom"):
+    """Box-sized greyscale feathered mask for the blurred patch under a title note."""
+    x, y, bw, bh, _ = title_note_box(text, w, h, pos)
+    return _cached(cache_dir, f"titlemask|{TITLE_VERSION}|{text}|{_dims(w, h)}|{pos}",
+                   lambda: _note_title_layers(text, w, h, pos)[1].crop((x, y, x + bw, y + bh)))
+
+
+def title_blur_sigma(w, h):
+    return max(3.0, round(min(w, h) * TITLE_NOTE["blur"], 1))
+
+
+def _note_title(text, w, h, pos, blur_bg=None):
+    """Full-frame RGBA of a title note. The renderer blurs the video under it; pass `blur_bg` (a frame)
+    to bake the blur in for stills and mock-ups."""
+    out, scrim, _ = _note_title_layers(text, w, h, pos)
+    if blur_bg is None:
+        return out
+    bg = blur_bg.convert("RGBA").resize((w, h))
+    bl = bg.filter(ImageFilter.GaussianBlur(title_blur_sigma(w, h)))
+    return Image.alpha_composite(Image.composite(bl, bg, scrim), out)
+
+
+def _place_tag_title(text, w, h, pos="tl"):
+    """Place/time tag in the title-note voice: a short champagne rule, then warm-white Songti SC Bold, no pill."""
+    S = TITLE_NOTE
+    u = min(w, h)
+    v = _portrait(w, h)
+    f = _face(TITLE_FONTS, int(round((0.042 if v else 0.038) * u)), text)
+    tr = 0.06 * f.size
+    d = ImageDraw.Draw(Image.new("L", (8, 8)))
+    tw = sum(d.textlength(c, font=f) for c in text) + tr * max(0, len(text) - 1)
+    rule, gap = 0.030 * u, 0.42 * f.size
+    x = int(w * V_LEFT) if v else int(w * 0.04)
+    y = int(h * V_TOP) if v else int(h * 0.05)
+    if pos == "tr":
+        x = int(w * (0.94 if v else 0.96) - (rule + gap + tw))
+    asc = d.textbbox((0, 0), "中", font=f, anchor="la")
+    mask = Image.new("L", (w, h), 0)
+    colr = Image.new("RGB", (w, h), (0, 0, 0))
+    deco = Image.new("L", (w, h), 0)
+    my = y + (asc[1] + asc[3]) / 2
+    t = max(2, round(0.0026 * u))
+    ImageDraw.Draw(deco).rectangle([x, my - t / 2, x + rule, my + t / 2], fill=255)
+    tx = x + rule + gap
+    dm, dc = ImageDraw.Draw(mask), ImageDraw.Draw(colr)
+    for ch in text:
+        dm.text((tx, y), ch, font=f, fill=255, anchor="la")
+        dc.text((tx, y), ch, font=f, fill=S["fg"], anchor="la")
+        tx += d.textlength(ch, font=f) + tr
+    k = max(3, int(round(S["grow"] * u)) * 2 + 1)
+    mask = mask.filter(ImageFilter.MaxFilter(k)).filter(ImageFilter.GaussianBlur(0.6 * u / 1080))
+    gb = mask.getbbox() or (x, y, x + 2, y + 2)
+    scrim = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(scrim).rounded_rectangle([x - 0.04 * u, gb[1] - 0.026 * u, gb[2] + 0.04 * u, gb[3] + 0.026 * u],
+                                            radius=0.04 * u, fill=255)
+    scrim = scrim.filter(ImageFilter.GaussianBlur(0.030 * u))
+    return _ink_layers(mask, deco, colr, u, k, S, scrim, 0.42)
+
+
+NOTE_STYLES = ("yellow", "paper", "glass", "title")
+DEFAULT_NOTE_STYLE = "title"   # what new EDLs set (creator pick 2026-11-10); no "note_style" still means "yellow"
 
 
 def subtitle(text, w, h, cache_dir, kind="speech", pos="bottom", style="yellow"):
     """kind='speech' (what people say, white) or 'note' (editor's explanatory caption for a
     silent shot — soft yellow, slightly smaller, so viewers can tell it isn't dialogue).
-    style (EDL "note_style") for notes: 'glass' = frosted pane, the default from ep 124 (the renderer
+    style (EDL "note_style") for notes: 'title' = 片头字, warm-white Songti with soft shadows and no plate,
+    the default from 2026-11-10 (the renderer blurs the video under its feathered scrim, see title_note_box);
+    'glass' = frosted pane, ep 124's first cut (the renderer
     blurs the video behind it, see glass_box); 'paper' = cream chip + red bar (ep 110–123, kept so old
     projects rebuild unchanged); 'yellow' = plain soft-yellow caption (the original look)."""
+    if kind == "note" and style == "title":
+        return _cached(cache_dir, f"sub|note-title{TITLE_VERSION}|{text}|{_dims(w, h)}" + ("|top" if pos == "top" else ""),
+                       lambda: _note_title(text, w, h, pos))
     if kind == "note" and style == "glass":
         return _cached(cache_dir, f"sub|note-glass{GLASS_VERSION}|{text}|{_dims(w, h)}" + ("|top" if pos == "top" else ""),
                        lambda: _note_glass(text, w, h, pos))
@@ -478,6 +700,8 @@ def subtitle_top(text, w, h, kind="speech", style="yellow"):
         return bottom - _note_paper_layout(d, text, w, h)[8]
     if kind == "note" and style == "glass":
         return glass_box(text, w, h, "bottom")[1]
+    if kind == "note" and style == "title":
+        return _note_title_layers(text, w, h, "bottom")[2]
     return _caption_layout(d, text, w, h, kind, "bottom")[4]
 
 
@@ -611,9 +835,13 @@ def title_card(text, sub, w, h, cache_dir, limit=None, kicker=""):
     return _cached(cache_dir, f"title|{text}|{sub}|{w}x{h}" + (f"|lim{int(limit)}" if limit is not None else ""), render)
 
 
-def place_tag(text, w, h, cache_dir, pos="tl"):
+def place_tag(text, w, h, cache_dir, pos="tl", style=None):
     """Small translucent pill: a location label (top-left), or with pos="tr" top-right, e.g. a
-    trip-series day marker on a card whose top-left already holds the card's own title."""
+    trip-series day marker on a card whose top-left already holds the card's own title.
+    style="title" (EDL note_style "title"): no pill, a champagne rule + warm-white Songti, matching the notes."""
+    if style == "title":
+        return _cached(cache_dir, f"tag-title{TITLE_VERSION}|{text}|{_dims(w, h)}|{pos}",
+                       lambda: _place_tag_title(text, w, h, pos))
     def render():
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)

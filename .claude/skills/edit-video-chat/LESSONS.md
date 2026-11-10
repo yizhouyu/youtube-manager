@@ -694,3 +694,4 @@ A narrated explainer is a different job from a travel cut. What made 113 work, a
   composited onto 1080×1920 transparent PNGs (top-right, inside the safe zone), timed per segment from the source counts,
   with the tick as `sfx`; a state that would last < 0.25 s at a cut is skipped (the pop starts at the cut), and the pill
   ends where the closing headline takes the top of the frame. Script: 127 `edit/shorts/build_shorts.py`.
+- **Creator 2026-11-10 picked 片头字 note style** (`"note_style": "title"`, warm-white Songti, no plate) over the dark glass pane; it is the default for new projects (mocks + spec: 124 `edit/label_options/`).
