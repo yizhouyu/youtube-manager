@@ -648,3 +648,14 @@ A narrated explainer is a different job from a travel cut. What made 113 work, a
 - **Subagents stop at the session limit with their work on disk (126):** resume each with SendMessage ("continue exactly where you stopped") instead of starting a new agent; the research and cover agents finished from where they were.
 - **A one-night city walk with steady commentary runs long (126: 39 min of raw → 19 min).** Both panel seats independently asked for two episodes. When a first cut passes ~15 min, write the split plan (cut points, each half's open and end) into HANDOFF and ask him in questions.json, but still deliver the one-episode cut.
 
+- **Hotel signs next to a start/finish line give the lodging away (125 C11, 2026-11-10).** A street B-roll shot held a large,
+  legible hotel sign for 3.8 s right before his 「又走到了刚刚的起点」; panel and director QA had passed it. At QA, pull full-size
+  frames of every shot within ~10 s of a start/finish/「回来了」 line and read the signs. Frame a sign out with a static `zoom`
+  (e.g. 1.7, `y` 1.0 keeps the street and drops the upper storefronts) instead of cutting the beat; list other hotel signs seen in
+  passing in one `questions.json` entry ("is one of these yours?") rather than cropping every skyline.
+- **Diff the whisper-on-vocal-stem segment list for uncaptioned lines, not only the captions (125 C11).** A complete line at a
+  shot's tail (「现在要继续去下一个景点」) played under no caption through two caption passes; Demucs on the mix + whisper large-v3
+  (VAD) heard it, and Qwen's word times had it. Any whisper segment ≥ 1 s with no caption within ±1 s is a lead: caption it
+  or trim the shot.
+- **Punch-style Short captions wrap by width, mid-word (125 Shorts).** Without `\n` a 9-character line broke as 「现在我们来 /
+  到了沈大成」. Put `\n` at the phrase break of every punch caption longer than ~7 汉字 and check the phone sheet.
