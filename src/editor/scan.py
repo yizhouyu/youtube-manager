@@ -26,14 +26,22 @@ BOLD = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
 def _probe(path):
     out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration:format_tags=creation_time",
                           "-of", "json", path], capture_output=True, text=True).stdout
-    f = json.loads(out)["format"]
-    return float(f["duration"]), f.get("tags", {}).get("creation_time", "")
+    f = json.loads(out or "{}").get("format", {})
+    try:  # a broken / empty clip (e.g. a 1 KB DJI stub) reports duration "N/A"
+        dur = float(f.get("duration"))
+    except (TypeError, ValueError):
+        dur = 0.0
+    return dur, f.get("tags", {}).get("creation_time", "")
 
 
 def _sheet(args):
     path, out = args
     dur, ctime = _probe(path)
     iv = max(2.0, round(dur / 12, 2))
+    if dur <= 0:  # unreadable clip: black placeholder sheet so the grids and meta.json still build
+        if not os.path.exists(out):
+            Image.new("RGB", (1942, 364), "black").save(out)
+        return {"dur": 0.0, "interval": iv, "ctime": ctime}
     if not os.path.exists(out):
         # keyframes only: DJI/GoPro put one every ~1 s, and full HEVC decode is ~30x slower
         r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-skip_frame", "nokey", "-i", path, "-vf",

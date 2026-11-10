@@ -103,6 +103,18 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 
 - **ffmpeg 9 (Homebrew upgraded it mid-session on 2026-10-08) broke two things.** `-filter_complex_script` is gone (use `-/filter_complex <file>`). Decoding with `-noautorotate` now copies the display matrix into the output, so players rotated DJI segments again; the renderer strips `DISPLAYMATRIX` side data. Run `scripts/test_*.py` after any ffmpeg upgrade. Installs that pull in brew dependents can upgrade shared tools: use `HOMEBREW_NO_AUTO_UPDATE=1`, and prefer isolated venvs.
 
+- **Copyright triage for a whole raw folder in one Demucs pass (127, 2026-11-09).** Concatenate every clip's audio
+  (1 s gaps, keep an offsets json), run `htdemucs --two-stems vocals` once (10 min of audio ≈ 1 min), then read each
+  clip's vocal and instrumental stem RMS. Indoors an instrumental stem at about −28 dBFS or louder was always shop/mall
+  music; street clips sat at −30…−42. Cut each clip's voice stem from the same run into `edit/stems/` for `audio_src`.
+  Whisper on the stems without VAD prints its classic hallucinations (「优优独播剧场」「请不吝点赞」) on near-silent stems: that
+  means silence, not lyrics.
+- **A sign in the frame settles which branch it was (127).** Research could only say "one of two Shanghai Costcos"; a
+  parking notice in the first clip read 「浦东开市客」. Read the first frames of a store visit for the branch name before
+  asking the creator.
+- **`scan` used to crash on a broken 1 KB clip** (DJI stub with duration N/A). It now writes a black placeholder sheet
+  and `dur 0`; skip such clips everywhere else too.
+
 ## Speech → subtitles
 
 - **Model choice matters more than prompt tricks.** Qwen3-ASR-1.7B (MLX) with a `--context` list of
@@ -159,6 +171,12 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 
 - **Check zoo, sanctuary and safari animal names against the official roster** (102: ASR heard 「Buraku」 for Barafu and 「Cora」 for Caipora). Guides' numbers too (102: the cheetah's "72 mph in 10 s" came from one ASR pass only).
 - **One loud word at a shot's start can make dialogue levelling bury the quiet sentence after it** (102: a shouted "Cheetahs!" hid her line). Re-transcribing the rendered mix catches it. Trim the shout, or split the shot.
+
+- **A stale `--context` bends lines and fills music clips (127).** The first ASR run used a context with 「山姆会员店」:
+  five store-music clips came back as the context string, and 「这里是KFC和炸鸡」 (a KFC-uniform costume next to someone
+  dressed as fried chicken) came out as 「KFC和山姆会员店」. Re-run with a context built from the frames before proofreading.
+  Single-word disagreements (本期/一起, 就/又, 已关/已经关了) were settled by a three-model vote: Qwen, whisper large-v3
+  and the MOSS `xcheck` on the preview.
 
 ## Picking and cutting shots
 
@@ -472,6 +490,11 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
 - **Title vs A/B thumbnail (ep 104):** if a Studio thumbnail challenger carries a claim (「比大峡谷还深」),
   keep that claim out of the title, or one A/B arm says it twice; the 3-seat debate caught it.
 
+- **Two-part episodes (a festival night + a store visit, 127):** the cover agent found that one cover can't carry both
+  halves (a diagonal split failed the art director), and at 168 px the festival/night covers won the blind read. Lead
+  the packaging with the stronger *state* (festival, night) and name the second half in the title's second clause. A
+  title that leads with the half that starts at 3:22 is a promise the first minutes don't keep.
+
 ## Sources behind the retention rules (research 2026-09-28)
 
 YouTube Help — audience retention / intro metric: https://support.google.com/youtube/answer/9314415 ·
@@ -595,6 +618,7 @@ A narrated explainer is a different job from a travel cut. What made 113 work, a
 | family-hawaii-04 | **The show we couldn't film, drawn in light**: long-exposure fire-knife rings settling into the poster's layout, a synthesized woody drum, then his verdict over the real poster | v1 drum was 92 % below 150 Hz (silent on phones) — give synth sfx a mid attack | Pending review — for no-filming venues |
 | family-hawaii-05 | **One altitude line through the day**: a right-side panel with 海平面 at 0 (below sea at a wreck, 0 m on a beach, a summit climb), numbers only where sourced | Bug: labels shown only at shot ends — hold the label for the whole shot | Pending review |
 | family-hawaii-06 | **Day-out report card**: four findings with stills, a stamp calling back an early line, two verified footer lines — the goodbye without footage of it | v1 stamp visible 0.3 s; stamps need ≥ 2 s before anything fades | Pending review — for days with an animal/person you return |
+| 127 | **Persistent costume counter** (`127 edit/scripts/make_counter.py` + `counter_pass()` in its build script, no renderer change): a top-right glass pill 「打扮 N」 as full-shot `pip`s (PNG, border 0, fade 0) from his 「目前来看还是没有」 to the end of the night; when a new costume appears it pops for 1.8 s (yellow number + label) with a synthesized wood-block tick; the night closes on a 5.7 s tally card (the 7 costume moments flash 1→8 on 0.4 s beats with ticks, then 「晚上 7:07 还没看到 → 晚上 10:03 看到8种打扮」). Plus a real-sign still inset (`pip`) when the camera only grazed a price tag | v1 used `tag` pills (3.2 s each): both panel seats read them as place tags, ~30 px text at 1080p (captions 44), on screen only 29 s of a 3-min night, and late on the subject — the count never read as a through-line. Persistent + pop + sound + payoff fixed the idea | Pending review — for any "will we find X?" day (costumes, animals, a dish hunt); a count needs to stay on screen, not flash |
 - **Overpass down, Python SSL can't reach OSRM (2026-10-20):** every Overpass mirror timed out for an hour and the venv's urllib failed the OSRM TLS handshake. Route map built from OSRM geometry fetched with `curl` (legs as `straight` with the OSRM points as `via`) + US Census TIGER/Line coastline (16 MB shapefile, parsed with `struct`, no GIS libs). Natural Earth 10 m coast is too coarse at 80 km (the road ended up "in the sea"). A one-island view needs routemap's new island mode (a closed coast ring = land, sea elsewhere).
 - **Contact sheets: decode keyframes only** (`-skip_frame nokey` in `scan.py`, 2026-10-20). Full-frame HEVC decode of 351 Pocket clips was ~30× slower and saturated the CPU; DJI/GoPro put a keyframe every ~1 s, which is all a 12-frame sheet needs.
 - **320-px contact sheets hide small animals on busy ground** (family-hawaii-01): ~8 green sea turtles basking on Punaluʻu's black sand were invisible on the sheet and only caught by the independent QA on full frames. On any beach/reef/wildlife wide, pull one full-res frame before calling it "scenery".
