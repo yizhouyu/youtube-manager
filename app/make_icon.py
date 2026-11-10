@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
-DEFAULT = "seal"
+DEFAULT = "paper"   # creator 2026-11-10: 「logo用B」
 SS = 4                       # oversampling
 S = 1024 * SS
 B0, BS = 100 * SS, 824 * SS  # body origin + size (Apple grid)
