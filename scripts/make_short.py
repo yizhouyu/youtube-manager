@@ -20,6 +20,8 @@ Spec (all times in seconds; segment times and keyframes are SOURCE-clip seconds)
      "in": 8.0, "out": 18.0,
      "grade": "default",                # key into grades (optional)
      "audio": "ambient",                # voice (1.0) | ambient (0.35) | mute; "gain_db" adds on top
+     "denoise": "wind",                 # optional: true | "wind" = the film's shot clean-up filters (also
+                                        # inside audio_from); use it where the film's shot has it
      "mode": "crop",                    # crop: 9:16 window that follows the subject
                                         # letterbox: whole 16:9 frame over a blurred fill
      "x": [[8.0, 0.26], [12.0, 0.30]],  # crop centre as 0-1 of the source width; a number = static.
@@ -148,6 +150,15 @@ def has_audio(path):
     r = run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
              "-of", "csv=p=0", path])
     return bool(r.stdout.strip())
+
+
+def denoise_filters(mode, audio="voice"):
+    """A segment's `"denoise"` (true | "wind") -> the long video's clean-up filters for the same sound
+    (src.editor.render._shot_filters), so a wind-masked line sounds the same in the Short as in the film."""
+    if not mode:
+        return []
+    from src.editor.render import _shot_filters
+    return _shot_filters({}, {"denoise": mode, "audio": audio})[2:]
 
 
 # ---------------------------------------------------------------- crop path
@@ -1078,9 +1089,11 @@ def render_segment(spec, seg, idx, work):
         gain_db = float(af.get("gain_db", 0))
         extra_in = ["-ss", f"{float(af['in']):.3f}", "-t", f"{out_dur + 0.1:.3f}", "-i", a_path]
     ain = "1:a" if extra_in else "0:a"
+    src = af or seg
+    clean = "".join(f + "," for f in denoise_filters(src.get("denoise"), src.get("audio", "voice")))
     if has_audio(a_path) and level > 0:
         achain = (f"[{ain}]asetpts=PTS-STARTPTS,aresample={SR},aformat=sample_fmts=fltp:channel_layouts=stereo,"
-                  f"volume={level}*{10 ** (gain_db / 20):.4f},"
+                  f"{clean}volume={level}*{10 ** (gain_db / 20):.4f},"
                   f"afade=t=in:d=0.012,afade=t=out:st={max(0, out_dur - 0.012):.3f}:d=0.012,"
                   f"apad,atrim=0:{out_dur:.3f}[a]")
     else:

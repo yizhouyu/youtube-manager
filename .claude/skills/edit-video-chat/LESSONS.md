@@ -177,6 +177,13 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   dressed as fried chicken) came out as 「KFC和山姆会员店」. Re-run with a context built from the frames before proofreading.
   Single-word disagreements (本期/一起, 就/又, 已关/已经关了) were settled by a three-model vote: Qwen, whisper large-v3
   and the MOSS `xcheck` on the preview.
+- **MOSS `--hotwords` echoes the list too (124 C11, 2026-11-10).** In a short or music-heavy preview segment (2:27, 7:09),
+  `xcheck preview --hotwords "南京东路,…"` returned the hotword list in order instead of the speech (TER 140–200 %). The
+  long segments also had `13 90 13 90`-style timestamp debris inside the text. A run of hotwords, or digits in pairs,
+  means an echo, not a caption error. Re-run that span with `clips CLIP:IN:OUT` and no hotwords before acting on it.
+- **Two loudspeakers at once (124 0151).** Qwen heard one loop (「…禁止放飞无人机」, the PA) and whisper heard only the
+  other (「不要停留，不要拍照」, a staff megaphone). MOSS labelled two speakers and had both. When two models disagree
+  completely on a PA or announcement, check for overlapping sources with MOSS before calling either one wrong.
 
 ## Picking and cutting shots
 
@@ -445,6 +452,15 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
     a whoosh on a static cut.
 11. **R14 remaining VO lints:** audio longer than its window − 0.5 s, narration over on-camera speech, < 1.5 s between lines.
 12. **R15 PCM audio in the final `.mov`.** Verify with one private YouTube upload first.
+
+- **Find wind by the low-band share, then `"denoise": "wind"` (124 C11, 2026-11-10).** In the Demucs sweep, measure each
+  audible shot's energy below 150 Hz against 150–4000 Hz. Street shots sat at 11–29 %; the Bund rail (0146) at 50–80 %,
+  and its line 「在讲解应该怎么拍」 was only 1.7 dB over the bed. Shot `"denoise": "wind"` cut the low band by 10–11 dB,
+  and whisper still heard every word. The same key now works on `make_short.py` segments (and `audio_from`), so a Short
+  cut from that shot sounds like the film (`scripts/test_short_denoise.py`).
+- **A Short's CTA needs ~3 s of picture after the last line.** When the open loop stops on a line near the end of its
+  clip, `make_short` refuses to build. Append 2.5–3.5 s of muted B-roll that gives nothing away, e.g. the boat on the
+  river after the photographers, or the opening shot's continuation, which also makes the Short loop.
 
 ## Review surfaces (pages)
 
