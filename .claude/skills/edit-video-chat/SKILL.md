@@ -236,7 +236,7 @@ see LESSONS.md for sources). Treat them as the bar every cut must clear:
 11. **Shorts: two per long video (creator, 2026-10-08).** Their job is to send viewers to the long video. 81–89 Shorts each got about 1.1–1.4k views, but only 2 subscribers between them and almost no lift for the long videos. In HANDOFF.md, propose 2 (plus a backup), each ≤ 60 s:
     - **Cut as open loops:** show the setup and the tension, and stop before the payoff (the ostrich at the window, but not what happens next; the queue, but not the first bite). The payoff must really be in the long video; never fake a cliffhanger.
     - **Make the two different:** one a moment (an animal, a reaction, a reveal), the other a question the long video answers.
-    - **Name the series and episode on screen** (「德州 · 第 3 集」).
+    - **Name the series and city on screen** (「中国之旅 · 上海」), never an episode number: each Short stands alone (creator 2026-11-10).
     - The success number is Related-video clicks, not views.
     Leave ~3 s after the last spoken line of each moment: `scripts/make_short.py`'s CTA (creator,
     2026-10-04) sends viewers to the long video through the Short's bottom-left Related-video link
