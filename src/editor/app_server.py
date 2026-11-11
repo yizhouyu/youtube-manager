@@ -906,7 +906,7 @@ function showEp(j){EP=j;cur=null;ACTS={};TIME={};acts();
   const has={cover:j.tabs.cover||j.covers.length,raw:j.tabs.raw,cut:j.tabs.cut,shorts:j.tabs.shorts,titles:j.tabs.titles||j.titles.length};
   $('tabs').innerHTML=TABS.map(([k,n],i)=>has[k]?`<button data-k="${k}" title="⌘${i+1}">${n}</button>`:'').join('');
   $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>tab(b.dataset.k));
-  $('views').innerHTML=TABS.map(([k])=>has[k]?`<div class="view" id="v-${k}">${k==='cover'&&j.covers.length?'<div class="cgrid" id="cgrid"></div>':j.tabs[k]?`<iframe data-src="${esc(j.tabs[k])}" allow="fullscreen; autoplay"></iframe>`:'<div class="empty">这一期还没有这个页面，下面可以直接选</div>'}<div class="strip" id="s-${k}"></div></div>`:'').join('')
+  $('views').innerHTML=TABS.map(([k])=>has[k]?`<div class="view" id="v-${k}">${k==='cover'&&j.covers.length?'<div class="cgrid" id="cgrid"></div>':j.tabs[k]?`<iframe data-src="${esc(j.tabs[k])}" allow="fullscreen; autoplay"></iframe>`:'<div class="empty">这一期还没有这个页面，下面可以直接选</div>'}${k==='shorts'?'':`<div class="strip" id="s-${k}"></div>`}</div>`:'').join('')
     +'<div class="view" id="v-none"><div class="empty">这一期没有能打开的页面</div></div>';
   strips();list();
   // once there is a preview the work is reviewing the cut, so open on 成片 (creator 11/11); before that, 素材
@@ -953,7 +953,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){const d=document.qu
 function strips(){if(!EP)return;const s=(k,h)=>{const e=$('s-'+k);if(e)e.innerHTML=h};
   coverGrid();
   s('titles',EP.titles.map(t=>cand('title',t.text,`<span class="tx"><b title="${esc(t.text)}">${esc(t.text)}</b>${esc(t.id)}</span>`)).join(''));
-  s('shorts',EP.shorts.map(n=>cand('short',n,`<span class="tx"><b>${esc(n)}</b>Short</span>`)).join(''));
+  // no picks for Shorts: both always go out (creator 11/11: 「shorts 一般我都是直接发两个」)
   document.querySelectorAll('.strip button').forEach(b=>b.onclick=()=>doPick(b.dataset.t,b.dataset.c,!!b.dataset.u));
   const a=$('approve'),on=!!(EP.picks||{}).approve;a.hidden=false;a.classList.toggle('on',on);a.textContent=on?'已通过 · 撤销':'审片通过'}
 async function doPick(type,choice,undo){const j=await post('/api/pick',{path:EP.path,type,choice,undo});
