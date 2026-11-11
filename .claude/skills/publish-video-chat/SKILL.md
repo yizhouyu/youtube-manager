@@ -702,6 +702,9 @@ memory so the skill personalizes over time.
   "攻略") the footage doesn't support. Confirm scope from content, not the filename.
 - Keep this skill **free of personal info** so it can ship with the repo.
 
+- **Full schedule = not the uploads playlist (2026-11-11).** `playlistItems` on the uploads playlist silently missed 5 scheduled private Shorts (Austin/Texas/Death Valley backfill, 11/11–11/15), so a reshuffle based on it double-booked days. Before moving any `publishAt`, also run `search.list(forMine=True, type="video")` (or check Studio's Content tab sorted by date) and build the calendar from both. Never move scheduled times without that full list; he likes one Short per day.
+- **Related video only links to PUBLIC longs.** Studio's picker lists public videos only, so a Short whose long is still scheduled can't be linked yet; the daily 「YouTube 发布后跟进」 automation sets it on the long's publish day (`scripts/post_publish_followups.py`). Keep every Short's long in `sessions/FOLLOWUPS.json`.
+
 ## Manual to-dos checklist (always)
 
 Anything the APIs can't do goes into `sessions/MANUAL_TODO.md` (local, gitignored) as a new section
