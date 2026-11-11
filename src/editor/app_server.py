@@ -979,7 +979,7 @@ function cand(type,id,html){const P=EP.picks||{},on=type==='short'?(P.short||[])
 function coverGrid(){const g=$('cgrid');if(!g)return;const P=EP.picks||{};
   g.innerHTML=EP.covers.map((c,i)=>{const on=P.cover===c.id;
     // the agent's recommendation is marked on the card itself (creator 11/11: 「要标出哪个是你推荐的」)
-    const rec=/推荐/.test(c.tag||'')?`<span class="badge rec">${esc(/挑战|A\/B/.test(c.tag)?'A/B 备选':'推荐')}</span>`:'';
+    const rec=/推荐|挑战|A\/B/.test(c.tag||'')?`<span class="badge rec">${esc(/挑战|A\/B/.test(c.tag)?'A/B 备选':'推荐')}</span>`:'';
     return `<div class="cv${on?' on':''}">${on?'<span class="badge">✓ 已选</span>':''}${rec}${c.img?`<img src="${esc(c.img)}" alt="" data-i="${i}">`:''}
       <div class="row"><b title="${esc(c.title)}">${esc(c.title)}</b><button class="more" data-i="${i}" title="手机首页 / 侧栏 / B站 和说明">⋯</button>
       <button class="pk" data-t="cover" data-c="${esc(c.id)}" data-u="${on?1:''}">${on?'已选 · 撤销':'选这个'}</button></div></div>`}).join('');
