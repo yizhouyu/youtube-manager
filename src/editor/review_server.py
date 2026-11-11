@@ -433,55 +433,61 @@ body.dirty #bSave kbd{color:var(--accent);border-color:var(--accent-line)}
 .rail{position:sticky;top:var(--barh,52px);height:calc(100vh - var(--barh,52px));display:flex;flex-direction:column;gap:12px;
   padding:16px 16px 16px 0;min-height:0}
 /* player: as wide as the column, but never taller than the window allows; --ar = the preview's own aspect
-   (16:9, or 9:16 for a vertical film: then a tall phone-shaped player instead of a strip in a wide box) */
-#pvwrap{--ar:1.7778;flex:none;width:min(100%,calc((100vh - var(--barh,52px) - 150px)*var(--ar)));margin:0 auto;transition:width .25s ease}
-#pv{background:var(--stage);border-radius:var(--r-lg);overflow:hidden;display:flex;justify-content:center;align-items:center;aspect-ratio:var(--ar);
-  width:100%;position:relative;box-shadow:var(--sh-1)}
-#pv video{width:100%;height:100%;object-fit:contain;display:block}
+   (16:9, or 9:16 for a vertical film: then a tall phone-shaped player instead of a strip in a wide box).
+   #pvmedia holds what loadPreview swaps (video, big play, new-preview button); #pvui (controls) stays put. */
+#pvwrap{--ar:1.7778;flex:none;width:min(100%,calc((100vh - var(--barh,52px) - 150px)*var(--ar)));margin:0 auto;transition:width .25s ease;position:relative}
+#pv{background:var(--stage);border-radius:var(--r-lg);overflow:hidden;aspect-ratio:var(--ar);width:100%;position:relative;box-shadow:var(--sh-1);user-select:none}
+#pvmedia{position:absolute;inset:0;display:flex;justify-content:center;align-items:center}
+#pvmedia video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;cursor:pointer}
 #pvnew{display:none;position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:4;border:0;border-radius:999px;padding:6px 14px;font-size:13px;
   background:var(--accent);color:#fff;box-shadow:var(--sh-2);cursor:pointer;white-space:nowrap}
 .bigplay{position:absolute;left:50%;top:50%;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);
   pointer-events:none;z-index:3;transition:opacity .2s ease,transform .2s ease}
 .bigplay::after{content:'';position:absolute;left:30px;top:23px;border-style:solid;border-width:15px 0 15px 25px;border-color:transparent transparent transparent #fff}
-.bigplay.hide{opacity:0;transform:scale(1.25)}#pvv{cursor:pointer}
-/* fullscreen / chat-mode buttons on the picture (the native bar's own fullscreen is off: it would fullscreen the bare
-   <video> and leave the chat behind). Shown on mouse movement or while paused, like the native bar. */
-#pvtools{position:absolute;bottom:30px;right:92px;z-index:4;display:flex;gap:6px;opacity:0;transition:opacity .2s;pointer-events:none}
-#pv.act #pvtools,#pv.paused #pvtools{opacity:1;pointer-events:auto}
-#pvtools button{height:34px;min-width:34px;padding:0 6px;border:0;border-radius:50%;background:transparent;color:#fff;
-  filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:12px}
-#pvtools button:hover{background:rgba(255,255,255,.16)}
-#pvtools svg{display:block}
-#pvtools .speeds{display:flex;align-items:center;height:28px;margin-right:6px;border-radius:8px;background:rgba(0,0,0,.35);padding:2px;gap:2px;align-self:center}
-#pvtools .speeds button{height:24px;min-width:0;padding:0 9px;border-radius:6px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;filter:none}
-#pvtools .speeds button.on{background:#fff;color:#111}
-#pv video::-webkit-media-controls-fullscreen-button{display:none}
-/* fullscreen (chat.py): video on the left, rail with the question card + chat on the right (or floating) */
-.theater.fs .stage{padding:0;height:100vh;min-height:0;overflow:hidden}
-.theater.fs #pvwrap{width:100%;height:100%;margin:0;transition:none}
-.theater.fs #pv{aspect-ratio:auto;height:100%;border-radius:0;box-shadow:none}
+.bigplay.hide{opacity:0;transform:scale(1.25)}
+/* YouTube-style controls on the picture, in the browser and in the app alike (no native bar: its fullscreen would
+   take the bare <video> and leave the chat behind). Progress bar on top, then play + time | speed, volume, fullscreen,
+   over a soft gradient. Shown on mouse movement and while paused; after 2.5 s of stillness while playing they fade
+   and (fullscreen) the cursor hides too — pvUi below. The gradient itself lets clicks through to the picture.
+   z-index 5: under the 框选 veil/box (chat.py, 6–7) so a box can be drawn right down to the bottom edge. */
+#pvui{position:absolute;left:0;right:0;bottom:0;z-index:5;padding:36px 12px 2px;display:none;color:#fff;pointer-events:none;
+  background:linear-gradient(transparent,rgba(0,0,0,.22) 35%,rgba(0,0,0,.62));transition:opacity .25s}
+#pvui>*{pointer-events:auto}
+#pv.has #pvui{display:block}
+#pv.idle #pvui{opacity:0}
+#pv.idle #pvui>*{pointer-events:none}
+body.pvidle .theater.fs .stage,body.pvidle .theater.fs .stage *{cursor:none !important}
+/* fullscreen (chat.py): video on the left, rail with the question card + chat on the right (or floating). The player
+   box is the picture itself, as big as the column allows and centred, so the controls sit on the picture (no black
+   band between them); absolute insets rather than a chain of height:100% (WebKit left the video at the top). */
+.theater.fs .stage{padding:0;height:100vh;min-height:0;overflow:hidden;position:relative}
+.theater.fs #pvwrap{position:absolute;inset:0;width:auto;margin:0;transition:none;display:flex;align-items:center;justify-content:center}
+.theater.fs #pv{flex:none;width:min(100%,calc(100vh*var(--ar)));max-height:100%;border-radius:0;box-shadow:none}
+.theater.fs #pvui{padding:48px 18px 6px}
 .theater.fs #nowrow,.theater.fs #edits,.theater.fs #qside{display:none !important}
-.theater.fs #pvwrap{position:relative}
-/* question markers sit right on the native seek bar while it is showing */
-.theater.fs #qstrip{position:absolute;left:16px;right:16px;bottom:25px;width:auto !important;height:9px;margin:0;z-index:5;pointer-events:none;
-  opacity:0;transition:opacity .2s}
-.theater.fs #pv.act~#qstrip,.theater.fs #pv.paused~#qstrip{opacity:1}
-.theater.fs #qstrip .tr,.theater.fs #qstrip .ph{display:none}
-.theater.fs #qstrip .qm{filter:drop-shadow(0 0 1px rgba(0,0,0,.9))}
 #nowrow .keys button{border:0;background:transparent;padding:0 2px;font-size:12px;color:var(--text-3);height:auto}
 #nowrow .keys button:hover{color:var(--text)}
 #pv .none{color:var(--stage-mute);padding:30px;font-size:14px;text-align:center}
-/* slim scrub bar under the picture: hover = thumbnail of that moment, click/drag = seek; question markers on top */
-#qstrip{display:none;position:relative;height:14px;margin:6px auto 0;cursor:pointer;touch-action:none}
-#qstrip.on{display:block}
-#qstrip .tr{position:absolute;left:0;right:0;top:9px;height:3px;border-radius:2px;background:var(--line-2);transition:top .12s,height .12s}
-#qstrip:hover .tr,#qstrip.drag .tr{top:8px;height:5px}
-#qstrip .ph{position:absolute;top:6px;width:2px;height:9px;margin-left:-1px;background:var(--text-3);border-radius:1px}
+/* the progress bar: one segment per shot (thin gaps between), buffered part dim, played part bright, a playhead dot
+   on hover; question dots ride just above. The whole 24 px strip is the hit area; the 4 px line grows on hover.
+   Hover = storyboard thumbnail + time, click = jump, press and drag = scrub. */
+#qstrip{position:relative;height:24px;cursor:pointer;touch-action:none}
+#qstrip .tr{position:absolute;left:0;right:0;bottom:6px;height:4px;border-radius:2px;background:rgba(255,255,255,.26);overflow:hidden;
+  transition:height .1s,bottom .1s}
+#qstrip:hover .tr,#qstrip.drag .tr{bottom:4px;height:8px}
+#qstrip .tr .bf,#qstrip .tr .pl{position:absolute;left:0;top:0;bottom:0;width:0}
+#qstrip .tr .bf{background:rgba(255,255,255,.22)}
+#qstrip .tr .pl{background:rgba(255,255,255,.92)}
+#qstrip .tr i{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:rgba(0,0,0,.6)}
+#qstrip .ph{position:absolute;top:16px;width:0;height:0;pointer-events:none}
+#qstrip .ph::before{content:'';position:absolute;left:-7px;top:-7px;width:14px;height:14px;border-radius:50%;background:#fff;
+  box-shadow:0 0 0 1px rgba(0,0,0,.25);transform:scale(0);transition:transform .1s}
+#qstrip:hover .ph::before,#qstrip.drag .ph::before{transform:scale(1)}
 #qstrip .qm{position:absolute;top:0;width:0;height:0;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;
   border-top:9px solid var(--q);cursor:pointer}
 #qstrip .qm.done{border-top-color:var(--used)}
+#pv #qstrip .qm{top:1px;box-shadow:0 0 0 1.5px rgba(0,0,0,.55)}
 /* storyboard tip: thumbnail + time (+ the shot under it) above the timeline being hovered */
-#pvwrap{position:relative}
 #sbtip{position:absolute;z-index:7;display:none;flex-direction:column;align-items:center;gap:4px;pointer-events:none}
 #sbtip .im{border:2px solid #fff;border-radius:7px;background-color:#000;background-repeat:no-repeat;box-shadow:0 2px 10px rgba(0,0,0,.45)}
 #sbtip .tx{background:rgba(20,20,20,.88);color:#fff;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -495,46 +501,27 @@ body.dirty #bSave kbd{color:var(--accent);border-color:var(--accent-line)}
 #nowrow .keys{font-size:12px;color:var(--text-3);white-space:nowrap}
 #nowrow .keys kbd{font-size:11px;padding:1px 5px}
 #nowrow .keys span+span{margin-left:10px}
-/* inside the 审片 app (WebKit): no native controls on the picture (their bar and the buttons on it fought each other);
-   a quiet control row under the shot timeline instead. In fullscreen the strip + row sit on the picture. */
-#pvctl{display:none}
-html.in-app #pvwrap{width:min(100%,calc((100vh - var(--barh,0px) - 196px)*var(--ar)))}
-html.in-app body.edopen #pvwrap{width:min(100%,calc(max(240px,100vh - var(--barh,0px) - 480px)*16/9))}
-html.in-app #pvtools{display:none}
-html.in-app #pvctl{display:flex;align-items:center;gap:4px;height:36px;margin-top:2px;color:var(--text-2)}
-html.in-app #pvctl .sp{flex:1}
-html.in-app #pvctl>button{width:32px;height:32px;padding:0;border:0;border-radius:var(--r-sm);background:transparent;color:inherit;display:inline-grid;place-items:center}
-html.in-app #pvctl>button:hover{background:var(--surface-3);color:var(--text)}
-html.in-app #pvctl>button svg{width:18px;height:18px}
-html.in-app #pcTime{margin-left:4px;font-size:var(--fs);color:var(--text-3);font-variant-numeric:tabular-nums;white-space:nowrap}
-html.in-app #pcTime b{color:var(--text);font-weight:600}
-html.in-app #pcSpeeds{display:flex;gap:2px;padding:2px;border-radius:var(--r-sm);background:var(--surface-3);margin-right:6px}
-html.in-app #pcSpeeds button{height:24px;padding:0 9px;border:0;border-radius:5px;background:transparent;color:var(--text-2);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
-html.in-app #pcSpeeds button.on{background:var(--surface);color:var(--text);font-weight:500;box-shadow:var(--sh-1)}
-/* the shot timeline: segments (one per shot), played part darker, playhead with a dot, question dots above */
-html.in-app #qstrip{height:26px;margin-top:4px}
-html.in-app #qstrip .tr{top:11px;height:10px;border-radius:3px;background:var(--seg);overflow:hidden}
-html.in-app #qstrip:hover .tr,html.in-app #qstrip.drag .tr{top:10px;height:12px}
-html.in-app #qstrip .tr .pl{position:absolute;left:0;top:0;bottom:0;background:var(--seg-past)}
-html.in-app #qstrip .tr i{position:absolute;top:0;bottom:0;width:1.5px;margin-left:-.75px;background:var(--bg)}
-html.in-app #qstrip .ph{top:8px;height:18px;background:var(--playhead);pointer-events:none}
-html.in-app #qstrip .ph::before{content:'';position:absolute;left:-3px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--playhead)}
-html.in-app #qstrip .qm{top:0}
-html.in-app .theater.fs #qstrip{bottom:48px;height:26px;pointer-events:auto}
-html.in-app .theater.fs #qstrip .tr,html.in-app .theater.fs #qstrip .ph{display:block}
-html.in-app .theater.fs #qstrip .tr{background:rgba(255,255,255,.3)}
-html.in-app .theater.fs #qstrip .tr .pl{background:rgba(255,255,255,.7)}
-html.in-app .theater.fs #qstrip .tr i{background:rgba(0,0,0,.6)}
-html.in-app .theater.fs #qstrip .ph,html.in-app .theater.fs #qstrip .ph::before{background:#fff}
-html.in-app .theater.fs #pvctl{position:absolute;left:0;right:0;bottom:0;z-index:5;height:auto;margin:0;padding:40px 12px 8px;color:#fff;
-  background:linear-gradient(transparent,rgba(0,0,0,.6));opacity:0;transition:opacity .2s;pointer-events:none}
-html.in-app .theater.fs #pv.act~#pvctl,html.in-app .theater.fs #pv.paused~#pvctl,html.in-app .theater.fs #pvctl:hover,
-html.in-app .theater.fs #pv.act~#qstrip,html.in-app .theater.fs #qstrip:hover{opacity:1;pointer-events:auto}
-html.in-app .theater.fs #pvctl>button:hover{background:rgba(255,255,255,.16);color:#fff}
-html.in-app .theater.fs #pcTime,html.in-app .theater.fs #pcTime b{color:#fff}
-html.in-app .theater.fs #pcSpeeds{background:rgba(255,255,255,.14)}
-html.in-app .theater.fs #pcSpeeds button{color:rgba(255,255,255,.85)}
-html.in-app .theater.fs #pcSpeeds button.on{background:#fff;color:#111}
+/* the control row under the progress bar */
+#pvctl{display:flex;align-items:center;gap:2px;height:40px}
+#pvctl .sp{flex:1}
+#pvctl button{border:0;background:transparent;color:#fff;padding:0}
+#pvctl>button,#pcVol>button{width:36px;height:36px;border-radius:8px;display:inline-grid;place-items:center;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45))}
+#pvctl>button:hover,#pcVol>button:hover{background:rgba(255,255,255,.16)}
+#pvctl svg{width:20px;height:20px}
+#pcTime{margin-left:6px;font-size:13px;color:rgba(255,255,255,.82);font-variant-numeric:tabular-nums;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+#pcTime b{color:#fff;font-weight:600}
+#pcSpeeds{display:flex;gap:2px;padding:2px;border-radius:8px;background:rgba(255,255,255,.14);margin-right:6px}
+#pcSpeeds button{height:24px;padding:0 9px;border-radius:6px;color:rgba(255,255,255,.85);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+#pcSpeeds button:hover{background:rgba(255,255,255,.14)}
+#pcSpeeds button.on{background:#fff;color:#111}
+/* volume: the slider slides out next to the speaker on hover, like YouTube */
+#pcVol{display:flex;align-items:center}
+#pcVolS{position:relative;width:0;height:36px;overflow:hidden;cursor:pointer;touch-action:none;transition:width .15s}
+#pcVol:hover #pcVolS,#pcVolS.drag{width:76px}
+#pcVolS::before,#pcVolS i{content:'';position:absolute;left:8px;top:16.5px;height:3px;border-radius:2px}
+#pcVolS::before{right:8px;background:rgba(255,255,255,.3)}
+#pcVolS i{width:0;background:#fff}
+#pcVolS i::after{content:'';position:absolute;right:-6px;top:-4.5px;width:12px;height:12px;border-radius:50%;background:#fff}
 /* the shot-by-shot drawer */
 #edits{margin-top:14px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
 #edh{display:flex;align-items:center;gap:10px;padding:0 10px 0 14px;height:46px;cursor:pointer;user-select:none;flex:none}
@@ -669,10 +656,10 @@ __QA_CSS__
 </div>
 <div class="theater" data-fsroot>
 <main class="stage">
-  <div id="pvwrap"><div id="pv"><div class="none">还没有预览，点右上角「更新预览」生成</div></div>
-    <div id="qstrip" title="拖动或点一下跳到那里 · 黄色 = 有问题想问你，绿色 = 已回答"><div class="tr"></div><div class="ph"></div><div id="qmarks"></div></div>
-    <div id="pvctl"><button id="pcPlay" title="播放 / 暂停（空格）"></button><span id="pcTime"></span><span class="sp"></span>
-      <span id="pcSpeeds" title="速度（数字键 1–4）"></span><button id="pcMute" title="静音"></button><button id="pcFs"></button></div>
+  <div id="pvwrap"><div id="pv"><div id="pvmedia"><div class="none">还没有预览，点右上角「更新预览」生成</div></div>
+    <div id="pvui"><div id="qstrip"><div class="tr"></div><div class="ph"></div><div id="qmarks"></div></div>
+      <div id="pvctl"><button id="pcPlay" title="播放 / 暂停（空格）"></button><span id="pcTime"></span><span class="sp"></span>
+        <span id="pcSpeeds" title="速度（数字键 1–4）"></span><span id="pcVol"><button id="pcMute"></button><span id="pcVolS" title="音量"><i></i></span></span><button id="pcFs"></button></div></div></div>
     <div id="sbtip"><div class="im"></div><div class="tx"></div></div>
     <div id="nowrow"><span id="nowt"></span><span class="sp"></span>
       <span class="keys"><span><kbd>空格</kbd> 播放/暂停</span><span><kbd>←</kbd><kbd>→</kbd> 5 秒</span><span><kbd>↑</kbd><kbd>↓</kbd> 上/下一段</span><span><button id="fsHint" title="全屏时右边留着聊天（C 切换成悬浮）"><kbd>F</kbd> 全屏</button></span><span title="J 倒退 · K 暂停 · L 前进（再按加速 1×→2×→4×）· , . 逐帧 · C 写评论"><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd> <kbd>,</kbd><kbd>.</kbd> <kbd>C</kbd></span></span></div></div>
@@ -965,59 +952,74 @@ document.addEventListener('fullscreenchange',()=>setTimeout(()=>{
   // native fullscreen leaves focus on the controls' fullscreen button (shadow DOM): Space would
   // re-trigger it. Blur it so Space reaches our handler and just plays/pauses.
   const a=document.activeElement; if(a&&a.blur) a.blur(); document.body.focus&&document.body.focus()},0));
-// Click anywhere on the picture (not the control bar at the bottom) to play/pause, like YouTube.
+// Click anywhere on the picture to play/pause, like YouTube (the controls sit above the <video>, so they never reach here).
 document.addEventListener('click',e=>{const v=e.target; if(!v||v.id!=='pvv') return;
-  const r=v.getBoundingClientRect(); if(v.controls&&e.clientY>r.bottom-Math.min(44,r.height*0.2)) return;  // native control bar
   e.preventDefault(); v.paused?v.play().catch(()=>{}):v.pause()},true);
 // double-click the picture = fullscreen (ours, not the bare <video>'s)
 document.addEventListener('dblclick',e=>{if(!e.target||e.target.id!=='pvv') return; e.preventDefault(); e.stopPropagation(); pvToggleFs()},true);
-setInterval(()=>{const v=document.getElementById('pvv'),g=document.getElementById('pvbig'),p=$('#pv'); if(v&&g) g.classList.toggle('hide',!v.paused);
-  if(p) p.classList.toggle('paused',!!v&&v.paused)},150);
-// the buttons on the picture show on mouse movement, then fade like the native bar
-let pvActT=0;
-$('#pv').addEventListener('mousemove',()=>{const p=$('#pv'); p.classList.add('act'); clearTimeout(pvActT); pvActT=setTimeout(()=>p.classList.remove('act'),2500)});
-$('#pv').addEventListener('mouseleave',()=>{clearTimeout(pvActT); $('#pv').classList.remove('act')});
-$('#pv').addEventListener('click',e=>{const b=e.target.closest('#pvtools button'); if(!b) return; e.stopPropagation();
-  if(b.id==='pvfs') pvToggleFs(); else if(b.dataset.r) pvSetSpeed(+b.dataset.r)});
+// Controls show on mouse movement over the player (in fullscreen: anywhere on the video side) and while paused; after
+// 2.5 s of stillness while playing they fade, unless the pointer rests on them or a scrub is going on (pcTick sets
+// #pv.idle, and body.pvidle hides the cursor in fullscreen).
+let pvActT=0, pvAct=false, pvScrub=null;   // pvScrub = the time under the pointer while dragging the bar
+function pvPoke(){pvAct=true; clearTimeout(pvActT); pvActT=setTimeout(()=>{pvAct=false; pcTick()},2500); pcTick()}
+function pvRest(){clearTimeout(pvActT); pvAct=false; pcTick()}
+const fsOn=()=>!!(window.cbFs&&window.cbFs.active());
+document.addEventListener('mousemove',e=>{const t=e.target; if(!(t instanceof Element)) return;
+  if(t.closest('#pv')||(fsOn()&&t.closest('.stage'))) pvPoke()});
+$('#pv').addEventListener('mouseleave',()=>{if(!fsOn()) pvRest()});
+$('.stage').addEventListener('mouseleave',()=>{if(fsOn()) pvRest()});
 // speed presets, like the raw-footage page; remembered across reloads and new previews
 const PV_SPEEDS=[1,1.5,2,3];
 let pvSpeed=1;   // every page load starts at 1x (creator, 2026-10-15); the chosen speed carries over to new preview versions in this session
-function pvMarkSpeed(r){document.querySelectorAll('#pvspeeds button,#pcSpeeds button').forEach(b=>b.classList.toggle('on',+b.dataset.r===r))}
+function pvMarkSpeed(r){document.querySelectorAll('#pcSpeeds button').forEach(b=>b.classList.toggle('on',+b.dataset.r===r))}
 function pvSetSpeed(r){pvSpeed=r;
   const v=document.getElementById('pvv'); if(v) v.playbackRate=r; pvMarkSpeed(r)}
-window.addEventListener('cbfs',()=>{['pvfs','pcFs'].forEach(id=>{const b=document.getElementById(id); if(b) fsIcon(b)})});
+window.addEventListener('cbfs',()=>{const b=document.getElementById('pcFs'); if(b) fsIcon(b); pcTick()});
 const IC_FS='<svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
       IC_FSX='<svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5"/></svg>';
 function fsIcon(b){const on=window.cbFs&&window.cbFs.active(); b.innerHTML=on?IC_FSX:IC_FS; b.title=on?'退出全屏（F / Esc）':'全屏，右边留着聊天（F）'}
-// 审片 app: control row under the timeline instead of the native controls (play, time, speeds, mute, fullscreen),
-// and the timeline split into the shots (gaps), played part darker
-const IN_APP=window.top!==window;
-if(IN_APP){
-  const IC_PLAY='<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 2.8v10.4c0 .5.5.8.9.5l8-5.2a.6.6 0 0 0 0-1l-8-5.2c-.4-.3-.9 0-.9.5z"/></svg>',
-        IC_PAUSE='<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="2.5" width="3" height="11" rx="1"/><rect x="9.5" y="2.5" width="3" height="11" rx="1"/></svg>',
-        IC_VOL='<svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6v4h2.5l3.5 3V3L5 6z" fill="currentColor"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4"/></svg>',
-        IC_MUTE='<svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6v4h2.5l3.5 3V3L5 6z" fill="currentColor"/><path d="M11 6l3.5 4M14.5 6L11 10"/></svg>';
-  $('#pcSpeeds').innerHTML=PV_SPEEDS.map(r=>`<button data-r="${r}">${r}×</button>`).join('');
-  $('#pvctl').addEventListener('click',e=>{const b=e.target.closest('button'), v=$('#pvv'); if(!b) return; e.stopPropagation();
-    if(b.dataset.r) pvSetSpeed(+b.dataset.r);
-    else if(b.id==='pcFs') pvToggleFs();
-    else if(!v) return;
-    else if(b.id==='pcPlay') v.paused?v.play().catch(()=>{}):v.pause();
-    else if(b.id==='pcMute') v.muted=!v.muted;
-    pcTick()});
-  let segKey='';
-  function pcTick(){const v=$('#pvv'), d=v&&v.duration||0, t=v?v.currentTime||0:0;
-    $('#pvctl').style.visibility=v?'':'hidden';
-    const pl=$('#pcPlay'), pi=v&&!v.paused?IC_PAUSE:IC_PLAY; if(pl.dataset.i!==pi){pl.dataset.i=pi; pl.innerHTML=pi}
-    const mu=$('#pcMute'), mi=v&&v.muted?IC_MUTE:IC_VOL; if(mu.dataset.i!==mi){mu.dataset.i=mi; mu.innerHTML=mi; mu.title=v&&v.muted?'取消静音':'静音'}
-    $('#pcTime').innerHTML=d?`<b>${fmt(t)}</b> / ${fmt(d)}`:'';
-    const tr=$('#qstrip .tr'); if(!tr) return;
-    const st=D&&d?starts().slice(1).filter(x=>x>0&&x<d):[], k=d+'|'+st.join(',');
-    if(k!==segKey){segKey=k; tr.innerHTML='<div class="pl"></div>'+st.map(x=>`<i style="left:${(x/d*100).toFixed(3)}%"></i>`).join('')}
-    const p=tr.querySelector('.pl'); if(p) p.style.width=(d?Math.min(100,t/d*100):0)+'%'}
-  setInterval(pcTick,200);
-  fsIcon($('#pcFs')); pvMarkSpeed(pvSpeed);
-}
+// The control row (play, time | speeds, volume, fullscreen), the same in the browser and in the 审片 app,
+// and the progress bar split into the shots (gaps), buffered part dim, played part bright.
+const IC_PLAY='<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 2.8v10.4c0 .5.5.8.9.5l8-5.2a.6.6 0 0 0 0-1l-8-5.2c-.4-.3-.9 0-.9.5z"/></svg>',
+      IC_PAUSE='<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="2.5" width="3" height="11" rx="1"/><rect x="9.5" y="2.5" width="3" height="11" rx="1"/></svg>',
+      IC_VOL='<svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6v4h2.5l3.5 3V3L5 6z" fill="currentColor"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4"/></svg>',
+      IC_MUTE='<svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6v4h2.5l3.5 3V3L5 6z" fill="currentColor"/><path d="M11 6l3.5 4M14.5 6L11 10"/></svg>';
+$('#pcSpeeds').innerHTML=PV_SPEEDS.map(r=>`<button data-r="${r}">${r}×</button>`).join('');
+$('#pvctl').addEventListener('click',e=>{const b=e.target.closest('button'), v=$('#pvv'); if(!b) return; e.stopPropagation();
+  if(b.dataset.r) pvSetSpeed(+b.dataset.r);
+  else if(b.id==='pcFs') pvToggleFs();
+  else if(!v) return;
+  else if(b.id==='pcPlay') v.paused?v.play().catch(()=>{}):v.pause();
+  else if(b.id==='pcMute'){if(v.muted||!v.volume){v.muted=false; if(!v.volume) v.volume=1} else v.muted=true}
+  pcTick()});
+// volume slider: press and drag; 0 = muted
+(function(){const s=$('#pcVolS'); let on=false;
+  const set=e=>{const v=$('#pvv'), r=s.getBoundingClientRect(); if(!v) return;
+    const x=Math.max(0,Math.min(1,(e.clientX-r.left-8)/(r.width-16))); v.volume=Math.round(x*100)/100; v.muted=x===0; pcTick()};
+  s.addEventListener('pointerdown',e=>{if(e.button) return; on=true; s.classList.add('drag'); s.setPointerCapture(e.pointerId); set(e); e.preventDefault()});
+  s.addEventListener('pointermove',e=>{if(on) set(e)});
+  const end=()=>{on=false; s.classList.remove('drag')}; s.addEventListener('pointerup',end); s.addEventListener('pointercancel',end);
+})();
+let segKey='';
+function pcTick(){const v=$('#pvv'), p=$('#pv'), d=v&&v.duration||0, t=pvScrub!=null?pvScrub:(v?v.currentTime||0:0);
+  p.classList.toggle('has',!!v); p.classList.toggle('paused',!!v&&v.paused);
+  const g=$('#pvbig'); if(g) g.classList.toggle('hide',!v||!v.paused);
+  const idle=!!v&&!v.paused&&!pvAct&&pvScrub==null&&!$('#pvui').matches(':hover');
+  p.classList.toggle('idle',idle); document.body.classList.toggle('pvidle',idle&&fsOn());
+  if(!v) return;
+  const pl=$('#pcPlay'), pi=v.paused?IC_PLAY:IC_PAUSE; if(pl.dataset.i!==pi){pl.dataset.i=pi; pl.innerHTML=pi}
+  const mo=v.muted||!v.volume, mu=$('#pcMute'), mi=mo?IC_MUTE:IC_VOL; if(mu.dataset.i!==mi){mu.dataset.i=mi; mu.innerHTML=mi; mu.title=mo?'取消静音（M）':'静音（M）'}
+  $('#pcVolS i').style.width=`calc((100% - 16px)*${mo?0:v.volume})`;
+  const tx=d?`<b>${fmt(t)}</b> / ${fmt(d)}`:''; if($('#pcTime').dataset.t!==tx){$('#pcTime').dataset.t=tx; $('#pcTime').innerHTML=tx}
+  const tr=$('#qstrip .tr');
+  const st=D&&d?starts().slice(1).filter(x=>x>0&&x<d):[], k=d+'|'+st.join(',');
+  if(k!==segKey){segKey=k; tr.innerHTML='<div class="bf"></div><div class="pl"></div>'+st.map(x=>`<i style="left:${(x/d*100).toFixed(3)}%"></i>`).join('')}
+  let bf=0; for(let i=0;i<v.buffered.length;i++) if(v.buffered.start(i)<=t+0.5) bf=Math.max(bf,v.buffered.end(i));
+  const pc=d?Math.min(100,t/d*100):0;
+  tr.querySelector('.pl').style.width=pc+'%'; tr.querySelector('.bf').style.width=(d?Math.min(100,bf/d*100):0)+'%';
+  $('#qstrip .ph').style.left=pc+'%'}
+setInterval(pcTick,100);
+fsIcon($('#pcFs')); pvMarkSpeed(pvSpeed);
 // Preview player keys (also in fullscreen). Capture phase + preventDefault so the browser's own
 // media controls or a focused button don't handle the same key a second time.
 document.addEventListener('keydown',e=>{
@@ -1027,18 +1029,18 @@ document.addEventListener('keydown',e=>{
   // Handle keys even when the <video> itself has focus (after a click or in native fullscreen):
   // Chrome's media element does not toggle on Space by itself, so leaving it to the browser did nothing.
   if(e.code==='Space'||e.key==='k'){e.preventDefault();e.stopPropagation(); v.paused?v.play():v.pause()}
-  else if(e.key==='ArrowRight'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.min(v.duration||1e9,v.currentTime+5)}
-  else if(e.key==='ArrowLeft'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.max(0,v.currentTime-5)}
+  else if(e.key==='ArrowRight'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.min(v.duration||1e9,v.currentTime+5); pvPoke()}
+  else if(e.key==='ArrowLeft'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.max(0,v.currentTime-5); pvPoke()}
   // ↑ / ↓ = start of the previous / next shot (creator 2026-11-11), whether playing or paused
   else if((e.key==='ArrowUp'||e.key==='ArrowDown')&&D){e.preventDefault();e.stopPropagation();
     const st=starts(), i=shotAt(v.currentTime||0), up=e.key==='ArrowUp';
     let j=i; do{j+=up?-1:1}while(j>=0&&j<D.shots.length&&!isOn(D.shots[j]));
     if(j<0) v.currentTime=0; else if(j<D.shots.length) v.currentTime=Math.min(st[j]+0.01,(v.duration||1e9)-0.05);
-    resumeFollow()}
+    resumeFollow(); pvPoke()}
   else if(e.key==='f'||e.key==='F'){e.preventDefault();e.stopPropagation();
     pvToggleFs()}
-  else if(e.key>='1'&&e.key<='4'){e.preventDefault();e.stopPropagation(); pvSetSpeed(PV_SPEEDS[+e.key-1]);
-    const p=$('#pv'); p.classList.add('act'); clearTimeout(pvActT); pvActT=setTimeout(()=>p.classList.remove('act'),2500)}
+  else if(e.key>='1'&&e.key<='4'){e.preventDefault();e.stopPropagation(); pvSetSpeed(PV_SPEEDS[+e.key-1]); pvPoke()}
+  else if(e.key==='m'||e.key==='M'){e.preventDefault();e.stopPropagation(); v.muted=!v.muted; pvPoke()}   // M = mute, like YouTube
 },true);
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();save();return}
@@ -1059,22 +1061,20 @@ async function loadPreview(keep){
   let src=null;
   if(n){src='/previews/'+n; PVNAME=n}
   else{const r=await fetch('/preview.mp4',{method:'HEAD'}); if(r.ok) src='/preview.mp4?v='+Date.now()}
-  const old=$('#pvv'); const wasMuted=old?old.muted:false;
+  const old=$('#pvv'); const wasMuted=old?old.muted:false, wasVol=old?old.volume:1;
   if(old){old.pause(); old.removeAttribute('src'); old.load()}  // free its connections, or the new one stalls
-  $('#pv').innerHTML=(src?`<video id="pvv" controls controlslist="nofullscreen" preload="auto" src="${src}"></video><div class="bigplay" id="pvbig"></div>
-      <div id="pvtools"><div class="speeds" id="pvspeeds" title="速度（数字键 1–4）">${PV_SPEEDS.map(r=>`<button data-r="${r}">${r}x</button>`).join('')}</div><button id="pvfs"></button></div><button id="pvnew">新预览已生成 · 点这里切换（从当前位置继续）</button>`
+  $('#pvmedia').innerHTML=(src?`<video id="pvv" preload="auto" playsinline src="${src}"></video><div class="bigplay" id="pvbig"></div>
+      <button id="pvnew">新预览已生成 · 点这里切换（从当前位置继续）</button>`
     :'<div class="none">还没有预览，点右上角「更新预览」生成</div>');
   const nv=$('#pvv');
   if(nv) nv.addEventListener('loadedmetadata',()=>{if(nv.videoWidth&&nv.videoHeight) $('#pvwrap').style.setProperty('--ar',(nv.videoWidth/nv.videoHeight).toFixed(4))});
-  if(nv&&IN_APP) nv.controls=false;   // the app has its own control row (pvctl below)
-  if(nv){nv.muted=wasMuted; nv.playbackRate=pvSpeed; nv.defaultPlaybackRate=pvSpeed; pvMarkSpeed(pvSpeed)
+  if(nv){nv.muted=wasMuted; nv.volume=wasVol; nv.playbackRate=pvSpeed; nv.defaultPlaybackRate=pvSpeed; pvMarkSpeed(pvSpeed)
     nv.addEventListener('ratechange',()=>{if(nv.playbackRate!==pvSpeed){pvSpeed=nv.playbackRate; pvMarkSpeed(pvSpeed)}})}
   if(nv&&!keep&&!PV_RESTORED){PV_RESTORED=true; keep=savedPos(n)}
   if(nv&&keep){const restore=()=>{nv.currentTime=Math.min(keep.t,Math.max(0,nv.duration-0.5)); if(keep.playing) nv.play().catch(()=>{})};
     nv.readyState>=1?restore():nv.addEventListener('loadedmetadata',restore,{once:true})}
   const nb=$('#pvnew'); if(nb) nb.onclick=()=>swapPreview();
-  const fb=$('#pvfs'); if(fb) fsIcon(fb);
-  sbHide(); sbLoad(src?src.replace(/^\//,'').replace(/\?.*$/,''):'');
+  pcTick(); sbHide(); sbLoad(src?src.replace(/^\//,'').replace(/\?.*$/,''):'');
   const v=$('#pvv'); if(v){v.addEventListener('timeupdate',()=>{onPreviewTime(false); savePos(false)}); v.addEventListener('seeked',()=>{onPreviewTime(true); savePos(true)}); v.addEventListener('pause',()=>savePos(true))}
 }
 // Remember where he was, so a page refresh lands at the same moment instead of 0:00 (creator, 2026-10-21).
@@ -1099,7 +1099,7 @@ function savedPos(name){
 }
 window.addEventListener('pagehide',()=>savePos(true));
 // ---- storyboard: hovering a timeline shows the frame at that moment, like YouTube (creator, 2026-10-21).
-// Two timelines: the native seek bar on the picture, and the slim bar under it (also click/drag to seek).
+// The timeline is the progress bar on the picture (also click / drag to seek).
 // The sprites are made in the background after a new preview appears; until then only the time shows.
 let SB=null, sbFor='', sbBy='';
 function sbUrl(j,f){return j.base+f+'?k='+encodeURIComponent(j.key)}
@@ -1127,29 +1127,23 @@ function sbShow(t,x,y,x0,x1,by){
   tip.style.left=Math.max(x0,Math.min(x1-w,x-w/2))+'px'; tip.style.top=(y-h-8)+'px';
 }
 function sbHide(by){if(by&&sbBy!==by) return; $('#sbtip').style.display='none'; sbBy=''}
-// the slim bar under the picture
+// the progress bar: press = jump there, drag = scrub (the bar follows the pointer at once, the video seeks at most
+// every 60 ms), release = the exact spot. Pointer capture keeps the drag going off the bar and off the picture.
 (function(){const st=$('#qstrip'); let drag=false, last=0;
   const at=e=>{const r=st.getBoundingClientRect(), v=$('#pvv'); return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*((v&&v.duration)||0)};
   const show=e=>{const v=$('#pvv'); if(!v||!v.duration) return; const W=$('#pvwrap').getBoundingClientRect(), r=st.getBoundingClientRect();
     sbShow(at(e),e.clientX-W.left,r.top-W.top,r.left-W.left,r.right-W.left,'strip')};
-  st.addEventListener('pointermove',e=>{show(e); if(!drag) return; const now=performance.now(); if(now-last<60) return; last=now; $('#pvv').currentTime=at(e)});
+  st.addEventListener('pointermove',e=>{show(e); if(!drag) return; pvScrub=at(e); pcTick();
+    const now=performance.now(); if(now-last<60) return; last=now; $('#pvv').currentTime=pvScrub});
   st.addEventListener('pointerleave',()=>{if(!drag) sbHide('strip')});
   st.addEventListener('pointerdown',e=>{const v=$('#pvv'); if(e.button||!v||!v.duration||e.target.closest('.qm')) return;
-    drag=true; st.classList.add('drag'); st.setPointerCapture(e.pointerId); v.currentTime=at(e); show(e); e.preventDefault()});
+    drag=true; st.classList.add('drag'); st.setPointerCapture(e.pointerId); pvScrub=at(e); v.currentTime=pvScrub; last=performance.now();
+    show(e); pcTick(); e.preventDefault()});
   const end=e=>{if(!drag) return; drag=false; st.classList.remove('drag'); const v=$('#pvv'); if(v&&v.duration) v.currentTime=at(e);
+    pvScrub=null; resumeFollow(); pvPoke();
     const r=st.getBoundingClientRect(); if(e.pointerType!=='mouse'||e.clientY<r.top-4||e.clientY>r.bottom+4) sbHide('strip')};
   st.addEventListener('pointerup',end); st.addEventListener('pointercancel',end);
 })();
-// the native seek bar on the picture: Chrome draws it NB.x px in from both edges, NB.y0–NB.y1 px above the bottom
-const NB={x:16, y0:0, y1:30};
-$('#pv').addEventListener('mousemove',e=>{
-  const v=$('#pvv'); if(!v||e.target!==v||!v.duration||!v.controls){sbHide('native'); return}
-  const r=v.getBoundingClientRect(), dy=r.bottom-e.clientY;
-  if(dy<NB.y0||dy>NB.y1||e.clientX<r.left+NB.x-4||e.clientX>r.right-NB.x+4){sbHide('native'); return}
-  const W=$('#pvwrap').getBoundingClientRect(), t=Math.max(0,Math.min(1,(e.clientX-r.left-NB.x)/(r.width-2*NB.x)))*v.duration;
-  sbShow(t,e.clientX-W.left,r.bottom-NB.y1-W.top,r.left-W.left+4,r.right-W.left-4,'native');
-});
-$('#pv').addEventListener('mouseleave',()=>sbHide('native'));
 document.addEventListener('visibilitychange',()=>{if(document.hidden) savePos(true)});
 function swapPreview(){const v=$('#pvv'); loadPreview(v?{t:v.currentTime,playing:!v.paused&&!v.ended}:null)}
 async function checkNewPreview(){
@@ -1286,7 +1280,7 @@ __QA_JS__
 // ---- questions for the creator, popping up next to the preview at their cut time
 (()=>{
   const pv=()=>document.getElementById('pvv');
-  let QI=[], qDur=0, qW=0;
+  let QI=[], qDur=0;
   function drawMarks(){
     const v=pv(), box=document.getElementById('qmarks'), d=v&&v.duration;
     qDur=d||0; if(!box) return;
@@ -1303,12 +1297,7 @@ __QA_JS__
     markers:it=>{QI=it; drawMarks()},
     onTick:(pos,q)=>{
       document.body.classList.toggle('qactive',!!q);
-      const v=pv(), st=document.getElementById('qstrip');
-      st.classList.toggle('on',!!v);
-      if(!v) return;
-      if((v.duration||0)!==qDur) drawMarks();
-      const w=v.clientWidth; if(w&&w!==qW){qW=w; st.style.width=w+'px'}   // line up under the picture
-      if(qDur&&pos!=null) st.querySelector('.ph').style.left=Math.min(100,pos/qDur*100)+'%';
+      const v=pv(); if(v&&(v.duration||0)!==qDur) drawMarks();   // the bar and its playhead: pcTick
     }
   });
   document.getElementById('qmarks').addEventListener('click',e=>{const m=e.target.closest('.qm'); if(m) api.jump(m.dataset.id)});
