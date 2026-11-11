@@ -123,6 +123,8 @@ def main():
 
 
 ALERTS = ROOT / "sessions" / "ALERTS.md"
+# Comments he already acknowledged with a creator heart (the API can't see hearts); one comment id per line.
+ACKED = ROOT / "sessions" / "ACKED_COMMENTS.md"
 
 
 def alerts(svc):
@@ -152,6 +154,7 @@ def alerts(svc):
                 out.append(f"🔥 {v['snippet']['title'][:30]} — {views} views at {h:.0f} h (channel median {med:.0f}): double down (Shorts, community post)")
             elif views <= 0.5 * med:
                 out.append(f"⚠️ {v['snippet']['title'][:30]} — {views} views at {h:.0f} h (median {med:.0f}): check cover/title")
+    acked = ACKED.read_text() if ACKED.exists() else ""
     for v in sorted(longs, key=age_h)[:10]:
         try:
             th = svc.commentThreads().list(part="snippet,replies", videoId=v["id"], maxResults=50).execute()["items"]
@@ -159,7 +162,7 @@ def alerts(svc):
             continue
         for t in th:
             top = t["snippet"]["topLevelComment"]["snippet"]
-            if top.get("authorChannelId", {}).get("value") == me:
+            if top.get("authorChannelId", {}).get("value") == me or t["id"] in acked:
                 continue
             replied = any(r["snippet"].get("authorChannelId", {}).get("value") == me
                           for r in (t.get("replies") or {}).get("comments", []))
