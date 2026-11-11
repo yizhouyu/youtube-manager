@@ -216,12 +216,44 @@ def _vnum(path):
     return int(m[1]) if m else 0
 
 
-def feed_sim(proj):
-    """Newest feed simulation under thumbnail/ (feed_sim.html or v*/feed_sim_v*.html), relative path."""
-    fs = glob.glob(os.path.join(thumb_dir(proj), "feed_sim*.html")) + glob.glob(os.path.join(thumb_dir(proj), "*", "feed_sim*.html"))
-    if not fs:
+def titles_sim(proj):
+    """标题 tab: the feed simulation of the CHOSEN cover × the current title candidates, rebuilt when either changes.
+    The cover-stage feed_sim*.html pages showed old candidates and a working title (creator 11/11), so they are not used here."""
+    ts = titles(proj)
+    c = next((x for x in covers(proj) if x.get("chosen")), None)
+    img = c and (c.get("img") or c.get("s360"))
+    if not ts or not img:
         return None
-    return os.path.relpath(max(fs, key=os.path.getmtime), thumb_dir(proj))
+    out = os.path.join(thumb_dir(proj), "titles_sim.html")
+    srcs = [os.path.join(thumb_dir(proj), img), os.path.join(thumb_dir(proj), "CHOSEN")] + \
+           glob.glob(os.path.join(edit_dir(proj), "publish_prep", "*"))
+    newest = max((os.path.getmtime(f) for f in srcs if os.path.exists(f)), default=0)
+    key = json.dumps([img, [t["text"] for t in ts]], ensure_ascii=False)
+    try:
+        fresh = os.path.getmtime(out) >= newest and open(out + ".key", encoding="utf-8").read() == key
+    except OSError:
+        fresh = False
+    if not fresh:
+        cmd = [sys.executable, os.path.join(REPO, "scripts", "feed_sim.py"), os.path.join(thumb_dir(proj), img), "--out", out]
+        for t in ts:
+            cmd += ["--title", t["text"]]
+        d = _preview_duration(proj)
+        if d:
+            cmd += ["--duration", f"{int(d // 60)}:{int(d % 60):02d}"]
+        try:
+            subprocess.run(cmd, cwd=REPO, capture_output=True, timeout=60, check=True)
+            open(out + ".key", "w", encoding="utf-8").write(key)
+        except Exception:
+            return None
+    return "titles_sim.html"
+
+
+def _preview_duration(proj):
+    try:
+        with open(os.path.join(edit_dir(proj), "render_status.json"), encoding="utf-8") as f:
+            return float(json.load(f).get("duration") or 0)
+    except Exception:
+        return 0
 
 
 def _cover_files(proj, v, cid):
@@ -676,7 +708,7 @@ def api_open():
         ports, err = {}, str(e)[:200]
     tok = token(proj)
     has_edl = os.path.isfile(os.path.join(edit_dir(proj), "edl.json"))
-    cv, fs = cover_page(proj), feed_sim(proj)
+    cv, fs = cover_page(proj), titles_sim(proj)
     shorts = list_shorts(proj)
     raw, cut = ports.get("raw"), ports.get("cut")
     tabs = {
