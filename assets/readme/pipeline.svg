@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="190" viewBox="0 0 1200 190" font-family="-apple-system, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif">
+  <rect width="1200" height="190" rx="14" fill="#f7f7f8"/>
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa0a6"/></marker>
+  </defs>
+  <g font-size="17" text-anchor="middle">
+    <g transform="translate(20,40)"><rect width="160" height="80" rx="10" fill="#fff" stroke="#d0d4d9"/><text x="80" y="35" font-weight="600" fill="#1d1d1f">Footage</text><text x="80" y="58" font-size="13" fill="#6e6e73">new_project · scan · ASR</text></g>
+    <g transform="translate(216,40)"><rect width="160" height="80" rx="10" fill="#fff" stroke="#d0d4d9"/><text x="80" y="35" font-weight="600" fill="#1d1d1f">Edit + QA</text><text x="80" y="58" font-size="13" fill="#6e6e73">EDL · render · reviewers</text></g>
+    <g transform="translate(412,40)"><rect width="160" height="80" rx="10" fill="#eaf2ff" stroke="#2f6fde"/><text x="80" y="35" font-weight="600" fill="#1f5fcf">审片.app</text><text x="80" y="58" font-size="13" fill="#3b5b8f">creator notes → re-render</text></g>
+    <g transform="translate(608,40)"><rect width="160" height="80" rx="10" fill="#fff" stroke="#d0d4d9"/><text x="80" y="35" font-weight="600" fill="#1d1d1f">Covers + titles</text><text x="80" y="58" font-size="13" fill="#6e6e73">retouch · feed sim · debate</text></g>
+    <g transform="translate(804,40)"><rect width="160" height="80" rx="10" fill="#fff" stroke="#d0d4d9"/><text x="80" y="35" font-weight="600" fill="#1d1d1f">Publish</text><text x="80" y="58" font-size="13" fill="#6e6e73">YouTube · B站 · Shorts</text></g>
+    <g transform="translate(1000,40)"><rect width="180" height="80" rx="10" fill="#fff" stroke="#d0d4d9"/><text x="90" y="35" font-weight="600" fill="#1d1d1f">Follow-ups</text><text x="90" y="58" font-size="13" fill="#6e6e73">audit · pin · alerts</text></g>
+  </g>
+  <g stroke="#9aa0a6" stroke-width="2" marker-end="url(#a)">
+    <line x1="182" y1="80" x2="212" y2="80"/><line x1="378" y1="80" x2="408" y2="80"/><line x1="574" y1="80" x2="604" y2="80"/><line x1="770" y1="80" x2="800" y2="80"/><line x1="966" y1="80" x2="996" y2="80"/>
+  </g>
+  <text x="600" y="160" font-size="13" text-anchor="middle" fill="#8a8a8e">agents do each step · checkpoints C0–C14 / P1–P13 · one heavy job at a time</text>
+</svg>
