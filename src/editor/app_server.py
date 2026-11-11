@@ -873,7 +873,7 @@ html.noside:not(.native) .top{padding-left:52px}
 .cv img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#000}
 .cv.on{border-color:var(--st-pass);box-shadow:0 0 0 3px var(--st-pass-bg)}
 .cv .badge{position:absolute;top:10px;left:10px;background:var(--st-pass);color:#fff;font-size:var(--fs-xs);font-weight:600;padding:3px 10px;border-radius:999px}
-.cv .badge.rec{background:var(--accent);left:auto;right:10px}
+.cv .row .rec{flex:none;background:var(--accent);color:#fff;font-size:var(--fs-xs);font-weight:600;padding:2px 8px;border-radius:999px}
 .cv .row{display:flex;align-items:center;gap:var(--sp-2);padding:10px 12px}
 .cv .row b{flex:1;min-width:0;font-size:var(--fs-sm);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cv .row .more{width:30px;padding:0;font-size:18px;line-height:28px}
@@ -979,9 +979,9 @@ function cand(type,id,html){const P=EP.picks||{},on=type==='short'?(P.short||[])
 function coverGrid(){const g=$('cgrid');if(!g)return;const P=EP.picks||{};
   g.innerHTML=EP.covers.map((c,i)=>{const on=P.cover===c.id;
     // the agent's recommendation is marked on the card itself (creator 11/11: 「要标出哪个是你推荐的」)
-    const rec=/推荐|挑战|A\/B/.test(c.tag||'')?`<span class="badge rec">${esc(/挑战|A\/B/.test(c.tag)?'A/B 备选':'推荐')}</span>`:'';
-    return `<div class="cv${on?' on':''}">${on?'<span class="badge">✓ 已选</span>':''}${rec}${c.img?`<img src="${esc(c.img)}" alt="" data-i="${i}">`:''}
-      <div class="row"><b title="${esc(c.title)}">${esc(c.title)}</b><button class="more" data-i="${i}" title="手机首页 / 侧栏 / B站 和说明">⋯</button>
+    const rec=/推荐|挑战|A\/B/.test(c.tag||'')?`<span class="rec">${esc(/挑战|A\/B/.test(c.tag)?'A/B 备选':'推荐')}</span>`:'';
+    return `<div class="cv${on?' on':''}">${on?'<span class="badge">✓ 已选</span>':''}${c.img?`<img src="${esc(c.img)}" alt="" data-i="${i}">`:''}
+      <div class="row">${rec}<b title="${esc(c.title)}">${esc(c.title)}</b><button class="more" data-i="${i}" title="手机首页 / 侧栏 / B站 和说明">⋯</button>
       <button class="pk" data-t="cover" data-c="${esc(c.id)}" data-u="${on?1:''}">${on?'已选 · 撤销':'选这个'}</button></div></div>`}).join('');
   g.querySelectorAll('.more,img').forEach(b=>b.onclick=()=>coverDetail(EP.covers[+b.dataset.i]));
   g.querySelectorAll('.pk').forEach(b=>b.onclick=()=>doPick(b.dataset.t,b.dataset.c,!!b.dataset.u))}
