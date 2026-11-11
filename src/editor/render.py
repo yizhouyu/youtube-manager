@@ -196,7 +196,7 @@ def _render_card(edl, shot, fps_str, preset, n, dur, ov_dir, vpath):
         chains.append(f"[1:v]format=rgba,fade=t=in:st=0:d=0.3:alpha=1,"
                       f"fade=t=out:st={max(0, td - 0.3):.3f}:d=0.3:alpha=1[tg]")
         chains.append(f"[vc][tg]overlay=0:0:eof_action=pass,format={_pixfmt(preset)}[v]")
-    tmpv = vpath + ".part.mp4"
+    tmpv = f"{vpath}.{os.getpid()}.part.mp4"
     _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
           "-map", "[v]", "-frames:v", str(n), "-an", *_venc(preset), tmpv])
     os.replace(tmpv, vpath)
@@ -606,7 +606,7 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
     # ffmpeg >= 9 copies an input's display matrix to the output when it was decoded with -noautorotate,
     # so players would rotate our already-upright segment again: drop it (a no-op for other inputs)
     chains.append(f"[{last}]sidedata=mode=delete:type=DISPLAYMATRIX[vout]")
-    tmpv = vpath + ".part.mp4"
+    tmpv = f"{vpath}.{os.getpid()}.part.mp4"
     _run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chains),
           "-map", "[vout]", "-frames:v", str(n), "-an", *_venc(preset), tmpv])
     os.replace(tmpv, vpath)
@@ -731,7 +731,7 @@ def render_segment_audio(edl, shot, fps_str, cache):
         at = _HS + int(round(float(fx.get("at", 0)) * SR))
         n = max(0, min(len(y), len(out) - at))
         out[at:at + n] += y[:n]
-    tmpa = apath + ".part.wav"
+    tmpa = f"{apath}.{os.getpid()}.part.wav"
     _write_f32(tmpa, out)
     with open(apath + ".json", "w") as f:
         json.dump({"pre": int(pre), "post": int(post), "body": L, "handle": _HS}, f)
@@ -1002,8 +1002,8 @@ def tts_processed(path, cache_dir):
     if os.path.exists(wav) and os.path.exists(meta):
         with open(meta) as f:
             return wav, json.load(f)["I"]
-    _run(["ffmpeg", "-v", "error", "-y", "-i", path, "-af", TTS_CHAIN, "-c:a", "pcm_f32le", wav + ".part.wav"])
-    os.replace(wav + ".part.wav", wav)
+    _run(["ffmpeg", "-v", "error", "-y", "-i", path, "-af", TTS_CHAIN, "-c:a", "pcm_f32le", f"{wav}.{os.getpid()}.part.wav"])
+    os.replace(f"{wav}.{os.getpid()}.part.wav", wav)
     m = _measure(wav)
     with open(meta, "w") as f:
         json.dump(m, f)
@@ -1352,7 +1352,7 @@ def render(project, mode):
             out = os.path.join(E.project_dir(project), "02 - Export", os.path.basename(E.project_dir(project)) + ".mov")
         else:
             out = os.path.join(edit, "preview.mp4")
-        tmp = out + ".part.mp4"
+        tmp = f"{out}.{os.getpid()}.part.mp4"
         _run(["ffmpeg", "-v", "error", "-y", "-i", f"{work}/voice.wav", "-i", f"{work}/music.wav",
               "-filter_complex", "[0:a][1:a]amix=inputs=2:normalize=0:duration=first", "-c:a", "pcm_f32le",
               f"{work}/mix.wav"])

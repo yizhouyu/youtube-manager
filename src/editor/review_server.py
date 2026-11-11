@@ -193,9 +193,25 @@ def read_status():
             st = {"state": "error", "error": f"渲染器退出码 {rc}\n" + log_tail()}
         elif rc == 0 and st.get("state") == "running":
             st["state"] = "done"
+    if not running and agent_rendering():   # an agent's render of this project: follow its progress
+        running = True
     st["active"] = running
-    st["mode"] = RENDER["mode"]
+    st["mode"] = st.get("mode") or RENDER["mode"]
     return st
+
+
+def agent_rendering():
+    """True while a render started outside this page (the agent, from the shell) is writing render_status.json.
+    Two renders of one project at once raced on the same segment files (124, 11/11)."""
+    proc = RENDER["proc"]
+    if proc is not None and proc.poll() is None:
+        return False
+    try:
+        with open(status_path(), encoding="utf-8") as f:
+            st = json.load(f)
+        return st.get("state") == "running" and time.time() - os.path.getmtime(status_path()) < 300
+    except Exception:
+        return False
 
 
 def log_tail(n=15):
@@ -286,6 +302,8 @@ def api_render():
         return jsonify({"ok": False, "error": "mode 必须是 preview 或 final"}), 400
     if RENDER["proc"] is not None and RENDER["proc"].poll() is None:
         return jsonify({"ok": False, "error": "已有渲染任务在运行"}), 409
+    if mode == "preview" and agent_rendering():   # Claude is already rendering: wait for that one instead
+        return jsonify({"ok": True, "joined": True})
     if not os.path.isfile(os.path.join(REPO, "src", "editor", "render.py")):
         return jsonify({"ok": False, "error": "渲染模块 src/editor/render.py 尚不存在，无法渲染"}), 503
     os.makedirs(edit_dir(), exist_ok=True)
@@ -295,8 +313,9 @@ def api_render():
     log = open(RENDER["log"], "w", encoding="utf-8")
     try:
         RENDER["proc"] = subprocess.Popen(
-            [sys.executable, "-m", "src.editor.render", PROJECT, f"--{mode}"],
-            cwd=REPO, stdout=log, stderr=subprocess.STDOUT)
+            # through the heavy-job lock (PRIO 1: he is waiting), so it never runs alongside an agent render
+            [os.path.join(REPO, "scripts", "render_lock.sh"), sys.executable, "-m", "src.editor.render", PROJECT, f"--{mode}"],
+            cwd=REPO, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, "PRIO": "1"})
     except Exception as e:
         return jsonify({"ok": False, "error": f"无法启动渲染器: {e}"}), 500
     finally:
