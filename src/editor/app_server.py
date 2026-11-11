@@ -221,8 +221,10 @@ def _vnum(path):
 def titles_sim(proj):
     """标题 tab: the feed simulation of the CHOSEN cover × the current title candidates, rebuilt when either changes.
     The cover-stage feed_sim*.html pages showed old candidates and a working title (creator 11/11), so they are not used here."""
-    ts = titles(proj) or [{"id": "-", "text": "（标题待定：审片通过后出候选）"}]   # the tab always shows (creator 11/11)
-    c = next((x for x in covers(proj) if x.get("chosen")), None)
+    ts = titles(proj) or [{"id": "-", "text": "（标题候选还在出）"}]   # the tab always shows (creator 11/11)
+    cs = covers(proj)   # the chosen cover, else the recommended candidate until he picks one
+    c = next((x for x in cs if x.get("chosen")), None) or next((x for x in cs if "推荐" in (x.get("tag") or "")), None) \
+        or (cs[0] if cs else None)
     img = c and (c.get("img") or c.get("s360"))
     if not img:
         return None
