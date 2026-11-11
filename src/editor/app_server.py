@@ -219,10 +219,10 @@ def _vnum(path):
 def titles_sim(proj):
     """标题 tab: the feed simulation of the CHOSEN cover × the current title candidates, rebuilt when either changes.
     The cover-stage feed_sim*.html pages showed old candidates and a working title (creator 11/11), so they are not used here."""
-    ts = titles(proj)
+    ts = titles(proj) or [{"id": "-", "text": "（标题待定：审片通过后出候选）"}]   # the tab always shows (creator 11/11)
     c = next((x for x in covers(proj) if x.get("chosen")), None)
     img = c and (c.get("img") or c.get("s360"))
-    if not ts or not img:
+    if not img:
         return None
     out = os.path.join(thumb_dir(proj), "titles_sim.html")
     srcs = [os.path.join(thumb_dir(proj), img), os.path.join(thumb_dir(proj), "CHOSEN")] + \
@@ -935,10 +935,10 @@ function showEp(j){EP=j;cur=null;ACTS={};TIME={};acts();
   document.title='审片 · '+j.name;const num=/^\d+$/.test(j.label)?j.label:'';
   $('ttl').innerHTML=(num?`<i>${esc(num)}</i>`:'')+`<b>${esc(num?j.name.replace(/^\d+ - /,''):j.name)}</b>`+(j.ro?'<span class="chip ro" title="这个文件夹不会被写入">只读</span>':'');document.body.classList.toggle('ro',!!j.ro);
   $('note').textContent=(j.notes||[]).join(' ');$('note').style.display=j.notes&&j.notes.length?'block':'none';
-  const has={cover:j.tabs.cover||j.covers.length,raw:j.tabs.raw,cut:j.tabs.cut,shorts:j.tabs.shorts,titles:j.tabs.titles||j.titles.length};
+  const has={cover:j.tabs.cover||j.covers.length,raw:j.tabs.raw,cut:j.tabs.cut,shorts:j.tabs.shorts,titles:true};
   $('tabs').innerHTML=TABS.map(([k,n],i)=>has[k]?`<button data-k="${k}" title="⌘${i+1}">${n}</button>`:'').join('');
   $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>tab(b.dataset.k));
-  $('views').innerHTML=TABS.map(([k])=>has[k]?`<div class="view" id="v-${k}">${k==='cover'&&j.covers.length?'<div class="cgrid" id="cgrid"></div>':j.tabs[k]?`<iframe data-src="${esc(j.tabs[k])}" allow="fullscreen; autoplay"></iframe>`:'<div class="empty">这一期还没有这个页面，下面可以直接选</div>'}${k==='shorts'?'':`<div class="strip" id="s-${k}"></div>`}</div>`:'').join('')
+  $('views').innerHTML=TABS.map(([k])=>has[k]?`<div class="view" id="v-${k}">${k==='cover'&&j.covers.length?'<div class="cgrid" id="cgrid"></div>':j.tabs[k]?`<iframe data-src="${esc(j.tabs[k])}" allow="fullscreen; autoplay"></iframe>`:'<div class="empty">${k==='titles'?'还没选封面，选好后这里会把封面和候选标题放进首页里比较':'这一期还没有这个页面，下面可以直接选'}</div>'}${k==='shorts'?'':`<div class="strip" id="s-${k}"></div>`}</div>`:'').join('')
     +'<div class="view" id="v-none"><div class="empty">这一期没有能打开的页面</div></div>';
   strips();list();
   // once there is a preview the work is reviewing the cut, so open on 成片 (creator 11/11); before that, 素材
