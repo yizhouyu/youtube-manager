@@ -1023,6 +1023,10 @@ def _shutdown(*_):
 
 
 def main():
+    # Launched from Finder/Dock the PATH is /usr/bin:/bin only: renders need ffmpeg/ffprobe from Homebrew (creator 11/11:
+    # 「生成预览失败：No such file or directory: 'ffprobe'」). The episode servers and renders inherit this.
+    path = os.environ.get("PATH", "").split(os.pathsep)
+    os.environ["PATH"] = os.pathsep.join([d for d in ("/opt/homebrew/bin", "/usr/local/bin") if d not in path] + path)
     ap = argparse.ArgumentParser(description="Backend of the 审片 Mac app")
     ap.add_argument("--port", type=int, default=0, help="0 = any free port")
     ap.add_argument("--port-file", help="write the chosen port here (the Swift app reads it)")

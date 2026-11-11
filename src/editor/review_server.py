@@ -323,7 +323,13 @@ def preview():
 def api_preview_latest():
     vdir = os.path.join(edit_dir(), "previews")
     names = sorted(f for f in os.listdir(vdir) if f.startswith("preview-")) if os.path.isdir(vdir) else []
-    return jsonify({"name": names[-1] if names else None})
+    # stale = the EDL was saved after the newest preview, so 更新预览 has to render (else it only reloads)
+    pv = os.path.join(vdir, names[-1]) if names else os.path.join(edit_dir(), "preview.mp4")
+    try:
+        stale = os.stat(E.edl_path(PROJECT)).st_mtime > os.path.getmtime(pv)
+    except OSError:
+        stale = True
+    return jsonify({"name": names[-1] if names else None, "stale": stale})
 
 
 @app.get("/previews/<name>")
@@ -439,6 +445,9 @@ body.dirty #bSave kbd{color:var(--accent);border-color:var(--accent-line)}
 #pv{background:var(--stage);border-radius:var(--r-lg);overflow:hidden;aspect-ratio:var(--ar);width:100%;position:relative;box-shadow:var(--sh-1);user-select:none}
 #pvmedia{position:absolute;inset:0;display:flex;justify-content:center;align-items:center}
 #pvmedia video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;cursor:pointer}
+#pvtoast{position:fixed;left:50%;top:64px;transform:translate(-50%,-8px);z-index:3000;padding:8px 16px;border-radius:999px;background:rgba(20,20,22,.86);
+  color:#fff;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+#pvtoast.on{opacity:1;transform:translate(-50%,0)}
 #pvnew{display:none;position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:4;border:0;border-radius:999px;padding:6px 14px;font-size:13px;
   background:var(--accent);color:#fff;box-shadow:var(--sh-2);cursor:pointer;white-space:nowrap}
 .bigplay{position:absolute;left:50%;top:50%;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);
@@ -647,7 +656,7 @@ __QA_CSS__
    <button id="bSave" class="ghost" title="保存（⌘S）">保存<kbd>⌘S</kbd></button>
    <button id="bFinal" class="ghost" title="用现在的剪辑导出 4K 成片（要点两次确认）">导出成片</button>
    <span class="vs"></span>
-   <button id="bPrev" class="pri" title="保存并重新生成上面的预览">更新预览</button>
+   <button id="bPrev" class="pri" title="有新改动就保存并重新生成预览；没有改动就载入最新的预览">更新预览</button>
   </div>
  </div>
  <div id="errbox"></div>
@@ -1259,7 +1268,17 @@ function setBusy(b){$('#bPrev').disabled=b; $('#bFinal').disabled=b}
 function disarmFinal(){clearTimeout(finalArmed); finalArmed=null; const b=$('#bFinal'); b.textContent='导出成片'; b.classList.remove('danger')}
 document.addEventListener('mouseup',e=>{const b=e.target.closest&&e.target.closest('button'); if(b) setTimeout(()=>b.blur(),0)});
 $('#bSave').onclick=save;
-$('#bPrev').onclick=()=>startRender('preview');
+// 更新预览 (creator 11/11: 「更新预览的时候我可能不是为了要你重新生成，而是为了 reload 这个预览」): unsaved edits or an
+// EDL newer than the newest preview -> render; otherwise just load the newest preview, keeping the position
+$('#bPrev').onclick=async()=>{
+  if(dirty){startRender('preview');return}
+  let j=null; try{j=await (await fetch('/api/preview_latest')).json()}catch(e){}
+  if(!j||j.stale){startRender('preview');return}
+  const fresh=j.name&&j.name!==PVNAME; swapPreview();
+  pvToast(fresh?'已换成最新的预览（从当前位置继续）':'预览已是最新，重新载入了');
+};
+function pvToast(t){let e=$('#pvtoast');if(!e){e=document.createElement('div');e.id='pvtoast';document.body.appendChild(e)}
+  e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2200)}
 $('#bFinal').onclick=()=>{
   const b=$('#bFinal');
   if(!finalArmed){b.textContent='再点一次确认'; b.classList.add('danger'); finalArmed=setTimeout(disarmFinal,4000); return}
