@@ -311,6 +311,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         web.evaluateJavaScript("window.shell&&shell.toggleSide&&shell.toggleSide()")
     }
 
+    @objc func toggleRail(_ sender: Any?) {   // the chat rail lives in the episode pages (chat.py)
+        web.evaluateJavaScript("window.shell&&shell.rail&&shell.rail()")
+    }
+
     @objc func switchTab(_ sender: NSMenuItem) {
         web.evaluateJavaScript("window.shell&&shell.tab(\(sender.tag))")
     }
@@ -346,7 +350,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             let it = item(t, #selector(switchTab(_:)), "\(i + 1)"); it.tag = i + 1; it.target = self; return it
         }
         let side = item("显示 / 隐藏边栏", #selector(toggleSidebar(_:)), "s", [.command, .control]); side.target = self
-        sub("显示", tabs + [.separator(), side, item("进入全屏幕", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control])])
+        let rail = item("显示 / 隐藏右边栏", #selector(toggleRail(_:)), "s", [.command, .option]); rail.target = self
+        sub("显示", tabs + [.separator(), side, rail, item("进入全屏幕", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control])])
         sub("窗口", [item("最小化", #selector(NSWindow.performMiniaturize(_:)), "m"), item("关闭", #selector(NSWindow.performClose(_:)), "w")])
         NSApp.mainMenu = main
     }

@@ -333,6 +333,14 @@ WIDGET = r"""
   font:15px/1.6 var(--font);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 #cb.float{position:fixed;right:16px;bottom:16px;width:340px;height:420px;max-width:calc(100vw - 32px);z-index:9999;box-shadow:var(--sh-2)}
 #cb.docked{height:100%}
+/* hide the whole right rail (creator 11/10): button in the chat header, ⌥⌘S (app menu), restore tab on the right edge */
+[data-fsroot].norail:not(.fs){grid-template-columns:minmax(0,1fr)!important}
+[data-fsroot].norail:not(.fs) [data-fsrail]{display:none!important}
+#cbRail{display:none;position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:9998;width:26px;height:64px;padding:0;border:1px solid var(--line);
+  border-right:0;border-radius:10px 0 0 10px;background:var(--surface);color:var(--text-2);box-shadow:var(--sh-2);cursor:pointer;place-items:center}
+html.norail #cbRail{display:grid}
+html.norail:has([data-fsroot].fs) #cbRail{display:none}
+#cb:not(.docked) #cbHide{display:none}
 #cb.min{height:auto}
 #cb.min #cbBody{display:none}
 #cbHead{display:flex;align-items:center;gap:8px;padding:9px 8px 9px 12px;cursor:pointer;user-select:none;flex:none;
@@ -349,7 +357,7 @@ WIDGET = r"""
 #cbStat.on{background:var(--ok-soft);color:var(--ok)}
 #cbStat.on i{background:var(--used);box-shadow:0 0 0 3px rgba(34,197,94,.18)}
 #cbHint.off{color:var(--text-2)}
-#cbTog{border:0;background:transparent;color:var(--text-3);width:26px;height:26px;padding:0;border-radius:7px;display:grid;place-items:center}
+#cbTog,#cbHide{border:0;background:transparent;color:var(--text-3);width:26px;height:26px;padding:0;border-radius:7px;display:grid;place-items:center}
 #cbTog:hover{background:var(--surface-3);color:var(--text)}
 #cbTog svg{transition:transform .15s}
 #cb.min #cbTog svg{transform:rotate(180deg)}
@@ -470,6 +478,7 @@ WIDGET = r"""
  <div id="cbHead" title="收起 / 展开">
   <span class="ic"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M2.5 3.5h11v7.5H7l-3 2.5V11H2.5z"/></svg></span>
   <b>和 Agent 聊</b><span id="cbDot"></span><span id="cbStat"><i></i><span></span></span><span class="sp"></span>
+  <button id="cbHide" type="button" tabindex="-1" title="隐藏右边栏（⌥⌘S）" aria-label="隐藏右边栏"><svg width="15" height="13" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x=".75" y=".75" width="16.5" height="12.5" rx="2.6"/><path d="M11.8 1v12"/></svg></button>
   <button id="cbTog" type="button" tabindex="-1" aria-label="收起/展开"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg></button>
  </div>
  <div id="cbBody"><div id="cbList" class="scroll"><div id="cbEmpty">还没有消息。边看边写意见，Agent 会在这里回复。</div></div>
@@ -480,6 +489,7 @@ WIDGET = r"""
     <button id="cbSend" type="submit" class="pri" title="连同待交的评论一起交给 Agent">交给 Agent<span class="n"></span></button></div></form>
   <div id="cbHint"></div></div>
 </section>
+<button id="cbRail" type="button" title="显示右边栏（⌥⌘S）" aria-label="显示右边栏"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 3L5 8l5 5"/></svg></button>
 <script>
 (function(){
   const PAGE='__CHAT_PAGE__', box=document.getElementById('cb'), list=document.getElementById('cbList'),
@@ -493,6 +503,14 @@ WIDGET = r"""
   new ResizeObserver(()=>{if(pinned)list.scrollTop=list.scrollHeight}).observe(list);
   const setMin=m=>{box.classList.toggle('min',m);if(dock)dock.classList.toggle('min',m);if(!m){dot.style.display='none';list.scrollTop=list.scrollHeight}};
   try{if(localStorage.getItem('cb_min')==='1')setMin(true)}catch(e){}
+  const root=document.querySelector('[data-fsroot]');
+  const setRail=on=>{if(!root)return;root.classList.toggle('norail',!on);document.documentElement.classList.toggle('norail',!on);try{localStorage.setItem('cb_norail',on?'0':'1')}catch(e){}};
+  const toggleRail=()=>setRail(!!root&&root.classList.contains('norail'));
+  try{if(localStorage.getItem('cb_norail')==='1')setRail(false)}catch(e){}
+  document.getElementById('cbHide').onclick=e=>{e.stopPropagation();setRail(false)};
+  document.getElementById('cbRail').onclick=()=>setRail(true);
+  document.addEventListener('keydown',e=>{if(e.metaKey&&e.altKey&&e.code==='KeyS'){e.preventDefault();toggleRail()}});
+  window.addEventListener('message',e=>{if(e.data&&e.data.shenpian==='rail')toggleRail()});   // 审片.app menu 显示 → 右边栏
   document.getElementById('cbHead').onclick=()=>{setMin(!box.classList.contains('min'));
     try{localStorage.setItem('cb_min',box.classList.contains('min')?'1':'0')}catch(e){}};
   const where0=c=>!c?'':c.short?`Short ${c.short} @ ${(+c.short_t||0).toFixed(1)}s`:c.clip?`原片 ${c.clip} @ ${(+c.clip_t||0).toFixed(1)}s`:(c.cut_t!=null?`成片 ${Math.floor(c.cut_t/60)}:${(c.cut_t%60).toFixed(1).padStart(4,'0')}`:'');

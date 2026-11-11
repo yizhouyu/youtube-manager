@@ -919,7 +919,7 @@ const toggleSide=()=>setSide(document.documentElement.classList.contains('noside
 $('sidetg').onclick=toggleSide;
 document.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='s'&&e.metaKey&&e.ctrlKey){e.preventDefault();toggleSide()}});
 try{if(localStorage.getItem('shenpian.side')==='0')setSide(false)}catch(e){}
-window.shell={toggleSide,tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),dirty:dirtyPages,agent:agentOpen};   // dirty: the Swift app asks before quitting
+window.shell={toggleSide,rail:()=>{const f=cur&&frameOf(cur);if(f&&f.contentWindow)f.contentWindow.postMessage({shenpian:'rail'},'*')},tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),dirty:dirtyPages,agent:agentOpen};   // dirty: the Swift app asks before quitting
 // 选这个 / 已选 · 撤销 (Q9): one APPROVALS.md line per click
 function cand(type,id,html){const P=EP.picks||{},on=type==='short'?(P.short||[]).includes(id):P[type]===id;
   return `<div class="cand${on?' on':''}">${html}<button data-t="${type}" data-c="${esc(id)}" data-u="${on?1:''}">${on?'已选 · 撤销':'选这个'}</button></div>`}
