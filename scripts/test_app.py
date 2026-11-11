@@ -180,6 +180,44 @@ with tempfile.TemporaryDirectory() as tmp:
     assert not [r for r in A.app.url_map.iter_rules() if "/api/app/" in r.rule and "POST" in r.methods and r.rule != "/api/app/state"], \
         "the agent interface has no write routes"
 
+    # scripts/shenpian open: cold start (foreground or --background) puts the episode in the app's environment
+    # instead of sending a URL into a starting app (that URL got lost: 2026-11-10); a running app gets the URL
+    import importlib.machinery
+    import types
+    SP = types.ModuleType("shenpian_cli")
+    SP.__file__ = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shenpian")
+    importlib.machinery.SourceFileLoader("shenpian_cli", os.path.join(os.path.dirname(__file__), "shenpian")).exec_module(SP)
+    calls, running = [], {"on": False}
+    target = {"running": True, "project": os.path.realpath(proj), "tab": "cut", "t": 83.5, "error": None}
+    SP.server = lambda: {"pid": 1, "port": 1, "app_pid": 1} if running["on"] else None
+    SP.state = lambda: target
+    SP.app_bundle = lambda: "/Apps/审片.app"
+    SP.subprocess = types.SimpleNamespace(run=lambda args, **k: calls.append(("run", args, None)),
+                                          Popen=lambda args, env=None, **k: calls.append(("popen", args, env)), DEVNULL=None)
+    SP.time = types.SimpleNamespace(time=time.time, sleep=lambda s: None)
+    def cli_open(*argv):
+        calls.clear()
+        try:
+            SP.cmd_open(types.SimpleNamespace(**dict(dict(ep=proj, tab="cut", t=83.5, clip=None, background=False, wait=5), **dict(argv))))
+        except SystemExit as e:
+            assert not e.code, e.code
+        return calls[0]
+    import contextlib
+    import io
+    with contextlib.redirect_stdout(io.StringIO()):
+        kind, args, _ = cli_open()                                 # cold, foreground: open -a <app> --env ...
+        assert kind == "run" and args[:3] == ["open", "-a", "/Apps/审片.app"] and not any("://" in x for x in args), args
+        assert "SHENPIAN_OPEN=" + os.path.realpath(proj) in args and "SHENPIAN_TAB=cut" in args and "SHENPIAN_T=83.5" in args
+        kind, args, env = cli_open(("background", True))           # cold, background: the app itself, off-focus
+        assert kind == "popen" and args[0].endswith("Contents/MacOS/Shenpian") and env["SHENPIAN_BACKGROUND"] == "1"
+        assert env["SHENPIAN_OPEN"] == os.path.realpath(proj) and env["SHENPIAN_TAB"] == "cut" and env["SHENPIAN_T"] == "83.5"
+        running["on"] = True                                        # running: the URL (open -g when --background)
+        kind, args, _ = cli_open(("background", True))
+        assert args[:2] == ["open", "-g"] and args[2].startswith("shenpian://open?path=") and "tab=cut" in args[2] and "bg=1" in args[2]
+        kind, args, _ = cli_open()
+        assert args[0] == "open" and args[1].startswith("shenpian://open?") and "t=83.5" in args[1]
+        assert A.parse_agent_url(args[1])["path"] == os.path.realpath(proj), "the CLI's URL means what it says"
+
     # ports: never the live review ports, remembered per project
     p1 = A.pick_port(proj, "raw")
     assert p1 in A.port_range() and not 8748 <= p1 <= 8755

@@ -45,6 +45,11 @@ writes `~/Library/Application Support/审片/server.json` (its port, the app pid
 `--background`: if the app isn't running it starts under all his windows (`SHENPIAN_BACKGROUND=1`: no focus, no
 clicks, keeps rendering so screenshots work); if it is running the URL goes with `open -g` and the app stays where it
 is. A later open without `--background` brings the window forward as a normal window.
+When the app isn't running, `open` starts it with the episode in its environment (`SHENPIAN_OPEN/TAB/T/CLIP`; foreground
+via `open -a … --env`) rather than sending a URL into a starting app. app.log gets an `[app …]` line per agent URL.
+Tests against a separate copy: `SHENPIAN_APP=<copy.app> SHENPIAN_SCHEME=<its scheme> SHENPIAN_STATE=<dir>/ports.json
+SHENPIAN_LOGS=<dir> SHENPIAN_PORTS=9200-9299`; start copies directly (an unsigned rebuild opened by Launch Services
+asks him again for Desktop access).
 
 ## Sidebar
 

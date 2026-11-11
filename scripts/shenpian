@@ -24,7 +24,8 @@ import urllib.parse
 import urllib.request
 
 HOME = os.path.expanduser("~")
-APPS = [os.path.join(HOME, "Applications", "审片.app"),
+SCHEME = os.environ.get("SHENPIAN_SCHEME") or "shenpian"   # tests: a separate test copy with its own scheme
+APPS = ([os.environ["SHENPIAN_APP"]] if os.environ.get("SHENPIAN_APP") else []) + [os.path.join(HOME, "Applications", "审片.app"),
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app", "build", "审片.app")]
 TABS = ("cover", "raw", "cut", "shorts", "titles")
 
@@ -94,14 +95,21 @@ def cmd_open(a):
         q["clip"] = a.clip
     if a.background:
         q["bg"] = "1"
-    url = "shenpian://open?" + urllib.parse.urlencode(q, quote_via=urllib.parse.quote)
-    if not server() and a.background:   # start it off screen: no Dock bounce into the foreground, no focus
-        env = dict(os.environ, SHENPIAN_BACKGROUND="1", SHENPIAN_OPEN=path, SHENPIAN_TAB=a.tab or "",
-                   SHENPIAN_T="" if a.t is None else str(a.t))
-        subprocess.Popen([os.path.join(app_bundle(), "Contents", "MacOS", "Shenpian")], env=env, start_new_session=True,
-                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    else:
+    url = SCHEME + "://open?" + urllib.parse.urlencode(q, quote_via=urllib.parse.quote)
+    # Not running: start it with the episode in its environment (the page opens it as soon as it loads) instead of
+    # sending a URL into a starting app. Running: the URL goes to it (`open -g` keeps it where it is).
+    start = {"SHENPIAN_OPEN": path, "SHENPIAN_TAB": a.tab or "", "SHENPIAN_T": "" if a.t is None else str(a.t),
+             "SHENPIAN_CLIP": a.clip or ""}
+    if server():
         subprocess.run(["open"] + (["-g"] if a.background else []) + [url], check=True)
+    elif a.background:   # under all his windows, no focus; started by us, so no new privacy prompt for the app
+        subprocess.Popen([os.path.join(app_bundle(), "Contents", "MacOS", "Shenpian")],
+                         env=dict(os.environ, SHENPIAN_BACKGROUND="1", **start), start_new_session=True,
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:                # like opening it from the Dock, with the episode to show
+        keep = {k: v for k, v in os.environ.items() if k in ("SHENPIAN_STATE", "SHENPIAN_LOGS", "SHENPIAN_PORTS", "SHENPIAN_ROOT")}
+        env = [x for k, v in dict(keep, **start).items() for x in ("--env", f"{k}={v}")]
+        subprocess.run(["open", "-a", app_bundle()] + env, check=True)
     deadline, shown_at, st = time.time() + a.wait, None, {}
     while time.time() < deadline:   # until the shell shows it (and, with --t, the playhead got there: up to 10 s more)
         time.sleep(0.5)
@@ -138,7 +146,7 @@ def cmd_quit(_):
         return
     if st.get("dirty"):
         sys.exit("not quitting: 成片 has unsaved edits (he has to save or discard them himself)")
-    subprocess.run(["open", "-g", "shenpian://quit"], check=False)
+    subprocess.run(["open", "-g", SCHEME + "://quit"], check=False)
     for _ in range(40):
         time.sleep(0.25)
         if not alive(s["app_pid"]):

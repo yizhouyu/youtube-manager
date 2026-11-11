@@ -19,7 +19,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     var web: WKWebView!
     var server: Process?
     let portFile = NSTemporaryDirectory() + "shenpian-\(getpid()).port"
-    let logDir = NSHomeDirectory() + "/Library/Logs/审片"
+    let logDir = ProcessInfo.processInfo.environment["SHENPIAN_LOGS"] ?? NSHomeDirectory() + "/Library/Logs/审片"
+
+    /// One line in app.log (agent URLs: received / queued / handed to the page).
+    func note(_ s: String) {
+        let line = "[app \(ISO8601DateFormatter().string(from: Date()))] \(s)\n"
+        if let h = FileHandle(forWritingAtPath: logDir + "/app.log") { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); h.closeFile() }
+    }
 
     /// Repo + python: $SHENPIAN_REPO, else Info.plist ShenpianRepo (set by build.sh), else ~/Desktop/youtube-manager.
     var repo: String {
@@ -155,9 +161,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     func startServer() {
         try? FileManager.default.createDirectory(atPath: logDir, withIntermediateDirectories: true)
         let logPath = logDir + "/app.log"
-        if !FileManager.default.fileExists(atPath: logPath) { FileManager.default.createFile(atPath: logPath, contents: nil) }
-        let log = FileHandle(forWritingAtPath: logPath)
-        log?.seekToEndOfFile()
+        let fd = open(logPath, O_WRONLY | O_APPEND | O_CREAT, 0o644)   // append mode: the app's own notes interleave safely
+        let log: FileHandle? = fd >= 0 ? FileHandle(fileDescriptor: fd, closeOnDealloc: true) : nil
         try? FileManager.default.removeItem(atPath: portFile)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: python)
@@ -177,7 +182,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             let env = ProcessInfo.processInfo.environment   // SHENPIAN_OPEN=<project> [SHENPIAN_TAB=cut]: open straight into it
             if let open = env["SHENPIAN_OPEN"] {
                 u.queryItems = [URLQueryItem(name: "open", value: open), URLQueryItem(name: "tab", value: env["SHENPIAN_TAB"] ?? ""),
-                                URLQueryItem(name: "t", value: env["SHENPIAN_T"] ?? "")]
+                                URLQueryItem(name: "t", value: env["SHENPIAN_T"] ?? ""), URLQueryItem(name: "clip", value: env["SHENPIAN_CLIP"] ?? "")]
             }
             web.load(URLRequest(url: u.url!))
             return
@@ -195,8 +200,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
 
     // MARK: agent control (shenpian:// URLs, see scripts/shenpian): open / tab / seek / quit, nothing that writes
 
+    /// The schemes this build answers to (Info.plist): shenpian, or a test copy's own.
+    lazy var schemes: [String] = ((Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]]) ?? [])
+        .flatMap { ($0["CFBundleURLSchemes"] as? [String]) ?? [] }
+
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls where url.scheme == "shenpian" {
+        for var url in urls where schemes.contains(url.scheme ?? "") || url.scheme == "shenpian" {
+            note("agent url \(url.absoluteString) (window \(window == nil ? "not built yet" : "ready"), page \(shellReady ? "ready" : "loading"))")
+            if url.scheme != "shenpian", var c = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+                c.scheme = "shenpian"; url = c.url ?? url   // a test copy's own scheme: same meaning
+            }
             let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
             if url.host == "quit" { agentQuit(); continue }
             if q.first(where: { $0.name == "bg" })?.value != "1" { comeForward() }
@@ -205,12 +218,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         flushURLs()
     }
 
-    /// The shell page opens the episode (app_server.parse_agent_url decides what the URL may do).
+    /// The shell page opens the episode (app_server.parse_agent_url decides what the URL may do). A URL that comes
+    /// while the app is still starting waits until the page itself says it can take it (not only for didFinish).
+    var flushTries = 0
     func flushURLs() {
-        guard shellReady, web != nil else { return }
+        guard !pendingURLs.isEmpty, web != nil else { return }
+        web.evaluateJavaScript("!!(window.shell&&shell.agent)") { r, _ in
+            guard (r as? Bool) == true else {
+                self.flushTries += 1
+                if self.flushTries < 240 { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.flushURLs() } }
+                else { self.note("agent url dropped: the page never became ready") }
+                return
+            }
+            self.flushTries = 0
+            self.handURLs()
+        }
+    }
+
+    func handURLs() {
         for u in pendingURLs {
             guard let d = try? JSONSerialization.data(withJSONObject: [u]), let arr = String(data: d, encoding: .utf8) else { continue }
-            web.evaluateJavaScript("window.shell&&shell.agent(\(arr)[0])")
+            note("agent url handed to the page: \(u)")
+            web.evaluateJavaScript("window.shell&&void shell.agent(\(arr)[0])") { _, e in if let e = e { self.note("agent url failed in the page: \(e)") } }
         }
         pendingURLs.removeAll()
     }
@@ -221,6 +250,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
 
     /// From background mode to a normal window he can use.
     func comeForward() {
+        guard window != nil else { DispatchQueue.main.async { self.comeForward() }; return }   // URL before the window exists
         if background {
             background = false
             window.ignoresMouseEvents = false
