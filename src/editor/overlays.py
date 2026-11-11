@@ -5,6 +5,7 @@ size of the output frame and composited with the `overlay` filter.
 """
 import hashlib
 import os
+import re
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 # Bump when the look of any overlay changes: invalidates cached PNGs and rendered segments.
@@ -427,7 +428,7 @@ def _note_glass(text, w, h, pos, blur_bg=None):
 # under it is blurred through the same feathered mask (render.py: crop -> gblur -> alphamerge). The year
 # (1908年 / 1990年代 / 100年前) or the label before 「：」 is champagne; a label gets a champagne hairline
 # separator: 「广播 │ 不要停留，不要拍照」. Serif notes vs the sans speech captions = editor's voice vs his voice.
-TITLE_VERSION = 1       # bump when the title-note / title-tag look changes (part of the segment cache key)
+TITLE_VERSION = 3       # bump when the title-note / title-tag look changes (part of the segment cache key)
 TITLE_NOTE = {"size": 0.052, "track": 0.04, "grow": 0.0009, "top": 0.062, "max_w": 0.80, "lead": 1.42,
               "fg": (255, 251, 244), "accent": (244, 216, 164), "hair": (236, 206, 150),
               "sep_w": 1.0, "sep_h": 0.70, "hair_w": 0.0022,
@@ -608,7 +609,8 @@ def _place_tag_title(text, w, h, pos="tl"):
     tr = 0.06 * f.size
     d = ImageDraw.Draw(Image.new("L", (8, 8)))
     tw = sum(d.textlength(c, font=f) for c in text) + tr * max(0, len(text) - 1)
-    rule, gap = 0.030 * u, 0.42 * f.size
+    pin = _pin_img("⏰" if is_time_tag(text) else "📍", f.size)   # times ⏰, places 📍, no rule (creator 11/11)
+    rule, gap = (pin.width, 0.30 * f.size) if pin else (0.030 * u, 0.42 * f.size)
     x = int(w * V_LEFT) if v else int(w * 0.04)
     y = int(h * V_TOP) if v else int(h * 0.05)
     if pos == "tr":
@@ -619,7 +621,8 @@ def _place_tag_title(text, w, h, pos="tl"):
     deco = Image.new("L", (w, h), 0)
     my = y + (asc[1] + asc[3]) / 2
     t = max(2, round(0.0026 * u))
-    ImageDraw.Draw(deco).rectangle([x, my - t / 2, x + rule, my + t / 2], fill=255)
+    if not pin:
+        ImageDraw.Draw(deco).rectangle([x, my - t / 2, x + rule, my + t / 2], fill=255)
     tx = x + rule + gap
     dm, dc = ImageDraw.Draw(mask), ImageDraw.Draw(colr)
     for ch in text:
@@ -633,7 +636,31 @@ def _place_tag_title(text, w, h, pos="tl"):
     ImageDraw.Draw(scrim).rounded_rectangle([x - 0.04 * u, gb[1] - 0.026 * u, gb[2] + 0.04 * u, gb[3] + 0.026 * u],
                                             radius=0.04 * u, fill=255)
     scrim = scrim.filter(ImageFilter.GaussianBlur(0.030 * u))
-    return _ink_layers(mask, deco, colr, u, k, S, scrim, 0.42)
+    out = _ink_layers(mask, deco, colr, u, k, S, scrim, 0.42)
+    if pin:
+        out.alpha_composite(pin, (x, int(my - pin.height / 2)))
+    return out
+
+
+_TIME_TAG = re.compile(r"^(清晨|早上|上午|中午|下午|傍晚|晚上|深夜|凌晨)|\d+点|\d+:\d\d")
+
+
+def is_time_tag(text):
+    """Clock-time tags (晚上8点多, 6点半 · …) vs place tags (外滩·中央)."""
+    return bool(_TIME_TAG.search(text))
+
+
+EMOJI_FONT = "/System/Library/Fonts/Apple Color Emoji.ttc"
+
+
+def _pin_img(ch, size):
+    """A colour emoji (📍/⏰) in Apple Color Emoji (renders only at 160 px), scaled to sit like a CJK glyph of `size`."""
+    ef = ImageFont.truetype(EMOJI_FONT, 160)
+    im = Image.new("RGBA", (240, 240), (0, 0, 0, 0))
+    ImageDraw.Draw(im).text((40, 40), ch, font=ef, embedded_color=True)
+    im = im.crop(im.getbbox())
+    k = 1.0 * size / im.height
+    return im.resize((max(1, int(im.width * k)), max(1, int(im.height * k))), Image.LANCZOS)
 
 
 NOTE_STYLES = ("yellow", "paper", "glass", "title")

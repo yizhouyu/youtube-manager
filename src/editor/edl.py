@@ -76,7 +76,7 @@ The agent writes it, the review page edits it, the renderer reads it. Plain JSON
                                                # "tag_dur": seconds shown (default 3)
       "subs": [{"t0": 0.96, "t1": 4.4, "text": "..."}],                     # SOURCE-clip seconds;
                                                # "kind": "note" = editor's caption on a silent shot
-      "broll": [{"clip": "GX0001", "in": 2.0, "at": 5.0, "dur": 3.0, "grade": "default"}],
+      "broll": [{"clip": "GX0001", "in": 2.0, "at": 5.0, "dur": 3.0, "grade": "default"}],   # optional "speed" <1 = slow-mo
                                                # cut the picture away at shot-local `at` s for
                                                # `dur` s while this shot's audio keeps playing
       "skip": [[3.1, 3.7]], "skip_on": true,   # source spans jump-cut out (pauses / 嗯啊);

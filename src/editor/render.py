@@ -464,18 +464,19 @@ def render_segment_video(edl, shot, fps_str, preset, cache, clean=False):
         bd = min(b["dur"], dur - at)
         if bd <= 0.1:
             continue
+        bk = float(b.get("speed", 1.0) or 1.0)   # <1 = gentle slow motion to stretch a short clean take
         k = inputs.count("-i")  # index of the input appended below
-        inputs += [*E.input_args(edl, b["clip"]), "-ss", f"{b['in']:.3f}", "-t", f"{bd + 0.2:.3f}", "-i",
+        inputs += [*E.input_args(edl, b["clip"]), "-ss", f"{b['in']:.3f}", "-t", f"{bd * bk + 0.2:.3f}", "-i",
                    E.clip_path(edl, b["clip"])]
         bvf = [_fill_scale(edl, w, h), f"fps={fps_str}"]
         if grades.get(b.get("grade", "default")):
             bvf.append(grades[b.get("grade", "default")])
         bfit = E.fit_of(edl, b)
         if bfit:
-            chains += _fit_chains(bfit, f"[{k}:v]trim=0:{bd:.3f},setpts=PTS-STARTPTS+{at:.3f}/TB,", f"[b{k}]", w, h,
+            chains += _fit_chains(bfit, f"[{k}:v]trim=0:{bd * bk:.3f},setpts=(PTS-STARTPTS)/{bk:.4f}+{at:.3f}/TB,", f"[b{k}]", w, h,
                                   f"{','.join(bvf[1:])},format={_pixfmt(preset)}")
         else:
-            chains.append(f"[{k}:v]trim=0:{bd:.3f},setpts=PTS-STARTPTS+{at:.3f}/TB,{','.join(bvf)},format={_pixfmt(preset)}[b{k}]")
+            chains.append(f"[{k}:v]trim=0:{bd * bk:.3f},setpts=(PTS-STARTPTS)/{bk:.4f}+{at:.3f}/TB,{','.join(bvf)},format={_pixfmt(preset)}[b{k}]")
         chains.append(f"[{last}][b{k}]overlay=0:0:eof_action=pass:enable='between(t,{at:.3f},{at + bd:.3f})'[vb{k}]")
         last = f"vb{k}"
     # a pip marked "under_subs" sits below the title/tag/caption overlays (e.g. a full-frame illustration
