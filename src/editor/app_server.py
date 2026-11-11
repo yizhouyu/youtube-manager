@@ -752,6 +752,17 @@ html.native body{background:transparent}   /* the Swift window puts the native s
 .side{background:var(--bg-side);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;font-size:var(--fs)}
 html.native .side{background:transparent}
 .side .lights{height:var(--hdr);flex:none}   /* the window's traffic lights sit here */
+/* sidebar toggle (creator 11/10): ⌃⌘S or the button right of the traffic lights; remembered per viewer */
+.app{transition:grid-template-columns .2s ease}
+.side{overflow:hidden}
+html.noside .app{grid-template-columns:0 minmax(0,1fr)}
+html.noside .side{border-right:0}
+#sidetg{position:fixed;z-index:20;left:82px;top:calc((var(--hdr) - 28px)/2);width:28px;height:28px;padding:0;border:0;background:transparent;
+  color:var(--text-3);border-radius:6px;display:grid;place-items:center}
+#sidetg:hover{background:rgba(120,120,128,.14);color:var(--text-2)}
+html:not(.native) #sidetg{left:12px}
+html.noside .top{padding-left:124px}
+html.noside:not(.native) .top{padding-left:52px}
 #eps{flex:1;overflow-y:auto;padding:0 var(--sp-2)}
 .sec{font-size:var(--fs-xs);font-weight:500;color:var(--text-3);padding:var(--sp-3) var(--sp-3) var(--sp-1)}
 .ep{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--sp-2);align-items:baseline;min-height:34px;padding:7px var(--sp-3);
@@ -842,6 +853,7 @@ html.native .side{background:transparent}
 body.ro .cand button,body.ro #approve{display:none}
 </style></head><body>
 <div class="app">
+<button id="sidetg" title="显示 / 隐藏边栏（⌃⌘S）"><svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x=".7" y=".7" width="16.6" height="12.6" rx="2.6"/><path d="M6.2 1v12"/></svg></button>
 <aside class="side"><div class="lights"></div><div id="eps" class="scroll"></div>
   <button id="other" class="ghost" title="比如外接硬盘上的旧项目（只读）">打开其他文件夹…</button></aside>
 <section class="mainc">
@@ -900,7 +912,14 @@ function tab(k){if(!EP)return;const v=$('v-'+k);if(!v)return;
   cur=k;acts();report();document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x===v));
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
   const f=v.querySelector('iframe');if(f&&!f.getAttribute('src')){delete f.dataset.ready;f.src=f.dataset.src}if(f)setTimeout(()=>f.focus(),50)}
-window.shell={tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),dirty:dirtyPages,agent:agentOpen};   // dirty: the Swift app asks before quitting
+function setSide(shown){document.documentElement.classList.toggle('noside',!shown);
+  try{localStorage.setItem('shenpian.side',shown?'1':'0')}catch(e){}
+  if(window.webkit&&webkit.messageHandlers&&webkit.messageHandlers.shell)webkit.messageHandlers.shell.postMessage({cmd:'sidebar',shown})}
+const toggleSide=()=>setSide(document.documentElement.classList.contains('noside'));
+$('sidetg').onclick=toggleSide;
+document.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='s'&&e.metaKey&&e.ctrlKey){e.preventDefault();toggleSide()}});
+try{if(localStorage.getItem('shenpian.side')==='0')setSide(false)}catch(e){}
+window.shell={toggleSide,tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),dirty:dirtyPages,agent:agentOpen};   // dirty: the Swift app asks before quitting
 // 选这个 / 已选 · 撤销 (Q9): one APPROVALS.md line per click
 function cand(type,id,html){const P=EP.picks||{},on=type==='short'?(P.short||[]).includes(id):P[type]===id;
   return `<div class="cand${on?' on':''}">${html}<button data-t="${type}" data-c="${esc(id)}" data-u="${on?1:''}">${on?'已选 · 撤销':'选这个'}</button></div>`}

@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     var shellReady = false
     var pendingURLs: [String] = []
     var web: WKWebView!
+    var sideW: NSLayoutConstraint!, dragW: NSLayoutConstraint!   // sidebar + drag strip widths (0 when the sidebar is hidden)
     var server: Process?
     let portFile = NSTemporaryDirectory() + "shenpian-\(getpid()).port"
     let logDir = ProcessInfo.processInfo.environment["SHENPIAN_LOGS"] ?? NSHomeDirectory() + "/Library/Logs/审片"
@@ -131,17 +132,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         if #available(macOS 13.3, *) { web.isInspectable = true }
 
         let drag = DragStrip()
+        sideW = side.widthAnchor.constraint(equalToConstant: Theme.sidebarWidth)
+        dragW = drag.widthAnchor.constraint(equalToConstant: Theme.sidebarWidth - Theme.dragLeading)
         for v in [side, web!, drag] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
         NSLayoutConstraint.activate([
             side.leadingAnchor.constraint(equalTo: root.leadingAnchor), side.topAnchor.constraint(equalTo: root.topAnchor),
-            side.bottomAnchor.constraint(equalTo: root.bottomAnchor), side.widthAnchor.constraint(equalToConstant: Theme.sidebarWidth),
+            side.bottomAnchor.constraint(equalTo: root.bottomAnchor), sideW,
             web.leadingAnchor.constraint(equalTo: root.leadingAnchor), web.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             web.topAnchor.constraint(equalTo: root.topAnchor), web.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            drag.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 80),
-            drag.widthAnchor.constraint(equalToConstant: Theme.sidebarWidth - 80),
+            drag.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: Theme.dragLeading),
+            dragW,
             drag.topAnchor.constraint(equalTo: root.topAnchor), drag.heightAnchor.constraint(equalToConstant: Theme.toolbarHeight),
         ])
         web.loadHTMLString("<html style='font:13px -apple-system;color:#86868b'><body style='display:grid;place-items:center;height:90vh;background:transparent'>启动中…</body></html>", baseURL: nil)
@@ -278,7 +281,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     // MARK: page -> app
 
     func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard let body = message.body as? [String: Any], body["cmd"] as? String == "pickFolder" else { return }
+        guard let body = message.body as? [String: Any] else { return }
+        if body["cmd"] as? String == "sidebar" {   // the page hid / showed its sidebar: follow with the vibrancy view
+            let shown = body["shown"] as? Bool ?? true
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.2
+                sideW.animator().constant = shown ? Theme.sidebarWidth : 0
+                dragW.animator().constant = shown ? Theme.sidebarWidth - Theme.dragLeading : 0
+            }
+            return
+        }
+        guard body["cmd"] as? String == "pickFolder" else { return }
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -292,6 +305,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
                   let arr = String(data: data, encoding: .utf8) else { return }
             self.web.evaluateJavaScript("shell.openPath(\(arr)[0])")
         }
+    }
+
+    @objc func toggleSidebar(_ sender: Any?) {
+        web.evaluateJavaScript("window.shell&&shell.toggleSide&&shell.toggleSide()")
     }
 
     @objc func switchTab(_ sender: NSMenuItem) {
@@ -328,7 +345,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         let tabs = ["封面", "素材", "成片", "Shorts", "标题"].enumerated().map { (i, t) -> NSMenuItem in
             let it = item(t, #selector(switchTab(_:)), "\(i + 1)"); it.tag = i + 1; it.target = self; return it
         }
-        sub("显示", tabs + [.separator(), item("进入全屏幕", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control])])
+        let side = item("显示 / 隐藏边栏", #selector(toggleSidebar(_:)), "s", [.command, .control]); side.target = self
+        sub("显示", tabs + [.separator(), side, item("进入全屏幕", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control])])
         sub("窗口", [item("最小化", #selector(NSWindow.performMiniaturize(_:)), "m"), item("关闭", #selector(NSWindow.performClose(_:)), "w")])
         NSApp.mainMenu = main
     }

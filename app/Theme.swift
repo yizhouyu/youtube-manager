@@ -37,6 +37,7 @@ enum Theme {
 
     // layout (pt) — match --side-w / --hdr / --rail-w
     static let sidebarWidth: CGFloat = 236
+    static let dragLeading: CGFloat = 116      // window-drag strip starts right of the traffic lights + sidebar button
     static let toolbarHeight: CGFloat = 52     // unified titlebar+toolbar; traffic lights centred in it
     static let railWidth: CGFloat = 376
     static let rowHeight: CGFloat = 34
