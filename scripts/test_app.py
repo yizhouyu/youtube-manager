@@ -1,6 +1,7 @@
 """审片 app: box notes (Q6), cut <-> raw jump (Q7), picks + APPROVALS lines (Q9), status chips, read-only servers.
 Never touches a real project or the real APPROVALS.md. Run: ./venv/bin/python scripts/test_app.py"""
 import json
+import re
 import os
 import sys
 import tempfile
@@ -247,5 +248,14 @@ with tempfile.TemporaryDirectory() as tmp:
     p1 = A.pick_port(proj, "raw")
     assert p1 in A.port_range() and not 8748 <= p1 <= 8755
     assert A.pick_port(proj, "raw") == p1 and A.pick_port(proj, "cut", [p1]) != p1
+
+# the page's script must parse: one quoting slip blanked the whole sidebar (11/11)
+import shutil, subprocess, tempfile
+if shutil.which("node"):
+    page = A.app.test_client().get("/").get_data(as_text=True)
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
+        f.write("\n".join(re.findall(r"<script>(.*?)</script>", page, re.S)))
+    r = subprocess.run(["node", "--check", f.name], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr[:600]
 
 print("ok")

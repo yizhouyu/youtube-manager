@@ -938,7 +938,7 @@ function showEp(j){EP=j;cur=null;ACTS={};TIME={};acts();
   const has={cover:j.tabs.cover||j.covers.length,raw:j.tabs.raw,cut:j.tabs.cut,shorts:j.tabs.shorts,titles:true};
   $('tabs').innerHTML=TABS.map(([k,n],i)=>has[k]?`<button data-k="${k}" title="⌘${i+1}">${n}</button>`:'').join('');
   $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>tab(b.dataset.k));
-  $('views').innerHTML=TABS.map(([k])=>has[k]?`<div class="view" id="v-${k}">${k==='cover'&&j.covers.length?'<div class="cgrid" id="cgrid"></div>':j.tabs[k]?`<iframe data-src="${esc(j.tabs[k])}" allow="fullscreen; autoplay"></iframe>`:'<div class="empty">${k==='titles'?'还没选封面，选好后这里会把封面和候选标题放进首页里比较':'这一期还没有这个页面，下面可以直接选'}</div>'}${k==='shorts'?'':`<div class="strip" id="s-${k}"></div>`}</div>`:'').join('')
+  $('views').innerHTML=TABS.map(([k])=>has[k]?`<div class="view" id="v-${k}">${k==='cover'&&j.covers.length?'<div class="cgrid" id="cgrid"></div>':j.tabs[k]?`<iframe data-src="${esc(j.tabs[k])}" allow="fullscreen; autoplay"></iframe>`:`<div class="empty">${k==='titles'?'还没选封面，选好后这里会把封面和候选标题放进首页里比较':'这一期还没有这个页面，下面可以直接选'}</div>`}${k==='shorts'?'':`<div class="strip" id="s-${k}"></div>`}</div>`:'').join('')
     +'<div class="view" id="v-none"><div class="empty">这一期没有能打开的页面</div></div>';
   strips();list();
   // once there is a preview the work is reviewing the cut, so open on 成片 (creator 11/11); before that, 素材
