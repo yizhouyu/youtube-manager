@@ -347,12 +347,13 @@ html,body{height:100%}
 main{display:flex;flex-direction:column;padding:16px;min-width:0;min-height:0}
 /* ---- video stage (always dark) */
 .stage{position:relative;flex:none;width:100%;aspect-ratio:16/9;max-height:calc(100vh - var(--hdr) - 32px - 40px);
-  background:var(--stage);border-radius:var(--r-lg);overflow:hidden;container-type:size;cursor:default;box-shadow:var(--sh-1)}
-/* fullscreen = this whole area (video + rail), so the chat stays on screen (chat.py: .fs / .fs-rail / .fs-float) */
-.body.fs main{padding:0;min-height:0;height:100vh}
-.body.fs .stage{border-radius:0;max-height:none;aspect-ratio:auto;width:100%;height:100%;box-shadow:none}
+  background:var(--stage);border-radius:var(--r-lg);overflow:hidden;container-type:size;cursor:default;box-shadow:var(--sh-1);user-select:none}
+/* fullscreen = this whole area (video + rail), so the chat stays on screen (chat.py: .fs / .fs-rail / .fs-float).
+   The player box stays 16:9, as large as the column allows and centred (flex centring, no height:100% chain: WebKit
+   left the picture at the top), so the controls sit on the picture instead of under a black band. */
+.body.fs main{padding:0;min-height:0;height:100vh;display:flex;flex-direction:row;align-items:center;justify-content:center;overflow:hidden}
+.body.fs #stage{border-radius:0;box-shadow:none;max-height:100vh;width:min(100%,calc(100vh*16/9))}
 .body.fs .below,.body.fs .lists{display:none !important}
-.stage:not(.ctl){cursor:none}
 .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--stage);z-index:0}
 /* both <video>s stay rendered, #va above #vb: the preloaded next clip already has its picture up, and the hand-off
    only fades #va in or out (.gone), so there is never a blank frame. The z-order itself never changes. */
@@ -370,52 +371,85 @@ main{display:flex;flex-direction:column;padding:16px;min-width:0;min-height:0}
 .bigplay::after{content:'';position:absolute;left:30px;top:22px;border-style:solid;border-width:16px 0 16px 26px;border-color:transparent transparent transparent #fff}
 .bigplay.hide{opacity:0;transform:scale(1.25)}
 .stage .msg:not(:empty)~.bigplay{display:none}   /* loading / no footage: the message, not a play button over it */
-.stage.ctl .cap{bottom:calc(92px + 3%)}
-.ov{position:absolute;left:0;right:0;bottom:0;padding:40px 14px 10px;z-index:4;color:var(--stage-ink);
-  background:linear-gradient(to bottom,transparent,rgba(0,0,0,.72));
-  opacity:0;pointer-events:none;transition:opacity .25s ease}
-.stage.ctl .ov{opacity:1;pointer-events:auto}
-.bar{display:flex;align-items:center;gap:12px;margin-top:8px;height:32px}
-.inlamp{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px 0 9px;border-radius:13px;font-size:13px;font-weight:600;
-  white-space:nowrap;background:rgba(255,255,255,.08);color:var(--stage-mute);border:1px solid rgba(255,255,255,.14);transition:all .15s}
-.inlamp i{width:12px;height:12px;border-radius:50%;background:transparent;border:2px solid rgba(255,255,255,.45);transition:all .15s}
-.inlamp.on{background:rgba(34,197,94,.18);color:#86efac;border-color:rgba(74,222,128,.55)}
-.inlamp.on i{background:#4ade80;border-color:#4ade80;box-shadow:0 0 10px #4ade80}
-.inlamp.off-edl{display:none}
-.gtime{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:#fff}
-.info{font-size:13px;color:var(--stage-mute);font-variant-numeric:tabular-nums;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.spacer{flex:1}
-.ov button{background:transparent;color:#fff;border:0;border-radius:var(--r-sm);padding:0;height:32px;min-width:32px;
-  display:inline-grid;place-items:center;white-space:nowrap}
-.ov button:hover{background:rgba(255,255,255,.14)}
-.ov button svg{display:block}
-.speeds{display:flex;height:28px;border-radius:var(--r-sm);background:rgba(255,255,255,.12);padding:2px;gap:2px}
-.speeds button{height:24px;min-width:0;padding:0 9px;font-size:12px;font-weight:500;border-radius:6px;color:var(--stage-ink);font-variant-numeric:tabular-nums}
-.speeds button.on{background:#fff;color:#111}
-.tl-row{position:relative;padding:8px 0;margin:-8px 0;cursor:pointer}
-.tl{position:relative;height:14px;border-radius:5px;cursor:pointer;overflow:hidden;display:flex;transition:height .15s ease}
-.tl-row:hover .tl,.tl-row.drag .tl{height:22px}
-.seg{position:relative;height:100%;background:rgba(255,255,255,.4);border-right:1px solid rgba(0,0,0,.5)}
-body.showuse .seg{background:rgba(255,255,255,.2)}
-body.showuse .seg.noedl{background:rgba(255,255,255,.4)}
-.seg.day0{border-left:3px solid #fff}
+.stage:not(.idle) .cap{bottom:calc(72px + 3%)}
+/* YouTube-style controls on the picture, the same look as the 成片 page (review_server.py #pvui): progress bar on top,
+   then play + time + 在成片里 + clip line | speeds, volume, fullscreen, over a soft gradient that lets clicks through
+   to the picture. Shown on mouse movement and while paused; after 2.5 s of stillness while playing they fade and (in
+   fullscreen) the cursor hides too — see fpPoke / tick. ?pin keeps them up all the time.
+   z-index 5: under the 框选 veil/box (chat.py, 6–7) so a box can be drawn right down to the bottom edge. */
+#ui{position:absolute;left:0;right:0;bottom:0;z-index:5;padding:36px 12px 2px;display:none;color:#fff;pointer-events:none;
+  background:linear-gradient(transparent,rgba(0,0,0,.22) 35%,rgba(0,0,0,.62));transition:opacity .25s}
+#ui>*{pointer-events:auto}
+.stage.has #ui{display:block}
+.stage.idle #ui{opacity:0}
+.stage.idle #ui>*{pointer-events:none}
+body.fpidle .body.fs main,body.fpidle .body.fs main *{cursor:none !important}
+.body.fs #ui{padding:48px 18px 6px}
+.body.fs .stage:not(.idle) .cap{bottom:calc(84px + 3%)}
+/* the progress bar = the whole trip: one segment per clip (thin gaps, a white tick where a new shooting day starts),
+   buffered part dim, played part bright, green = the parts used in the cut, playhead dot; question dots ride above.
+   The 24 px strip is the hit area; the 4 px line grows on hover. Hover = storyboard thumbnail + time, click = jump,
+   press and drag = scrub. */
+#strip{position:relative;height:24px;cursor:pointer;touch-action:none}
+#strip .tr{position:absolute;left:0;right:0;bottom:6px;height:4px;border-radius:2px;background:rgba(255,255,255,.26);overflow:hidden;
+  transition:height .1s,bottom .1s}
+#strip:hover .tr,#strip.drag .tr{bottom:4px;height:8px}
+#strip .bf,#strip .pl{position:absolute;left:0;top:0;bottom:0;width:0}
+#strip .bf{background:rgba(255,255,255,.22)}
+#strip .pl{background:rgba(255,255,255,.92)}
+#segs{position:absolute;inset:0;display:flex}
+.seg{position:relative;height:100%;box-sizing:border-box;border-right:1px solid rgba(0,0,0,.7)}
+.seg:last-child{border-right:0}
+.seg.day0{border-left:2px solid #fff}
+.seg.cur{background:rgba(255,255,255,.16)}
 .seg .u{position:absolute;top:0;bottom:0;background:var(--used)}
-.seg.cur{background:rgba(255,255,255,.62)}
-body.showuse .seg.cur{background:rgba(255,255,255,.38)}
 body:not(.showuse) .seg .u,body:not(.showuse) .item .ub,body:not(.showuse) .legend{display:none}
-.ph{position:absolute;top:2px;bottom:2px;width:4px;margin-left:-1px;background:#ff3b5c;border-radius:2px;pointer-events:none;z-index:2}
+#strip .ph{position:absolute;top:16px;width:0;height:0;pointer-events:none;z-index:2}
+#strip .ph::before{content:'';position:absolute;left:-7px;top:-7px;width:14px;height:14px;border-radius:50%;background:#fff;
+  box-shadow:0 0 0 1px rgba(0,0,0,.3);transform:scale(.55);transition:transform .1s}
+#strip:hover .ph::before,#strip.drag .ph::before{transform:scale(1)}
 /* hover tip: storyboard thumbnail of that moment + time/clip, like YouTube */
-.hover{position:absolute;bottom:36px;transform:translateX(-50%);color:#fff;z-index:5;
+.hover{position:absolute;bottom:28px;transform:translateX(-50%);color:#fff;z-index:5;
   font-size:12px;white-space:nowrap;pointer-events:none;display:none;flex-direction:column;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
 .hover .im{border:2px solid #fff;border-radius:7px;background-color:#000;background-repeat:no-repeat;box-shadow:0 2px 10px rgba(0,0,0,.5)}
-.hover .tx{background:rgba(20,20,20,.92);padding:3px 8px;border-radius:6px}
-.qms{position:absolute;left:0;right:0;top:-11px;height:0;z-index:3}
+.hover .tx{background:rgba(20,20,20,.92);padding:3px 8px;border-radius:6px;font-weight:600}
+.qms{position:absolute;left:0;right:0;top:0;height:0;z-index:3}
 .qm{position:absolute;top:0;width:0;height:0;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;
-  border-top:8px solid var(--q);cursor:pointer;filter:drop-shadow(0 0 1px rgba(0,0,0,.8))}
+  border-top:9px solid var(--q);cursor:pointer}
 .qm.done{border-top-color:var(--used)}
+#stage .qm{top:1px;box-shadow:0 0 0 1.5px rgba(0,0,0,.55)}
+/* the control row under the progress bar */
+#ctl{display:flex;align-items:center;gap:2px;height:40px;min-width:0}
+#ctl .spacer{flex:1;min-width:6px}
+#ui button{border:0;background:transparent;color:#fff;padding:0;box-shadow:none}
+#ctl>button,#vol>button{width:36px;height:36px;flex:none;border-radius:8px;display:inline-grid;place-items:center;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45))}
+#ctl>button:hover,#vol>button:hover{background:rgba(255,255,255,.16)}
+#ctl svg{width:20px;height:20px;display:block}
+.gtime{margin:0 10px 0 6px;font-size:13px;color:rgba(255,255,255,.82);font-variant-numeric:tabular-nums;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.gtime b{color:#fff;font-weight:600}
+.inlamp{display:inline-flex;align-items:center;gap:6px;height:24px;flex:none;padding:0 10px 0 8px;margin-right:10px;border-radius:12px;font-size:12px;font-weight:600;
+  white-space:nowrap;background:rgba(255,255,255,.1);color:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.16);transition:all .15s}
+.inlamp i{width:10px;height:10px;border-radius:50%;background:transparent;border:2px solid rgba(255,255,255,.45);transition:all .15s}
+.inlamp.on{background:rgba(34,197,94,.2);color:#86efac;border-color:rgba(74,222,128,.55)}
+.inlamp.on i{background:#4ade80;border-color:#4ade80;box-shadow:0 0 10px #4ade80}
+.inlamp.off-edl{display:none}
+.info{font-size:12px;color:rgba(255,255,255,.7);font-variant-numeric:tabular-nums;text-shadow:0 1px 2px rgba(0,0,0,.6);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.speeds{display:flex;flex:none;gap:2px;padding:2px;border-radius:8px;background:rgba(255,255,255,.14);margin-right:6px}
+#ui .speeds button{height:24px;padding:0 9px;border-radius:6px;color:rgba(255,255,255,.85);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+#ui .speeds button:hover{background:rgba(255,255,255,.14)}
+#ui .speeds button.on{background:#fff;color:#111}
+/* volume: the slider slides out next to the speaker on hover, like YouTube */
+#vol{display:flex;align-items:center;flex:none}
+#volS{position:relative;width:0;height:36px;overflow:hidden;cursor:pointer;touch-action:none;transition:width .15s}
+#vol:hover #volS,#volS.drag{width:76px}
+#volS::before,#volS i{content:'';position:absolute;left:8px;top:16.5px;height:3px;border-radius:2px}
+#volS::before{right:8px;background:rgba(255,255,255,.3)}
+#volS i{width:0;background:#fff}
+#volS i::after{content:'';position:absolute;right:-6px;top:-4.5px;width:12px;height:12px;border-radius:50%;background:#fff}
 /* ---- row under the stage: legend, toggle, shortcuts */
 .below{display:flex;align-items:center;gap:16px;color:var(--text-3);font-size:13px;margin-top:10px;min-height:28px}
+.spacer{flex:1}
 .legend{display:flex;gap:14px;align-items:center;white-space:nowrap;font-variant-numeric:tabular-nums}
 .legend b{color:var(--text);font-weight:600}
 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:6px}
@@ -478,22 +512,24 @@ __QA_CSS__
 </header>
 <div class="body" data-fsroot>
 <main>
-  <div class="stage ctl" id="stage">
+  <div class="stage" id="stage">
     <video id="va" playsinline preload="auto"></video>
     <video id="vb" playsinline preload="auto" muted></video>
     <div class="msg" id="msg">加载中…</div>
     <div class="bigplay" id="bigplay"></div>
     <div class="cap" id="cap"></div>
-    <div class="ov" id="ov">
-      <div class="tl-row"><div class="tl" id="tl"></div><div class="ph" id="ph"></div><div class="qms" id="qms"></div>
+    <div id="ui">
+      <div id="strip"><div class="tr"><div class="bf" id="bf"></div><div class="pl" id="pl"></div><div id="segs"></div></div>
+        <div class="ph" id="ph"></div><div class="qms" id="qms"></div>
         <div class="hover" id="hover"><div class="im"></div><div class="tx"></div></div></div>
-      <div class="bar">
+      <div id="ctl">
         <button id="play" title="播放 / 暂停（空格）"></button>
+        <span class="gtime" id="gtime"></span>
         <div class="inlamp" id="inlamp" title="这一帧有没有用在成片里"><i></i><span>未用</span></div>
-        <div class="gtime" id="gtime">0:00 / 0:00</div>
         <div class="info" id="info"></div>
-        <div class="spacer"></div>
+        <span class="spacer"></span>
         <div class="speeds" id="speeds" title="速度（数字键 1–5）"></div>
+        <span id="vol"><button id="mute"></button><span id="volS" title="音量"><i></i></span></span>
         <button id="fs" title="全屏（F）"></button>
       </div>
     </div>
@@ -507,12 +543,13 @@ __QA_CSS__
       <div><span>快退 / 快进 5 秒</span><span><kbd>←</kbd><kbd>→</kbd></span></div>
       <div><span>上一段 / 下一段</span><span><kbd>↑</kbd><kbd>↓</kbd></span></div>
       <div><span>切换速度 1x–3x</span><span><kbd>1</kbd>–<kbd>5</kbd></span></div>
+      <div><span>静音</span><span><kbd>M</kbd></span></div>
       <div><span>全屏（右边留着聊天）</span><span><kbd>F</kbd></span></div>
       <div><span>全屏时聊天：右边 / 悬浮</span><span><kbd>C</kbd></span></div>
       <div><span>倒退 / 暂停 / 前进（再按加速）</span><span><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd></span></div>
       <div><span>上一帧 / 下一帧</span><span><kbd>,</kbd><kbd>.</kbd></span></div>
       <div><span>写评论（不全屏时）</span><span><kbd>C</kbd></span></div>
-      <div><span>跳到任意位置</span><span>点进度条</span></div>
+      <div><span>跳到任意位置 / 拖着找</span><span>点 / 拖进度条</span></div>
     </div></div>
   </div>
 </main>
@@ -533,12 +570,17 @@ const PNAME=document.title.replace(/ · 原片预览$/,'');
 let clips=[], starts=[], total=0, idx=0, used={}, hasEdl=false, speed=2;
 const srtCache={};
 const $=id=>document.getElementById(id);
-const IC={play:'<svg width="18" height="18" viewBox="0 0 16 16"><path d="M4.5 2.8v10.4L13 8z" fill="currentColor"/></svg>',
-  pause:'<svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="2.8" width="3.2" height="10.4" rx="1"/><rect x="9.3" y="2.8" width="3.2" height="10.4" rx="1"/></svg>',
-  fs:'<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
-  fsx:'<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5"/></svg>'};
-function playUI(p){$('play').innerHTML=p?IC.pause:IC.play}
-function fsUI(){const f=!!(window.cbFs&&cbFs.active());$('fs').innerHTML=f?IC.fsx:IC.fs;$('fs').title=f?'退出全屏（F / Esc）':'全屏，右边留着聊天（F）'}
+// same icons as the 成片 page (review_server.py)
+const IC={play:'<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 2.8v10.4c0 .5.5.8.9.5l8-5.2a.6.6 0 0 0 0-1l-8-5.2c-.4-.3-.9 0-.9.5z"/></svg>',
+  pause:'<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="2.5" width="3" height="11" rx="1"/><rect x="9.5" y="2.5" width="3" height="11" rx="1"/></svg>',
+  vol:'<svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6v4h2.5l3.5 3V3L5 6z" fill="currentColor"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4"/></svg>',
+  mute:'<svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6v4h2.5l3.5 3V3L5 6z" fill="currentColor"/><path d="M11 6l3.5 4M14.5 6L11 10"/></svg>',
+  fs:'<svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
+  fsx:'<svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5"/></svg>'};
+// icons only change when their state does (the tick runs every frame)
+function setIcon(b,k,title){if(b.dataset.i!==k){b.dataset.i=k;b.innerHTML=IC[k]}if(title&&b.title!==title)b.title=title}
+function playUI(p){setIcon($('play'),p?'pause':'play')}
+function fsUI(){const f=!!(window.cbFs&&cbFs.active());setIcon($('fs'),f?'fsx':'fs',f?'退出全屏（F / Esc）':'全屏，右边留着聊天（F）')}
 playUI(false);fsUI();
 let cur=$('va'), nxt=$('vb'), nxtIdx=-1;
 try{const s=parseFloat(localStorage.getItem('fp_speed'));if(SPEEDS.includes(s))speed=s}catch(e){}
@@ -596,12 +638,12 @@ let preT=0;
 
 function markCurrent(){
   document.querySelectorAll('.item.cur,.seg.cur').forEach(e=>e.classList.remove('cur'));
-  const it=items()[idx],sg=$('tl').children[idx];
+  const it=items()[idx],sg=$('segs').children[idx];
   if(it){it.classList.add('cur');it.scrollIntoView({block:'nearest',behavior:'smooth'})}
   if(sg)sg.classList.add('cur')}
 
 function onEnded(e){if(e.target!==cur)return;
-  if(idx+1<clips.length)show(idx+1,nxtGo?null:0,true);else playUI(false)}   // already rolling: don't rewind it
+  if(idx+1<clips.length)show(idx+1,nxtGo?null:0,true)}   // already rolling: don't rewind it
 // Gapless hand-off (creator, 2026-11-10: 每个 clip 之间都有一个很短的闪顿). Waiting for 'ended' and then calling
 // play() froze the last frame: 'ended' comes late, and a <video> needs a while after play() before its picture moves
 // (~70 ms in Chrome, ~250 ms in the app's WebKit). So the preloaded next clip starts (muted, underneath) `lead` before
@@ -626,8 +668,7 @@ function handoff(){
 
 [$('va'),$('vb')].forEach(v=>{
   v.addEventListener('ended',onEnded);
-  v.addEventListener('play',()=>{if(v===cur){playUI(true);if(stage.classList.contains('ctl')){clearTimeout(hideT);hideT=setTimeout(maybeHide,2500)}}});
-  v.addEventListener('pause',()=>{if(v===cur&&!swapping&&!v.ended){playUI(false);stage.classList.add('ctl')}});
+  // play / pause icon, controls, big ▶: all follow `cur` in tick() (the two elements swap roles)
   v.addEventListener('ratechange',()=>{if(v.playbackRate!==speed)v.playbackRate=speed});
   v.addEventListener('error',()=>{if(v===cur&&v.getAttribute('src'))$('msg').textContent='这段播放失败（浏览器可能不支持此编码）'});
 });
@@ -643,7 +684,7 @@ function jumpGlobal(g){let i=0;while(i+1<clips.length&&starts[i+1]<=g)i++;show(i
 
 function items(){return $('list').querySelectorAll('.item')}
 function renderUsage(){
-  const segs=$('tl').children,its=items();
+  const segs=$('segs').children,its=items();
   clips.forEach((c,i)=>{
     const rs=used[c.clip]||[],d=c.dur||1;
     const html=rs.map(([a,b])=>`<i class="u" style="left:${a/d*100}%;width:${Math.max(.3,(b-a)/d*100)}%"></i>`).join('');
@@ -664,7 +705,7 @@ function build(){
   starts=[];total=0;clips.forEach(c=>{starts.push(total);total+=c.dur||0});
   $('count').textContent=clips.length;
   $('hmeta').innerHTML=`<b>${clips.length}</b> 段 · 共 <b>${fmt(total)}</b>`;
-  $('tl').innerHTML=clips.map((c,i)=>`<div class="seg${i&&c.day!==clips[i-1].day?' day0':''}" style="width:${(c.dur||0)/total*100}%"></div>`).join('');
+  $('segs').innerHTML=clips.map((c,i)=>`<div class="seg${i&&c.day!==clips[i-1].day?' day0':''}" style="width:${(c.dur||0)/total*100}%"></div>`).join('');
   $('list').innerHTML=clips.map((c,i)=>(i===0||c.day!==clips[i-1].day?`<div class="dayhead">第${c.day}天</div>`:'')+`<div class="item" data-i="${i}" title="相机时钟 ${esc(c.clock)}（可能不准）">
     <img loading="lazy" data-src="/thumb/${encodeURIComponent(c.clip)}" alt="">
     <div style="min-width:0"><div class="t"><b>${esc(c.clip)}</b><span class="m">${esc(c.when.replace(/^第\d+天 · /,''))} · ${fmt(c.dur)}</span></div>
@@ -672,19 +713,25 @@ function build(){
   $('list').querySelectorAll('.item').forEach(el=>el.onclick=()=>show(+el.dataset.i,0,true));
   const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){const im=e.target;im.src=im.dataset.src;io.unobserve(im)}}),{root:$('list'),rootMargin:'300px'});
   $('list').querySelectorAll('img').forEach(im=>io.observe(im));
-  $('speeds').innerHTML=SPEEDS.map(s=>`<button data-s="${s}">${s}x</button>`).join('');
+  $('speeds').innerHTML=SPEEDS.map(s=>`<button data-s="${s}">${s}×</button>`).join('');
   $('speeds').querySelectorAll('button').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.s));
 }
 
-const tl=$('tl');
-function tlAt(e){const r=tl.getBoundingClientRect();return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*total}
-tl.addEventListener('click',e=>jumpGlobal(tlAt(e)));
-// drag to scrub (YouTube-style): hold and slide along the bar
-(function(){let drag=false,last=0;const row=tl.parentElement;
-  tl.addEventListener('pointerdown',e=>{drag=true;row.classList.add('drag');tl.setPointerCapture(e.pointerId);jumpGlobal(tlAt(e));e.preventDefault()});
-  tl.addEventListener('pointermove',e=>{if(!drag)return;const now=performance.now();if(now-last<80)return;last=now;jumpGlobal(tlAt(e))});
-  const end=e=>{drag=false;row.classList.remove('drag');if(e.pointerType!=='mouse')$('hover').style.display='none'};
-  tl.addEventListener('pointerup',end);tl.addEventListener('pointercancel',end)})();
+const strip=$('strip');
+let scrub=null;   // the trip time under the pointer while dragging the bar (the bar follows it at once)
+function tlAt(e){const r=strip.getBoundingClientRect();return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*total}
+// press = jump there, drag = scrub (the bar follows the pointer at once, the video seeks at most every 80 ms: a seek
+// into another clip loads it), release = the exact spot. Pointer capture keeps the drag going off the bar and the picture.
+(function(){let drag=false,last=0;
+  strip.addEventListener('pointerdown',e=>{if(e.button||!total||e.target.closest('.qm'))return;
+    drag=true;strip.classList.add('drag');strip.setPointerCapture(e.pointerId);scrub=tlAt(e);jumpGlobal(scrub);last=performance.now();
+    hoverAt(e.clientX);e.preventDefault()});
+  strip.addEventListener('pointermove',e=>{if(!drag)return;scrub=tlAt(e);fpPoke();
+    const now=performance.now();if(now-last<80)return;last=now;jumpGlobal(scrub)});
+  const end=e=>{if(!drag)return;drag=false;strip.classList.remove('drag');jumpGlobal(tlAt(e));scrub=null;fpPoke();
+    const r=strip.getBoundingClientRect();
+    if(e.pointerType!=='mouse'||e.clientY<r.top-4||e.clientY>r.bottom+4){hovX=null;$('hover').style.display='none'}};
+  strip.addEventListener('pointerup',end);strip.addEventListener('pointercancel',end)})();
 // hover/drag on the timeline: thumbnail of that moment from the clip's storyboard (made in the background on
 // first hover/play; until it's ready only the time shows) — creator, 2026-10-21
 const SBC={};let hovX=null;
@@ -698,7 +745,7 @@ function sbGet(c){const s=SBC[c]||(SBC[c]={});
   return null}
 function hoverAt(cx){
   if(!clips.length)return;hovX=cx;
-  const r=tl.getBoundingClientRect(),g=Math.max(0,Math.min(1,(cx-r.left)/r.width))*total;let i=0;while(i+1<clips.length&&starts[i+1]<=g)i++;
+  const r=strip.getBoundingClientRect(),g=Math.max(0,Math.min(1,(cx-r.left)/r.width))*total;let i=0;while(i+1<clips.length&&starts[i+1]<=g)i++;
   const c=clips[i],j=sbGet(c.clip),h=$('hover'),im=h.firstElementChild;
   if(j){const k=Math.max(0,Math.min(j.count-1,Math.floor((g-starts[i])/j.interval))),per=j.cols*j.rows,n=k%per;
     im.style.display='block';im.style.width=j.w+'px';im.style.height=j.h+'px';
@@ -706,34 +753,41 @@ function hoverAt(cx){
     im.style.backgroundPosition=`${-(n%j.cols)*j.w}px ${-Math.floor(n/j.cols)*j.h}px`}
   else im.style.display='none';
   h.lastElementChild.textContent=`${fmt(g)} · ${c.clip} ${c.when}`;
-  h.style.display='flex';const w=h.offsetWidth,R=tl.parentElement.getBoundingClientRect();
+  h.style.display='flex';const w=h.offsetWidth,R=strip.getBoundingClientRect();
   h.style.left=Math.max(w/2,Math.min(R.width-w/2,cx-R.left))+'px'}
-tl.addEventListener('pointermove',e=>hoverAt(e.clientX));
-tl.addEventListener('pointerleave',e=>{if(!tl.parentElement.classList.contains('drag')){hovX=null;$('hover').style.display='none'}});
+strip.addEventListener('pointermove',e=>hoverAt(e.clientX));
+strip.addEventListener('pointerleave',e=>{if(!strip.classList.contains('drag')){hovX=null;$('hover').style.display='none'}});
 $('play').onclick=toggle;
-const stage=$('stage'),ov=$('ov');
-stage.addEventListener('click',toggle);
-stage.addEventListener('dblclick',e=>{if(!ov.contains(e.target))toggleFs()});
-ov.addEventListener('click',e=>e.stopPropagation());
-ov.addEventListener('dblclick',e=>e.stopPropagation());
-// YouTube-style auto-hide: visible while paused, on mouse movement, or hovering the controls
-// Review tool, not a viewing app: keep the bar + timeline visible while playing (creator, 2026-10-03).
-// ?autohide restores the fade-out.
-const PIN=!new URLSearchParams(location.search).has('autohide');
-if(PIN) stage.classList.add('ctl');
-let hideT=0;
-let lastUse=0, swapping=false;   // last time the viewer touched the controls; clip hand-off in progress
-function showCtl(){lastUse=Date.now();stage.classList.add('ctl');clearTimeout(hideT);hideT=setTimeout(maybeHide,2500)}
-// Don't hide while the viewer is using the controls (e.g. picking a speed right as the next clip
-// starts): the new clip's 'play' event used to restart the timer and fold the bar mid-click.
-function maybeHide(){if(PIN||cur.paused||ov.matches(':hover'))return;
-  const idle=Date.now()-lastUse; if(idle<2500){clearTimeout(hideT);hideT=setTimeout(maybeHide,2600-idle);return}
-  stage.classList.remove('ctl')}
-['mousedown','touchstart','wheel'].forEach(ev=>stage.addEventListener(ev,()=>{lastUse=Date.now()},{passive:true,capture:true}));
-stage.addEventListener('mousemove',showCtl);
-stage.addEventListener('mouseleave',()=>{clearTimeout(hideT);if(!PIN&&!cur.paused)stage.classList.remove('ctl')});
+const stage=$('stage'),ui=$('ui');
+stage.addEventListener('click',toggle);   // the gradient lets clicks through; the bar and buttons stop them below
+stage.addEventListener('dblclick',e=>{if(!ui.contains(e.target))toggleFs()});
+ui.addEventListener('click',e=>e.stopPropagation());
+ui.addEventListener('dblclick',e=>e.stopPropagation());
+// Controls show on mouse movement over the player (in fullscreen: anywhere on the video side) and while paused; after
+// 2.5 s of stillness while playing they fade, unless the pointer rests on them or a scrub is going on (tick sets
+// .stage.idle, and body.fpidle hides the cursor in fullscreen). A clip hand-off never touches this, so the bar doesn't
+// fold mid-click when the next clip starts. ?pin keeps them up all the time (the old behaviour, creator 2026-10-03).
+const PIN=new URLSearchParams(location.search).has('pin');
+let actT=0, act=false, swapping=false;   // mouse moved in the last 2.5 s; clip hand-off in progress
+function fpPoke(){act=true;clearTimeout(actT);actT=setTimeout(()=>{act=false},2500)}
+function fpRest(){clearTimeout(actT);act=false}
+const fsOn=()=>!!(window.cbFs&&window.cbFs.active());
+document.addEventListener('mousemove',e=>{const t=e.target;if(!(t instanceof Element))return;
+  if(t.closest('#stage')||(fsOn()&&t.closest('main')))fpPoke()});
+['mousedown','touchstart','wheel'].forEach(ev=>stage.addEventListener(ev,fpPoke,{passive:true,capture:true}));
+stage.addEventListener('mouseleave',()=>{if(!fsOn())fpRest()});
+document.querySelector('main').addEventListener('mouseleave',()=>{if(fsOn())fpRest()});
 function toggleFs(){window.cbFs.toggle()}   // fullscreen = video + chat rail (chat.py)
 $('fs').onclick=toggleFs;
+// volume: the speaker toggles mute, the slider beside it (press and drag) sets the level; 0 = muted.
+// Set on `cur` only: the hand-off carries muted / volume over to the next clip (show()).
+$('mute').onclick=()=>{if(cur.muted||!cur.volume){cur.muted=false;if(!cur.volume)cur.volume=1}else cur.muted=true};
+(function(){const s=$('volS');let on=false;
+  const set=e=>{const r=s.getBoundingClientRect(),x=Math.max(0,Math.min(1,(e.clientX-r.left-8)/(r.width-16)));
+    cur.volume=Math.round(x*100)/100;cur.muted=x===0};
+  s.addEventListener('pointerdown',e=>{if(e.button)return;on=true;s.classList.add('drag');s.setPointerCapture(e.pointerId);set(e);e.preventDefault()});
+  s.addEventListener('pointermove',e=>{if(on)set(e)});
+  const end=()=>{on=false;s.classList.remove('drag')};s.addEventListener('pointerup',end);s.addEventListener('pointercancel',end)})();
 // don't let a focused button also react to Space/keys
 document.addEventListener('mouseup',()=>{const a=document.activeElement;if(a&&a.tagName==='BUTTON')a.blur()});
 window.addEventListener('cbfs',fsUI);
@@ -757,11 +811,12 @@ document.addEventListener('keydown',e=>{
   if(e.target.closest&&e.target.closest('textarea,input[type=text]'))return;  // typing an answer
   const k=e.key;
   if(k===' '){toggle()}
-  else if(k==='ArrowLeft')seekBy(-5);
-  else if(k==='ArrowRight')seekBy(5);
-  else if(k==='ArrowUp')show(idx-1,0);
-  else if(k==='ArrowDown')show(idx+1,0);
-  else if(k>='1'&&k<='5'){setSpeed(SPEEDS[+k-1]);showCtl()}  // show the bar so the new speed is visible
+  else if(k==='ArrowLeft'){seekBy(-5);fpPoke()}
+  else if(k==='ArrowRight'){seekBy(5);fpPoke()}
+  else if(k==='ArrowUp'){show(idx-1,0);fpPoke()}
+  else if(k==='ArrowDown'){show(idx+1,0);fpPoke()}
+  else if(k>='1'&&k<='5'){setSpeed(SPEEDS[+k-1]);fpPoke()}  // show the bar so the new speed is visible
+  else if(k==='m'||k==='M'){cur.muted=!cur.muted;fpPoke()}   // M = mute, like YouTube
   else if(k==='f'||k==='F')toggleFs();
   else return;
   e.preventDefault();e.stopPropagation()},true);
@@ -769,10 +824,23 @@ document.addEventListener('keydown',e=>{
 let lastCapKey='';
 function tick(){
   if(clips.length){
-    const c=clips[idx],t=cur.currentTime||0,g=starts[idx]+t;
-    $('ph').style.left=(g/total*100)+'%';
-    $('gtime').textContent=`${fmt(g)} / ${fmt(total)}`;   // YouTube-style: whole trip
-    $('info').innerHTML=`${idx+1}/${clips.length} · ${esc(c.clip)} · <span title="相机时钟 ${esc(c.clock)}（可能不准）">${esc(c.when)}</span> · 本段 ${fmt(t)} / ${fmt(c.dur)}`;
+    const c=clips[idx],t=cur.currentTime||0,g=starts[idx]+t,gs=scrub!=null?scrub:g;
+    // the bar: played part / playhead follow the pointer while scrubbing; buffered = the current clip's buffer ahead
+    const pc=Math.min(100,gs/total*100);
+    $('ph').style.left=pc+'%';$('pl').style.width=pc+'%';
+    let bf=0;try{for(let k=0;k<cur.buffered.length;k++)if(cur.buffered.start(k)<=t+0.5)bf=Math.max(bf,cur.buffered.end(k))}catch(e){}
+    $('bf').style.width=Math.min(100,(starts[idx]+bf)/total*100)+'%';
+    const gt=`<b>${fmt(gs)}</b> / ${fmt(total)}`;   // YouTube-style: whole trip
+    if($('gtime').dataset.t!==gt){$('gtime').dataset.t=gt;$('gtime').innerHTML=gt}
+    const inf=`${idx+1}/${clips.length} · ${esc(c.clip)} · <span title="相机时钟 ${esc(c.clock)}（可能不准）">${esc(c.when)}</span> · 本段 ${fmt(t)} / ${fmt(c.dur)}`;
+    if($('info').dataset.t!==inf){$('info').dataset.t=inf;$('info').innerHTML=inf}
+    // controls: play icon, speaker + slider, auto-hide (see fpPoke)
+    playUI(!cur.paused||nxtGo);
+    const mo=cur.muted||!cur.volume;setIcon($('mute'),mo?'mute':'vol',mo?'取消静音（M）':'静音（M）');
+    $('volS').firstElementChild.style.width=`calc((100% - 16px)*${mo?0:cur.volume})`;
+    const idle=!PIN&&!cur.paused&&!act&&scrub==null&&!ui.matches(':hover');
+    if(stage.classList.contains('idle')!==idle)stage.classList.toggle('idle',idle);
+    const fi=idle&&fsOn();if(document.body.classList.contains('fpidle')!==fi)document.body.classList.toggle('fpidle',fi);
     {const rs=used[c.clip]||[], on=rs.some(([a,b])=>t>=a-0.05&&t<=b+0.05), L=$('inlamp');
      if(L){L.classList.toggle('off-edl',!hasEdl); if(L.classList.contains('on')!==on){L.classList.toggle('on',on);
        L.querySelector('span').textContent=on?'在成片里':'未用'}}}
@@ -791,7 +859,7 @@ setInterval(updEst,2000);
 (async()=>{
   clips=await (await fetch('/api/clips')).json();
   if(!clips.length){$('msg').textContent='没找到素材（01 - Unedited 里没有 MP4）';return}
-  build();setSpeed(speed);
+  build();setSpeed(speed);stage.classList.add('has');
   let su=true;try{su=localStorage.getItem('fp_showuse2')!=='0'}catch(e){}
   $('showuse').checked=su;document.body.classList.toggle('showuse',su);
   $('showuse').onchange=e=>{document.body.classList.toggle('showuse',e.target.checked);
