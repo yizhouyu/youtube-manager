@@ -353,10 +353,12 @@ main{display:flex;flex-direction:column;padding:16px;min-width:0;min-height:0}
 .body.fs .stage{border-radius:0;max-height:none;aspect-ratio:auto;width:100%;height:100%;box-shadow:none}
 .body.fs .below,.body.fs .lists{display:none !important}
 .stage:not(.ctl){cursor:none}
-.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--stage)}
-.stage video.hidden{visibility:hidden}
+.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--stage);z-index:0}
+/* both <video>s stay rendered, #va above #vb: the preloaded next clip already has its picture up, and the hand-off
+   only fades #va in or out (.gone), so there is never a blank frame. The z-order itself never changes. */
+#va{z-index:1}.stage #va.gone{opacity:0}
 .stage .msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  color:var(--stage-mute);font-size:16px;pointer-events:none}
+  color:var(--stage-mute);font-size:16px;pointer-events:none;z-index:2}
 .cap{position:absolute;left:50%;bottom:5%;transform:translateX(-50%);width:84%;text-align:center;
   pointer-events:none;transition:bottom .2s ease;z-index:3;
   font-size:clamp(14px,2.4cqw,44px);font-weight:500;line-height:1.4}
@@ -478,7 +480,7 @@ __QA_CSS__
 <main>
   <div class="stage ctl" id="stage">
     <video id="va" playsinline preload="auto"></video>
-    <video id="vb" class="hidden" playsinline preload="auto" muted></video>
+    <video id="vb" playsinline preload="auto" muted></video>
     <div class="msg" id="msg">加载中…</div>
     <div class="bigplay" id="bigplay"></div>
     <div class="cap" id="cap"></div>
@@ -563,22 +565,34 @@ function prepare(v,i){v.src='/clip/'+encodeURIComponent(clips[i].clip);v.playbac
 function preloadNext(){
   const n=idx+1;
   if(n>=clips.length||nxtIdx===n)return;
-  nxtIdx=n;nxt.muted=true;prepare(nxt,n);srt(clips[n].clip)}
+  nxtIdx=n;nxtGo=false;hand++;nxt.muted=true;prepare(nxt,n);srt(clips[n].clip)}
 
 function show(i,t,autoplay){
   i=Math.max(0,Math.min(clips.length-1,i));
-  const wasPlaying=autoplay!==undefined?autoplay:!cur.paused;
-  if(i===nxtIdx&&i!==idx){          // swap in the preloaded element: no gap
-    swapping=true;cur.pause();swapping=false;const old=cur;cur=nxt;nxt=old;
-    cur.classList.remove('hidden');nxt.classList.add('hidden');
-    cur.muted=false;nxt.removeAttribute('src');nxt.load();nxtIdx=-1;
+  const wasPlaying=autoplay!==undefined?autoplay:!cur.paused;let swapped=false;
+  if(i===nxtIdx&&i!==idx&&nxt.getAttribute('src')){   // swap in the preloaded element: no gap
+    const old=cur;cur=nxt;nxt=old;nxtGo=false;
+    // the old clip is left to run out by itself when it's that close to its end: in WebKit a pause() (or load()) on
+    // one <video> freezes the other one for ~100 ms, which was the remaining hitch right after every hand-off
+    if(!old.ended&&!((old.duration-old.currentTime)/speed<0.15)){swapping=true;old.pause();swapping=false}
+    if(cur.muted!==old.muted)cur.muted=old.muted;  // carry the sound settings over; the preload ran muted
+    if(cur.volume!==old.volume)cur.volume=old.volume;
+    if(wasPlaying&&cur.paused)cur.play().catch(()=>{});   // start it before anything else, in the same frame as the flip
+    $('va').classList.toggle('gone',cur!==$('va'));
+    nxtIdx=-1;swapped=true;
   }else if(i!==idx||!cur.getAttribute('src')){prepare(cur,i)}
-  idx=i;cur.playbackRate=speed;
-  const seek=()=>{if(t!=null)cur.currentTime=Math.min(t,Math.max(0,(clips[i].dur||0)-0.05))};
+  idx=i;if(cur.playbackRate!==speed)cur.playbackRate=speed;   // untouched if already right: WebKit hiccups on any rate write
+  // no seek when it's already there: re-seeking the preloaded clip to 0 made the decoder start over (a stall)
+  const seek=()=>{if(t==null)return;const to=Math.min(t,Math.max(0,(clips[i].dur||0)-0.05));
+    if(Math.abs(cur.currentTime-to)>0.01)cur.currentTime=to};
   if(cur.readyState>=1)seek();else cur.addEventListener('loadedmetadata',seek,{once:true});
-  if(wasPlaying)cur.play().catch(()=>{});
+  if(wasPlaying&&cur.paused)cur.play().catch(()=>{});
   $('msg').textContent='';
-  markCurrent();srt(clips[i].clip);preloadNext()}
+  markCurrent();srt(clips[i].clip);
+  // after a hand-off, load the clip after next a moment later: starting a second decoder right as the new clip
+  // starts rolling made WebKit drop ~100 ms of it. The old element just sits underneath until then.
+  clearTimeout(preT);if(swapped)preT=setTimeout(preloadNext,700);else preloadNext()}
+let preT=0;
 
 function markCurrent(){
   document.querySelectorAll('.item.cur,.seg.cur').forEach(e=>e.classList.remove('cur'));
@@ -587,7 +601,28 @@ function markCurrent(){
   if(sg)sg.classList.add('cur')}
 
 function onEnded(e){if(e.target!==cur)return;
-  if(idx+1<clips.length)show(idx+1,0,true);else playUI(false)}
+  if(idx+1<clips.length)show(idx+1,nxtGo?null:0,true);else playUI(false)}   // already rolling: don't rewind it
+// Gapless hand-off (creator, 2026-11-10: 每个 clip 之间都有一个很短的闪顿). Waiting for 'ended' and then calling
+// play() froze the last frame: 'ended' comes late, and a <video> needs a while after play() before its picture moves
+// (~70 ms in Chrome, ~250 ms in the app's WebKit). So the preloaded next clip starts (muted, underneath) `lead` before
+// this one ends and takes over once it is ROLL s in (its first frames stutter while the decoder warms up), or when this
+// one ends, whichever comes first. `lead` is re-learnt at every hand-off; 'ended' stays the fallback (no rAF while the
+// page is hidden). Costs the first ~0.1 s of each raw clip, which is camera-start fumble anyway.
+let lead=0.3;      // s of real time
+const ROLL=0.1;    // s of the next clip played underneath before it takes over
+let nxtGo=false, hand=0;   // the next clip is already rolling underneath; id of the current attempt
+function handoff(){
+  if(nxtIdx!==idx+1||nxt.readyState<2)return;
+  const d=cur.duration;if(!d||!isFinite(d))return;
+  const run=!cur.seeking&&(!cur.paused||cur.ended)&&(d-cur.currentTime)/speed<=lead;
+  if(run&&!nxtGo){nxtGo=true;if(!nxt.muted)nxt.muted=true;if(nxt.playbackRate!==speed)nxt.playbackRate=speed;
+    nxt.play().catch(()=>{});
+    const v=nxt,id=++hand,t0=performance.now();
+    if(v.requestVideoFrameCallback){const go=(now,m)=>{if(id!==hand)return;
+      if(m.mediaTime>=ROLL){lead=Math.min(0.8,Math.max(0.1,(now-t0)/1000+0.02));if(nxtGo&&v===nxt)show(idx+1,null,true);return}
+      v.requestVideoFrameCallback(go)};v.requestVideoFrameCallback(go)}}
+  else if(!run&&nxtGo&&!cur.ended){nxtGo=false;hand++;nxt.pause();nxt.currentTime=0}   // paused / sought back: rewind it
+  else if(nxtGo&&!nxt.requestVideoFrameCallback&&nxt.currentTime>=ROLL)show(idx+1,null,true)}
 
 [$('va'),$('vb')].forEach(v=>{
   v.addEventListener('ended',onEnded);
@@ -599,7 +634,7 @@ function onEnded(e){if(e.target!==cur)return;
 
 function toggle(){if(cur.paused)cur.play().catch(()=>{});else cur.pause()}
 // YouTube-style big ▶ in the middle while paused (both <video> elements swap roles, so poll)
-setInterval(()=>{const b=document.getElementById('bigplay');if(b)b.classList.toggle('hide',!cur.paused)},150);
+setInterval(()=>{const b=document.getElementById('bigplay');if(b)b.classList.toggle('hide',!cur.paused||nxtGo)},150);
 function seekBy(d){const t=cur.currentTime+d;
   if(t<0&&idx>0){show(idx-1,Math.max(0,clips[idx-1].dur+t))}
   else if(t>=(clips[idx].dur||1e9)&&idx+1<clips.length){show(idx+1,t-clips[idx].dur)}
@@ -748,6 +783,7 @@ function tick(){
       if(key!==lastCapKey){lastCapKey=key;
         $('cap').innerHTML=line?'<span>'+esc(line.text)+'</span>':''}
     }else if(p&&!p.w){p.w=1;p.then(v=>p.v=v)}
+    handoff();
   }
   requestAnimationFrame(tick)}
 setInterval(updEst,2000);
