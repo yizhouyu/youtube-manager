@@ -163,6 +163,8 @@ def status(proj):
         return "ok", "已通过"
     if any(not q.get("answer") for q in QS.load(proj)):
         return "q", "有问题没答"
+    if not current(proj).get("raw"):   # he reviews the footage first, then the cut (creator 11/11)
+        return "review", "素材待审"
     pv = _preview_mtime(proj)
     if pv:
         sent = [t for t, st in _creator_notes(proj) if st == CHAT.SENT]   # pending = still reviewing this round
@@ -367,7 +369,7 @@ def titles(proj):
 
 # ---------------------------------------------------------------- picks (Q9)
 
-PICK_TYPES = ("cover", "title", "short", "approve")
+PICK_TYPES = ("cover", "title", "short", "raw", "approve")   # raw = 素材审完 (creator 11/11: 素材 → 成片 → 通过)
 _pick_lock = threading.Lock()
 
 
@@ -411,11 +413,14 @@ def _approval_line(proj, typ, choice, undo, day, extra=""):
     ep = label(proj)
     if typ == "approve":
         what = f"{ep} 审片通过"
+    elif typ == "raw":
+        what = f"{ep} 素材审完"
     else:
         what = f"{ep} {typ}: {choice}{extra}"
     if undo:
-        return f"- {day} · {what} 撤销 — app 点选「{'已通过' if typ == 'approve' else '已选'} · 撤销」"
-    return f"- {day} · {what} — app 点选「{'审片通过' if typ == 'approve' else '选这个'}」"
+        btn = {"approve": "已通过 · 撤销", "raw": "素材 ✓ · 撤销"}.get(typ, "已选 · 撤销")
+        return f"- {day} · {what} 撤销 — app 点选「{btn}」"
+    return f"- {day} · {what} — app 点选「{ {'approve': '审片通过', 'raw': '素材审完'}.get(typ, '选这个')}」"
 
 
 def _append(path, line):
@@ -850,6 +855,8 @@ html.noside:not(.native) .top{padding-left:52px}
 #approve{border-radius:999px;padding:0 16px;height:30px;background:var(--btn-pri-bg);border-color:var(--btn-pri-bg);color:var(--btn-pri-ink);font-weight:500}
 #approve:hover{background:var(--accent-hover)}
 #approve.on{background:var(--st-pass-bg);border-color:transparent;color:var(--st-pass)}
+#rawok{border-radius:999px;padding:0 12px;height:30px;background:transparent;border-color:transparent;color:var(--st-pass);margin-right:4px}
+#rawok:hover{background:var(--st-pass-bg)}
 #note{display:none;margin:0 var(--sp-5) var(--sp-2);padding:var(--sp-2) var(--sp-3);border-radius:var(--r-sm);background:var(--q-soft);color:var(--q-ink);font-size:var(--fs)}
 /* ---- views */
 .views{flex:1;min-height:0;position:relative}
@@ -885,7 +892,7 @@ html.noside:not(.native) .top{padding-left:52px}
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-word}   /* a title must be readable to be picked */
 .cand button{flex:none;height:28px;font-size:var(--fs-sm);border-radius:999px;background:var(--btn-sec-bg);border-color:var(--btn-sec-line);color:var(--btn-sec-ink)}
 .cand.on button{color:var(--st-pass);border-color:transparent;background:transparent}
-body.ro .cand button,body.ro #approve{display:none}
+body.ro .cand button,body.ro #approve,body.ro #rawok{display:none}
 </style></head><body>
 <div class="app">
 <button id="sidetg" title="显示 / 隐藏边栏（⌃⌘S）"><svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x=".7" y=".7" width="16.6" height="12.6" rx="2.6"/><path d="M6.2 1v12"/></svg></button>
@@ -893,7 +900,7 @@ body.ro .cand button,body.ro #approve{display:none}
   <button id="other" class="ghost" title="比如外接硬盘上的旧项目（只读）">打开其他文件夹…</button></aside>
 <section class="mainc">
   <header class="top"><span id="ttlw"><span id="ttl"></span><span id="tmeta"></span></span><nav id="tabs"></nav>
-    <span class="right"><span id="pacts"></span><button id="approve" hidden title="这一期审片通过（只记下来，不会上传）">审片通过</button></span></header>
+    <span class="right"><span id="pacts"></span><button id="rawok" hidden title="撤销「素材审完」">素材 ✓</button><button id="approve" hidden title="这一期审片通过（只记下来，不会上传）">审片通过</button></span></header>
   <div id="note"></div>
   <div class="views" id="views"><div class="view on" id="v-none"><div class="empty">左边点一期开始审片</div></div></div>
 </section></div>
@@ -915,7 +922,7 @@ async function list(){const [eps,trips]=await Promise.all([fetch('/api/episodes'
   $('eps').querySelectorAll('.ep.trip').forEach(el=>el.onclick=()=>showTrip(el.dataset.t))}
 function showTrip(n){if(EP&&dirtyPages()&&!confirm('成片里有修改还没保存，换走会丢掉这些修改。\n还是要换吗？'))return;
   EP=null;cur=null;ACTS={};acts();document.querySelectorAll('.ep').forEach(e=>e.classList.toggle('on',e.dataset.t===n));
-  $('ttl').innerHTML=`<b>${esc(n)}</b>`;$('tmeta').textContent='';$('tabs').innerHTML='';$('approve').hidden=true;$('note').style.display='none';
+  $('ttl').innerHTML=`<b>${esc(n)}</b>`;$('tmeta').textContent='';$('tabs').innerHTML='';$('approve').hidden=true;$('rawok').hidden=true;$('note').style.display='none';
   $('views').innerHTML=`<div class="view on" id="v-none"><div class="empty">这趟的素材还没分期。<br>在对话里跟 agent 说「整理 ${esc(n)}」，分好以后每一期会出现在「进行中」。</div></div>`}
 // Opening is one request at a time: quick clicks through the list open only the last one clicked (the server stops the
 // previous episode's servers on every open, so overlapping opens could leave the page pointing at stopped servers).
@@ -924,7 +931,7 @@ const dirtyPages=()=>Object.values(ACTS).some(a=>(a.acts||[]).some(b=>b.dirty));
 async function openEp(p){
   if(EP&&p!==EP.path&&!opening&&dirtyPages()&&!confirm('成片里有修改还没保存，换一期会丢掉这些修改。\n还是要换吗？'))return;
   wantOpen=p;document.querySelectorAll('.ep').forEach(e=>e.classList.toggle('on',e.dataset.p===p));
-  $('ttl').innerHTML='<i>启动中…</i>';$('tmeta').textContent='';$('tabs').innerHTML='';$('pacts').innerHTML='';$('approve').hidden=true;$('note').style.display='none';
+  $('ttl').innerHTML='<i>启动中…</i>';$('tmeta').textContent='';$('tabs').innerHTML='';$('pacts').innerHTML='';$('approve').hidden=true;$('rawok').hidden=true;$('note').style.display='none';
   $('views').innerHTML='<div class="view on" id="v-none"><div class="empty">启动中…</div></div>';EP=null;cur=null;ACTS={};
   if(opening)return;opening=true;let j;
   try{while(wantOpen){const q=wantOpen;wantOpen=null;j=await post('/api/open',{path:q}).catch(()=>null);
@@ -942,7 +949,8 @@ function showEp(j){EP=j;cur=null;ACTS={};TIME={};acts();
     +'<div class="view" id="v-none"><div class="empty">这一期没有能打开的页面</div></div>';
   strips();list();
   // once there is a preview the work is reviewing the cut, so open on 成片 (creator 11/11); before that, 素材
-  const first=(j.has_preview?['cut','raw']:['raw','cut']).concat(['cover','shorts','titles']).find(k=>has[k]);tab(first||'none')}
+  // stages: footage first; the cut opens first only once he has marked 素材审完 (creator 11/11)
+  const first=(j.has_preview&&(j.picks||{}).raw?['cut','raw']:['raw','cut']).concat(['cover','shorts','titles']).find(k=>has[k]);tab(first||'none')}
 function tab(k){if(!EP)return;const v=$('v-'+k);if(!v)return;
   if(cur&&cur!==k){const f=document.querySelector('#v-'+cur+' iframe');if(f&&f.contentWindow)f.contentWindow.postMessage({shenpian:'pause'},'*')}
   cur=k;acts();report();document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x===v));
@@ -987,10 +995,17 @@ function strips(){if(!EP)return;const s=(k,h)=>{const e=$('s-'+k);if(e)e.innerHT
   s('titles',EP.titles.map(t=>cand('title',t.text,`<span class="tx"><b title="${esc(t.text)}">${esc(t.text)}</b>${esc(t.id)}</span>`)).join(''));
   // no picks for Shorts: both always go out (creator 11/11: 「shorts 一般我都是直接发两个」)
   document.querySelectorAll('.strip button').forEach(b=>b.onclick=()=>doPick(b.dataset.t,b.dataset.c,!!b.dataset.u));
-  const a=$('approve'),on=!!(EP.picks||{}).approve;a.hidden=false;a.classList.toggle('on',on);a.textContent=on?'已通过 · 撤销':'审片通过'}
+  // one stage button: 素材审完 → 审片通过 → 已通过 · 撤销; 「素材 ✓」 undoes the first stage
+  const P=EP.picks||{},on=!!P.approve,a=$('approve');a.hidden=false;a.classList.toggle('on',on);
+  a.textContent=on?'已通过 · 撤销':P.raw?'审片通过':'素材审完';
+  a.title=on?'撤销审片通过':P.raw?'这一期审片通过（只记下来，不会上传）':'素材都看完了，接下来审成片（只记下来）';
+  $('rawok').hidden=!P.raw||on}
 async function doPick(type,choice,undo){const j=await post('/api/pick',{path:EP.path,type,choice,undo});
   if(j.ok){EP.picks=j.picks;strips();list()}else alert(j.error||'没记下来')}
-$('approve').onclick=()=>doPick('approve','审片通过',!!(EP.picks||{}).approve);
+$('approve').onclick=async()=>{const P=EP.picks||{};
+  if(P.approve||P.raw){doPick('approve','审片通过',!!P.approve);return}
+  await doPick('raw','素材审完',false);if((EP.picks||{}).raw&&$('v-cut'))tab('cut')};
+$('rawok').onclick=()=>doPick('raw','素材审完',true);
 $('other').onclick=()=>{if(window.webkit&&webkit.messageHandlers&&webkit.messageHandlers.shell)webkit.messageHandlers.shell.postMessage({cmd:'pickFolder'});
   else{const p=prompt('项目文件夹的路径');if(p)openEp(p)}};
 // the open page's header (meta text + 保存 / 导出成片 / 更新预览) shown in this toolbar; a click is sent back to the page,
