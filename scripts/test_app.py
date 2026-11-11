@@ -58,7 +58,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert cl.get("/api/chat/jump?clip=A&clip_t=15").get_json()["t"] == 5.0
 
     # ---- status chips
-    assert A.status(proj) == ("", "")
+    assert A.status(proj) == ("work", "粗剪中 · 配乐"), "edl.json = C5 done, next is C6"
     with open(os.path.join(ed, "questions.json"), "w") as f:
         json.dump([{"id": "q1", "text": "?", "answer": None}], f)
     assert A.status(proj)[1] == "有问题没答"
@@ -66,12 +66,17 @@ with tempfile.TemporaryDirectory() as tmp:
         json.dump([{"id": "q1", "text": "?", "answer": "好"}], f)
     os.makedirs(os.path.join(ed, "previews"))
     open(os.path.join(ed, "previews", "preview-20261110-081519.mp4"), "w").close()
-    assert A.status(proj)[1] == "待审片"
+    assert A.status(proj)[1] == "粗剪待审", "no creator notes yet"
     assert [e["name"] for e in A.episodes()] == ["124 - Test Trip"]
     os.makedirs(os.path.join(desk, "125 - Later", "02 - Export", "edit"))
     os.makedirs(os.path.join(desk, "temp - x", "02 - Export", "edit"))
     os.makedirs(os.path.join(desk, "126 - No Edit Yet"))
-    assert [e["num"] for e in A.episodes()] == [125, 124], "newest first; only <N> - <name> with 02 - Export/edit"
+    assert [e["num"] for e in A.episodes()] == [124, 125], "by number; only <N> - <name> with 02 - Export/edit"
+    assert A.status(os.path.join(desk, "125 - Later")) == ("todo", "待开剪"), "just organized"
+    os.makedirs(os.path.join(desk, "202612Trip", "sub"))
+    open(os.path.join(desk, "202612Trip", "GX010001.MP4"), "w").close()
+    os.makedirs(os.path.join(desk, "202601Done"))
+    assert [(t["name"], t["clips"]) for t in A.trips()] == [("202612Trip", 1)], "待整理 = trip folder with loose clips"
 
     # ---- covers / titles candidates
     with open(os.path.join(th, "v2", "covers.json"), "w") as f:
@@ -98,6 +103,17 @@ with tempfile.TemporaryDirectory() as tmp:
     assert open(os.path.join(th, "CHOSEN")).read().startswith("F6 (v2)")
     A.pick(proj, "cover", "F6", undo=True, now=now)
     assert open(os.path.join(th, "CHOSEN")).read() == "E (v1) — agent wrote this\n", "CHOSEN restored"
+    assert A.picks_now(proj)["cover"] == "E", "the agent's CHOSEN shows as the pick"
+    with open(os.path.join(th, "CHOSEN"), "w") as f:
+        f.write("F6 (v2) — 2026-11-09 creator: 「F6不错」\n")
+    assert A.chosen_cover(proj) == "F6" and A.covers(proj)[0]["chosen"]
+    with open(os.path.join(th, "v3", "covers.json") if os.path.isdir(os.path.join(th, "v3")) else os.path.join(th, "v2", "covers.json"), "w") as f:
+        json.dump({"new": [{"id": "F6_dawn"}, {"id": "F3"}]}, f)
+    assert A.chosen_cover(proj) == "F6_dawn", "short id resolves to the candidate"
+    A.pick(proj, "cover", "F6_dawn", undo=True, now=now)
+    assert not os.path.exists(os.path.join(th, "CHOSEN")) and json.load(open(A.picks_path(proj)))[-1]["chosen_was"].startswith("F6 (v2)")
+    with open(os.path.join(th, "CHOSEN"), "w") as f:
+        f.write("E (v1) — agent wrote this\n")
     A.pick(proj, "approve", "审片通过", now=now)
     assert A.status(proj) == ("ok", "已通过")
     A.pick(proj, "approve", "审片通过", now=now)   # double click: no second line
@@ -106,7 +122,15 @@ with tempfile.TemporaryDirectory() as tmp:
     A.pick(proj, "title", "标题一", now=now)
     assert A.current(proj) == {"approve": "审片通过", "short": ["sun_late", "pay_code"], "title": "标题一"}
     A.pick(proj, "approve", "审片通过", undo=True, now=now)
-    assert A.status(proj)[1] == "待审片"
+    assert A.status(proj)[1] == "粗剪待审"
+    pv = os.path.join(ed, "previews", "preview-20261110-081519.mp4")
+    os.utime(pv, (1, time.mktime(time.strptime("2026-11-10 10:00:00", "%Y-%m-%d %H:%M:%S"))))
+    with open(os.path.join(ed, "chat.jsonl"), "a") as f:
+        f.write(json.dumps({"id": 90, "role": "creator", "text": "x", "ts": "2026-11-10 09:00:00", "status": "sent"}) + "\n")
+    assert A.status(proj)[1] == "精剪待审", "notes older than the preview = applied"
+    with open(os.path.join(ed, "chat.jsonl"), "a") as f:
+        f.write(json.dumps({"id": 91, "role": "creator", "text": "y", "ts": "2026-11-10 11:00:00", "status": "sent"}) + "\n")
+    assert A.status(proj) == ("work", "改片中")
     lines = open(os.environ["SHENPIAN_APPROVALS"], encoding="utf-8").read().split("\n")
     assert lines[0] == "- 2026-11-09 · 124 cover: E3 南京路 → 外滩 (v4) — 「E3可以的」", "old lines untouched"
     assert lines[1:] == [
@@ -114,6 +138,7 @@ with tempfile.TemporaryDirectory() as tmp:
         "- 2026-11-10 · 124 cover: F3 (v2) — app 点选「选这个」",
         "- 2026-11-10 · 124 cover: F3 (v2) 撤销 — app 点选「已选 · 撤销」",
         "- 2026-11-10 · 124 cover: F6 (v2) 撤销 — app 点选「已选 · 撤销」",
+        "- 2026-11-10 · 124 cover: F6_dawn (v2) 撤销 — app 点选「已选 · 撤销」",
         "- 2026-11-10 · 124 审片通过 — app 点选「审片通过」",
         "- 2026-11-10 · 124 short: sun_late — app 点选「选这个」",
         "- 2026-11-10 · 124 short: pay_code — app 点选「选这个」",
@@ -121,7 +146,7 @@ with tempfile.TemporaryDirectory() as tmp:
         "- 2026-11-10 · 124 审片通过 撤销 — app 点选「已通过 · 撤销」",
         ""], lines
     ev = json.load(open(A.picks_path(proj)))
-    assert all({"type", "choice", "at"} <= set(e) for e in ev) and ev[2]["undo"] is True and len(ev) == 9
+    assert all({"type", "choice", "at"} <= set(e) for e in ev) and ev[2]["undo"] is True and len(ev) == 10
 
     # read-only: a folder outside the episodes root never gets a pick
     other = os.path.join(tmp, "Volumes", "74 - Old")
@@ -137,7 +162,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert cl2.post("/api/pick", json={"path": other, "type": "approve", "choice": "审片通过"}).status_code == 400
     assert cl2.post("/api/pick", json={"path": proj, "type": "bogus", "choice": "x"}).status_code == 400
     eps = cl2.get("/api/episodes").get_json()
-    assert eps[1]["label"] == "124" and eps[1]["chip_text"] == "待审片" and not eps[1]["ro"]
+    assert eps[0]["label"] == "124" and eps[0]["chip_text"] == "改片中" and not eps[0]["ro"]
 
     # read-only servers refuse every write and never queue a storyboard
     ro = Flask("ro")

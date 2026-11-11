@@ -43,6 +43,8 @@ import urllib.request
 
 from flask import Flask, Response, abort, jsonify, request, send_from_directory
 
+from . import chat as CHAT
+from . import checkpoint as CP
 from . import edl as E
 from . import questions as QS
 from . import theme as THEME
@@ -114,7 +116,7 @@ def episodes():
         p = os.path.join(root(), n)
         if m and os.path.isdir(edit_dir(p)):
             rows.append((int(m[1]), n, p))
-    return [{"path": p, "name": n, "num": k} for k, n, p in sorted(rows, key=lambda r: (-r[0], r[1]))]
+    return [{"path": p, "name": n, "num": k} for k, n, p in sorted(rows)]   # by number, each section (creator 11/10)
 
 
 def has_preview(proj):
@@ -130,17 +132,76 @@ def uploaded(proj):
         return False
 
 
+# the rough-cut step a 粗剪中 chip names (checkpoint ids, see src/editor/checkpoint.py)
+STEP_ZH = {"C0": "准备", "C1": "看素材", "C2": "查资料", "C3": "结构", "C4": "地图字卡", "C5": "初版剪辑",
+           "C6": "配乐", "C7": "字幕", "C8": "问题", "C9": "渲染"}
+
+
+def _preview_mtime(proj):
+    fs = [os.path.join(edit_dir(proj), "preview.mp4")] + glob.glob(os.path.join(edit_dir(proj), "previews", "preview-*.mp4"))
+    return max((os.path.getmtime(f) for f in fs if os.path.isfile(f)), default=0)
+
+
+def _creator_notes(proj):
+    """[(epoch, status)] of his review comments."""
+    out = []
+    for m in CHAT.load(proj):
+        if m.get("role") == "creator" and CHAT.status(m) != CHAT.DELETED:
+            try:
+                out.append((time.mktime(time.strptime(m["ts"], "%Y-%m-%d %H:%M:%S")), CHAT.status(m)))
+            except (KeyError, ValueError):
+                pass
+    return out
+
+
 def status(proj):
-    """(key, chip text): 已上传 > 已通过 > 有问题没答 > 待审片 > nothing."""
+    """(key, chip text), creator 2026-11-10 (Q4): 已上传 > 已通过 > 有问题没答 > 改片中 / 精剪待审 / 粗剪待审 (a preview
+    exists; 粗剪 until he has left notes) > 粗剪中 · <step> > 待开剪 (just organized)."""
     if uploaded(proj):
         return "up", "已上传"
     if current(proj).get("approve"):
         return "ok", "已通过"
     if any(not q.get("answer") for q in QS.load(proj)):
         return "q", "有问题没答"
-    if has_preview(proj):
-        return "review", "待审片"
-    return "", ""
+    pv = _preview_mtime(proj)
+    if pv:
+        sent = [t for t, st in _creator_notes(proj) if st == CHAT.SENT]   # pending = still reviewing this round
+        if any(t > pv for t in sent):
+            return "work", "改片中"
+        return "review", "精剪待审" if sent else "粗剪待审"
+    try:
+        rows = CP.status(proj)
+    except Exception:
+        rows = []
+    if any(r[2] for r in rows):
+        last = max(i for i, r in enumerate(rows) if r[2])   # the furthest step reached (old projects skip markings)
+        nx = next((r for r in rows[last:] if not r[2]), None)
+        return "work", "粗剪中" + (f" · {STEP_ZH[nx[0]]}" if nx and nx[0] in STEP_ZH else "")
+    return "todo", "待开剪"
+
+
+TRIP_RX = re.compile(r"^\d{6}")   # a trip's raw dump on the Desktop, e.g. 202611China
+VIDEO_EXT = (".mp4", ".mov")
+
+
+def trips():
+    """Desktop trip folders that still hold loose clips, i.e. not split into episodes yet (待整理). Top level only."""
+    out = []
+    try:
+        names = sorted(os.listdir(root()))
+    except OSError:
+        return out
+    for n in names:
+        p = os.path.join(root(), n)
+        if not TRIP_RX.match(n) or not os.path.isdir(p):
+            continue
+        try:
+            k = sum(1 for f in os.listdir(p) if f.lower().endswith(VIDEO_EXT) and not f.startswith("._"))
+        except OSError:
+            continue
+        if k:
+            out.append({"path": p, "name": n, "clips": k})
+    return out
 
 
 def cover_page(proj):
@@ -163,14 +224,20 @@ def feed_sim(proj):
     return os.path.relpath(max(fs, key=os.path.getmtime), thumb_dir(proj))
 
 
-def covers(proj):
-    """Candidates of the newest thumbnail/v<N>/covers.json: [{id, title, tag, img, v}]."""
-    js = sorted(glob.glob(os.path.join(thumb_dir(proj), "v*", "covers.json")), key=_vnum)
-    if not js:
-        return []
-    v = _vnum(js[-1])
+def _cover_files(proj, v, cid):
+    """Relative paths of one candidate's renders: big (YouTube 1280), s360 / s168 (feed sizes), bili."""
+    def first(*names):
+        return next((r for r in names if os.path.isfile(os.path.join(thumb_dir(proj), r))), None)
+    return {"img": first(f"v{v}/{cid}_youtube.jpg", f"v{v}/{cid}.jpg", f"v{v}/{cid}.png", f"v{v}/{cid}_360.jpg",
+                         f"{cid}_youtube.jpg", f"{cid}.jpg"),
+            "s360": first(f"v{v}/{cid}_360.jpg"), "s168": first(f"v{v}/{cid}_168.jpg"),
+            "bili": first(f"v{v}/{cid}_bilibili.jpg", f"{cid}_bilibili.jpg")}
+
+
+def _covers_json(proj, path):
+    v = _vnum(path)
     try:
-        with open(js[-1], encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, ValueError):
         return []
@@ -181,11 +248,57 @@ def covers(proj):
             if not cid or cid in seen:
                 continue
             seen.add(cid)
-            img = next((r for r in (f"v{v}/{cid}_360.jpg", f"v{v}/{cid}_youtube.jpg", f"v{v}/{cid}.jpg",
-                                    f"{cid}_youtube.jpg", f"{cid}.jpg") if os.path.isfile(os.path.join(thumb_dir(proj), r))), None)
-            out.append({"id": cid, "title": re.sub(r"<[^>]+>", "", c.get("title") or cid), "tag": c.get("tag") or "",
-                        "img": img, "v": v})
+            out.append(dict({"id": cid, "title": re.sub(r"<[^>]+>", "", c.get("title") or cid), "tag": c.get("tag") or "",
+                             "why": re.sub(r"<[^>]+>", "", c.get("why") or ""), "v": v}, **_cover_files(proj, v, cid)))
     return out
+
+
+def chosen_cover(proj):
+    """The id thumbnail/CHOSEN names ("E3 (v4) — ..." or "F6_bridge_dawn (v2) — ..."), resolved against the
+    candidates (a short id like E3 matches E3_nanjinglu of that version). None when nothing is chosen."""
+    try:
+        with open(os.path.join(thumb_dir(proj), "CHOSEN"), encoding="utf-8") as f:
+            line = f.readline()
+    except OSError:
+        return None
+    m = re.match(r"\s*([\w.-]+)(?:\s*\(v(\d+)\))?", line)
+    if not m:
+        return None
+    word, v = m[1], int(m[2]) if m[2] else None
+    js = sorted(glob.glob(os.path.join(thumb_dir(proj), "v*", "covers.json")), key=_vnum, reverse=True)
+    for path in js:
+        if v is not None and _vnum(path) != v:
+            continue
+        for c in _covers_json(proj, path):
+            if c["id"] == word or c["id"].startswith(word + "_"):
+                return c["id"]
+    return word
+
+
+def covers(proj):
+    """Candidates of the newest thumbnail/v<N>/covers.json: [{id, title, tag, why, v, img, s360, s168, bili, chosen}].
+    The chosen cover (thumbnail/CHOSEN) is always listed, first, even when it came from an older round."""
+    js = sorted(glob.glob(os.path.join(thumb_dir(proj), "v*", "covers.json")), key=_vnum)
+    out = _covers_json(proj, js[-1]) if js else []
+    ch = chosen_cover(proj)
+    if ch and not any(c["id"] == ch for c in out):
+        old = next((c for p in reversed(js[:-1]) for c in _covers_json(proj, p) if c["id"] == ch), None)
+        if old:
+            out.insert(0, old)
+    for c in out:
+        c["chosen"] = c["id"] == ch
+    return sorted(out, key=lambda c: not c["chosen"])
+
+
+def picks_now(proj):
+    """current() with the cover taken from thumbnail/CHOSEN, which the agent also writes (his choices in chat)."""
+    cur = current(proj)
+    ch = chosen_cover(proj)
+    if ch:
+        cur["cover"] = ch
+    else:
+        cur.pop("cover", None)
+    return cur
 
 
 def titles(proj):
@@ -297,8 +410,10 @@ def pick(proj, typ, choice, undo=False, now=None):
         ev = load_picks(proj)
         cur = current(proj, ev)
         active = choice in cur.get("short", []) if typ == "short" else cur.get(typ) == choice
+        if typ == "cover":
+            active = chosen_cover(proj) == choice
         if undo != active:   # double click / stale page: nothing to do
-            return cur
+            return picks_now(proj)
         e = {"type": typ, "choice": choice, "at": at}
         if undo:
             e["undo"] = True
@@ -311,7 +426,9 @@ def pick(proj, typ, choice, undo=False, now=None):
                 before = next((x.get("chosen_before") for x in reversed(ev)
                                if x.get("type") == "cover" and x.get("choice") == choice and not x.get("undo")), None)
                 if before is None:
-                    if os.path.exists(cpath):
+                    if os.path.exists(cpath):   # keep what it said (e.g. the agent wrote it from his words in chat)
+                        with open(cpath, encoding="utf-8") as f:
+                            e["chosen_was"] = f.read()
                         os.remove(cpath)
                 else:
                     _write(cpath, before)
@@ -325,7 +442,7 @@ def pick(proj, typ, choice, undo=False, now=None):
         ev.append(e)
         _write(picks_path(proj), json.dumps(ev, ensure_ascii=False, indent=1))
         _append(approvals_path(), _approval_line(proj, typ, choice, undo, day, extra))
-        return current(proj, ev)
+        return picks_now(proj)
 
 
 def _write(path, text):
@@ -537,6 +654,11 @@ def api_episodes():
     return jsonify([dict(episode_info(e["path"]), num=e["num"]) for e in episodes()])
 
 
+@app.get("/api/trips")
+def api_trips():
+    return jsonify(trips())
+
+
 def _proj_arg():
     p = (request.get_json(silent=True) or {}).get("path") if request.method == "POST" else request.args.get("path")
     if not isinstance(p, str) or not os.path.isdir(p):
@@ -570,8 +692,9 @@ def api_open():
     if err:
         notes.append(err)
     return jsonify(dict(episode_info(proj), tabs=tabs, notes=notes, token=tok,
-                        covers=[dict(c, img=f"/f/{tok}/{c['img']}" if c["img"] else None) for c in covers(proj)],
-                        titles=titles(proj), shorts=[s["name"] for s in shorts], picks=current(proj)))
+                        covers=[dict(c, **{k: f"/f/{tok}/{c[k]}" if c[k] else None for k in ("img", "s360", "s168", "bili")})
+                                for c in covers(proj)],
+                        titles=titles(proj), shorts=[s["name"] for s in shorts], picks=picks_now(proj)))
 
 
 @app.post("/api/pick")
@@ -643,6 +766,8 @@ html.native .side{background:transparent}
 .chip.review{color:var(--st-review);background:var(--st-review-bg)}
 .chip.q{color:var(--st-open);background:var(--st-open-bg)}
 .chip.ok{color:var(--st-pass);background:var(--st-pass-bg)}
+.chip.work,.chip.todo{color:var(--st-up);background:rgba(120,120,128,.12)}
+.chip.todo::before{background:none;box-shadow:inset 0 0 0 1.5px currentColor}
 .chip.up{display:none}   /* the 已完成 section already says so */
 .chip.ro::before{display:none}
 .chip.ro{color:var(--q-ink);background:var(--q-soft)}
@@ -687,6 +812,23 @@ html.native .side{background:transparent}
 .view iframe{flex:1;border:0;width:100%;min-height:0;background:var(--bg)}
 .empty{margin:auto;color:var(--text-3);font-size:var(--fs-md);text-align:center;line-height:2}
 /* 选这个 strip under the cover / title / Shorts page: a sheet, rows without boxes */
+/* 封面 (creator 11/10): only the candidates, big; the chosen one marked; sizes + notes behind ⋯ */
+.cgrid{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:var(--sp-5);padding:var(--sp-5);align-content:start}
+.cv{position:relative;border-radius:12px;background:var(--bg-rail);border:1px solid var(--line);overflow:hidden}
+.cv img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#000}
+.cv.on{border-color:var(--st-pass);box-shadow:0 0 0 3px var(--st-pass-bg)}
+.cv .badge{position:absolute;top:10px;left:10px;background:var(--st-pass);color:#fff;font-size:var(--fs-xs);font-weight:600;padding:3px 10px;border-radius:999px}
+.cv .row{display:flex;align-items:center;gap:var(--sp-2);padding:10px 12px}
+.cv .row b{flex:1;min-width:0;font-size:var(--fs-sm);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cv .row .more{width:30px;padding:0;font-size:18px;line-height:28px}
+.cv.on .row .pk{color:var(--st-pass)}
+.cdet{position:absolute;inset:0;z-index:5;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
+.cdet>div{background:var(--bg);color:var(--text);border-radius:14px;max-width:min(900px,92%);max-height:88%;overflow:auto;padding:var(--sp-5);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.cdet h3{margin:0 0 var(--sp-3);font-size:var(--fs-md)}
+.cdet .sz{display:flex;gap:var(--sp-5);align-items:flex-start;flex-wrap:wrap;margin:var(--sp-3) 0}
+.cdet .sz figure{margin:0}.cdet figcaption{font-size:var(--fs-xs);color:var(--text-3);margin-top:4px}
+.cdet p{font-size:var(--fs-sm);line-height:1.7;color:var(--text-2);margin:var(--sp-3) 0}
+.cdet .acts{display:flex;gap:var(--sp-2);justify-content:flex-end}
 .strip{flex:none;display:flex;gap:var(--sp-2);overflow-x:auto;padding:var(--sp-3) var(--sp-5);background:var(--bg-rail);border-top:1px solid var(--line)}
 .strip:empty{display:none}
 .cand{flex:none;display:flex;gap:var(--sp-3);align-items:center;padding:var(--sp-2);border-radius:var(--r);background:var(--surface-2);max-width:440px}
@@ -717,10 +859,17 @@ const post=(u,b)=>fetch(u,{method:'POST',headers:{'Content-Type':'application/js
 function chip(e){return e.ro?'<span class="chip ro">只读</span>':(e.chip?`<span class="chip ${e.chip}">${esc(e.chip_text)}</span>`:'')}
 function row(e){const n=/^\d+$/.test(e.label)?e.label:'';
   return `<div class="ep${EP&&EP.path===e.path?' on':''}" data-p="${esc(e.path)}" title="${esc(e.path)}"><b>${esc(n)}</b><span class="nm">${esc(n?e.name.replace(/^\d+ - /,''):e.name)}</span>${chip(e)}</div>`}
-async function list(){const eps=await (await fetch('/api/episodes')).json();
-  const g=(t,a)=>a.length?`<div class="sec">${t}</div>`+a.map(row).join(''):'';
-  $('eps').innerHTML=g('进行中',eps.filter(e=>e.chip!=='up'))+g('已完成',eps.filter(e=>e.chip==='up'))+g('其他文件夹',others);
-  $('eps').querySelectorAll('.ep').forEach(el=>el.onclick=()=>openEp(el.dataset.p))}
+// 待整理 (creator 2026-11-10): a trip's raw dump not split into episodes yet. The agent does the split; the row only shows it is waiting.
+function tripRow(t){return `<div class="ep trip" data-t="${esc(t.name)}" title="${esc(t.path)}"><b></b><span class="nm">${esc(t.name)}</span><span class="chip todo">待整理 · ${t.clips} 个素材</span></div>`}
+async function list(){const [eps,trips]=await Promise.all([fetch('/api/episodes').then(r=>r.json()),fetch('/api/trips').then(r=>r.json()).catch(()=>[])]);
+  const g=(t,a,f=row)=>a.length?`<div class="sec">${t}</div>`+a.map(f).join(''):'';
+  $('eps').innerHTML=g('待整理',trips,tripRow)+g('进行中',eps.filter(e=>e.chip!=='up'))+g('已完成',eps.filter(e=>e.chip==='up'))+g('其他文件夹',others);
+  $('eps').querySelectorAll('.ep:not(.trip)').forEach(el=>el.onclick=()=>openEp(el.dataset.p));
+  $('eps').querySelectorAll('.ep.trip').forEach(el=>el.onclick=()=>showTrip(el.dataset.t))}
+function showTrip(n){if(EP&&dirtyPages()&&!confirm('成片里有修改还没保存，换走会丢掉这些修改。\n还是要换吗？'))return;
+  EP=null;cur=null;ACTS={};acts();document.querySelectorAll('.ep').forEach(e=>e.classList.toggle('on',e.dataset.t===n));
+  $('ttl').innerHTML=`<b>${esc(n)}</b>`;$('tmeta').textContent='';$('tabs').innerHTML='';$('approve').hidden=true;$('note').style.display='none';
+  $('views').innerHTML=`<div class="view on" id="v-none"><div class="empty">这趟的素材还没分期。<br>在对话里跟 agent 说「整理 ${esc(n)}」，分好以后每一期会出现在「进行中」。</div></div>`}
 // Opening is one request at a time: quick clicks through the list open only the last one clicked (the server stops the
 // previous episode's servers on every open, so overlapping opens could leave the page pointing at stopped servers).
 let opening=false, wantOpen=null;
@@ -742,7 +891,7 @@ function showEp(j){EP=j;cur=null;ACTS={};TIME={};acts();
   const has={cover:j.tabs.cover||j.covers.length,raw:j.tabs.raw,cut:j.tabs.cut,shorts:j.tabs.shorts,titles:j.tabs.titles||j.titles.length};
   $('tabs').innerHTML=TABS.map(([k,n],i)=>has[k]?`<button data-k="${k}" title="⌘${i+1}">${n}</button>`:'').join('');
   $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>tab(b.dataset.k));
-  $('views').innerHTML=TABS.map(([k])=>has[k]?`<div class="view" id="v-${k}">${j.tabs[k]?`<iframe data-src="${esc(j.tabs[k])}" allow="fullscreen; autoplay"></iframe>`:'<div class="empty">这一期还没有这个页面，下面可以直接选</div>'}<div class="strip" id="s-${k}"></div></div>`:'').join('')
+  $('views').innerHTML=TABS.map(([k])=>has[k]?`<div class="view" id="v-${k}">${k==='cover'&&j.covers.length?'<div class="cgrid" id="cgrid"></div>':j.tabs[k]?`<iframe data-src="${esc(j.tabs[k])}" allow="fullscreen; autoplay"></iframe>`:'<div class="empty">这一期还没有这个页面，下面可以直接选</div>'}<div class="strip" id="s-${k}"></div></div>`:'').join('')
     +'<div class="view" id="v-none"><div class="empty">这一期没有能打开的页面</div></div>';
   strips();list();
   const first=['raw','cut','cover','shorts','titles'].find(k=>has[k]);tab(first||'none')}
@@ -755,8 +904,25 @@ window.shell={tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),di
 // 选这个 / 已选 · 撤销 (Q9): one APPROVALS.md line per click
 function cand(type,id,html){const P=EP.picks||{},on=type==='short'?(P.short||[]).includes(id):P[type]===id;
   return `<div class="cand${on?' on':''}">${html}<button data-t="${type}" data-c="${esc(id)}" data-u="${on?1:''}">${on?'已选 · 撤销':'选这个'}</button></div>`}
+function coverGrid(){const g=$('cgrid');if(!g)return;const P=EP.picks||{};
+  g.innerHTML=EP.covers.map((c,i)=>{const on=P.cover===c.id;
+    return `<div class="cv${on?' on':''}">${on?'<span class="badge">✓ 已选</span>':''}${c.img?`<img src="${esc(c.img)}" alt="" data-i="${i}">`:''}
+      <div class="row"><b title="${esc(c.title)}">${esc(c.title)}</b><button class="more" data-i="${i}" title="手机首页 / 侧栏 / B站 和说明">⋯</button>
+      <button class="pk" data-t="cover" data-c="${esc(c.id)}" data-u="${on?1:''}">${on?'已选 · 撤销':'选这个'}</button></div></div>`}).join('');
+  g.querySelectorAll('.more,img').forEach(b=>b.onclick=()=>coverDetail(EP.covers[+b.dataset.i]));
+  g.querySelectorAll('.pk').forEach(b=>b.onclick=()=>doPick(b.dataset.t,b.dataset.c,!!b.dataset.u))}
+function coverDetail(c){const v=$('v-cover');if(!v||!c)return;const d=document.createElement('div');d.className='cdet';
+  const fig=(src,w,cap)=>src?`<figure><img src="${esc(src)}" style="width:${w}px;border-radius:${w<200?4:8}px" alt=""><figcaption>${cap}</figcaption></figure>`:'';
+  d.innerHTML=`<div><h3>${esc(c.title)}${c.tag?` <span class="chip review">${esc(c.tag)}</span>`:''}</h3>
+    <div class="sz">${fig(c.s360||c.img,360,'手机首页')}${fig(c.s168||c.img,168,'侧栏')}${fig(c.bili,300,'B站')}</div>
+    ${c.why?`<p>${esc(c.why)}</p>`:''}<div class="acts">${EP.tabs.cover?'<button class="full">完整对比页</button>':''}<button class="x">关闭</button></div></div>`;
+  d.onclick=e=>{if(e.target===d||e.target.classList.contains('x'))d.remove()};
+  const f=d.querySelector('.full');if(f)f.onclick=()=>{d.firstElementChild.innerHTML='';d.firstElementChild.style.cssText='width:92%;height:88%;padding:0;overflow:hidden';
+    d.firstElementChild.innerHTML=`<iframe src="${esc(EP.tabs.cover)}" style="width:100%;height:100%;border:0"></iframe>`};
+  v.appendChild(d)}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const d=document.querySelector('.cdet');if(d)d.remove()}});
 function strips(){if(!EP)return;const s=(k,h)=>{const e=$('s-'+k);if(e)e.innerHTML=h};
-  s('cover',EP.covers.map(c=>cand('cover',c.id,`${c.img?`<img src="${esc(c.img)}" alt="">`:''}<span class="tx"><b>${esc(c.title)}</b>${esc(c.id)}${c.tag?' · '+esc(c.tag):''}</span>`)).join(''));
+  coverGrid();
   s('titles',EP.titles.map(t=>cand('title',t.text,`<span class="tx"><b title="${esc(t.text)}">${esc(t.text)}</b>${esc(t.id)}</span>`)).join(''));
   s('shorts',EP.shorts.map(n=>cand('short',n,`<span class="tx"><b>${esc(n)}</b>Short</span>`)).join(''));
   document.querySelectorAll('.strip button').forEach(b=>b.onclick=()=>doPick(b.dataset.t,b.dataset.c,!!b.dataset.u));
