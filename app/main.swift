@@ -131,7 +131,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         web.allowsMagnification = false
         if #available(macOS 13.3, *) { web.isInspectable = true }
 
+        // fullscreen: macOS draws the (empty) toolbar as an opaque bar over the page's own top bar (creator 11/11), so hide it
+        NotificationCenter.default.addObserver(forName: NSWindow.willEnterFullScreenNotification, object: window, queue: .main) { [weak self] _ in
+            self?.window.toolbar?.isVisible = false
+        }
         NotificationCenter.default.addObserver(forName: NSWindow.didExitFullScreenNotification, object: window, queue: .main) { [weak self] _ in
+            self?.window.toolbar?.isVisible = true
             self?.web.evaluateJavaScript("window.shell&&shell.fsExited&&shell.fsExited()")   // left via the green button / Esc
         }
         let drag = DragStrip()

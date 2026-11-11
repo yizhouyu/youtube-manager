@@ -691,7 +691,7 @@ def api_open():
         notes.append("这一期还没有剪辑方案（edl.json），成片页打不开；能看的页面都在上面。")
     if err:
         notes.append(err)
-    return jsonify(dict(episode_info(proj), tabs=tabs, notes=notes, token=tok,
+    return jsonify(dict(episode_info(proj), tabs=tabs, notes=notes, token=tok, has_preview=has_preview(proj),
                         covers=[dict(c, **{k: f"/f/{tok}/{c[k]}" if c[k] else None for k in ("img", "s360", "s168", "bili")})
                                 for c in covers(proj)],
                         titles=titles(proj), shorts=[s["name"] for s in shorts], picks=picks_now(proj)))
@@ -909,7 +909,8 @@ function showEp(j){EP=j;cur=null;ACTS={};TIME={};acts();
   $('views').innerHTML=TABS.map(([k])=>has[k]?`<div class="view" id="v-${k}">${k==='cover'&&j.covers.length?'<div class="cgrid" id="cgrid"></div>':j.tabs[k]?`<iframe data-src="${esc(j.tabs[k])}" allow="fullscreen; autoplay"></iframe>`:'<div class="empty">这一期还没有这个页面，下面可以直接选</div>'}<div class="strip" id="s-${k}"></div></div>`:'').join('')
     +'<div class="view" id="v-none"><div class="empty">这一期没有能打开的页面</div></div>';
   strips();list();
-  const first=['raw','cut','cover','shorts','titles'].find(k=>has[k]);tab(first||'none')}
+  // once there is a preview the work is reviewing the cut, so open on 成片 (creator 11/11); before that, 素材
+  const first=(j.has_preview?['cut','raw']:['raw','cut']).concat(['cover','shorts','titles']).find(k=>has[k]);tab(first||'none')}
 function tab(k){if(!EP)return;const v=$('v-'+k);if(!v)return;
   if(cur&&cur!==k){const f=document.querySelector('#v-'+cur+' iframe');if(f&&f.contentWindow)f.contentWindow.postMessage({shenpian:'pause'},'*')}
   cur=k;acts();report();document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x===v));
