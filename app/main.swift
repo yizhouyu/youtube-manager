@@ -131,6 +131,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         web.allowsMagnification = false
         if #available(macOS 13.3, *) { web.isInspectable = true }
 
+        NotificationCenter.default.addObserver(forName: NSWindow.didExitFullScreenNotification, object: window, queue: .main) { [weak self] _ in
+            self?.web.evaluateJavaScript("window.shell&&shell.fsExited&&shell.fsExited()")   // left via the green button / Esc
+        }
         let drag = DragStrip()
         sideW = side.widthAnchor.constraint(equalToConstant: Theme.sidebarWidth)
         dragW = drag.widthAnchor.constraint(equalToConstant: Theme.sidebarWidth - Theme.dragLeading)
@@ -282,6 +285,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
 
     func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any] else { return }
+        if body["cmd"] as? String == "fullscreen" {   // a page's 全屏 button: the whole window, see chat.py
+            let on = body["on"] as? Bool ?? false
+            if on != window.styleMask.contains(.fullScreen) { window.toggleFullScreen(nil) }
+            return
+        }
         if body["cmd"] as? String == "sidebar" {   // the page hid / showed its sidebar: follow with the vibrancy view
             let shown = body["shown"] as? Bool ?? true
             NSAnimationContext.runAnimationGroup { ctx in

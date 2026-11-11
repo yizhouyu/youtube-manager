@@ -687,8 +687,15 @@ html.norail:has([data-fsroot].fs) #cbRail{display:none}
       window.dispatchEvent(new CustomEvent('cbfs',{detail:{on:S.on,mode:S.mode,min:S.min}}))}
     function setMode(m){S.mode=m;ls('cb_fs_mode',m);if(m==='rail'){S.min=false;ls('cb_fs_min','0')}apply()}
     function setMinF(m){S.min=m;ls('cb_fs_min',m?'1':'0');apply()}
+    // Inside 审片.app, element fullscreen in WKWebView goes black (creator 11/11): the app makes the whole window
+    // fullscreen and hides its own chrome instead, and the page fills its frame (the same look as real fullscreen).
+    const inApp=window.top!==window;
+    function appFs(on){S.on=on;apply();try{window.parent.postMessage({shenpian:'fs',on},'*')}catch(e){}}
+    window.addEventListener('message',e=>{if(e.data&&e.data.shenpian==='fsoff'&&S.on&&inApp){S.on=false;apply()}});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.on&&inApp&&!document.fullscreenElement){e.preventDefault();appFs(false)}});
     function toggle(){
       if(document.fullscreenElement){document.exitFullscreen().catch(()=>{});return}
+      if(inApp){appFs(!S.on);return}
       if(S.on){S.on=false;apply();return}   // simulated
       const rq=root.requestFullscreen||root.webkitRequestFullscreen;if(rq)Promise.resolve(rq.call(root)).catch(()=>{})}
     document.addEventListener('fullscreenchange',()=>{S.on=document.fullscreenElement===root;apply()});

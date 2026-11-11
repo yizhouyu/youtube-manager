@@ -762,6 +762,9 @@ html.noside .side{border-right:0}
 #sidetg:hover{background:rgba(120,120,128,.14);color:var(--text-2)}
 html:not(.native) #sidetg{left:12px}
 html.noside .top{padding-left:124px}
+html.fsmode .app{grid-template-columns:0 minmax(0,1fr)!important}
+html.fsmode .side{visibility:hidden;border-right:0}   /* stays a (0-wide) grid item, so the main column keeps its place */
+html.fsmode .top,html.fsmode #note,html.fsmode .strip,html.fsmode #sidetg{display:none!important}
 html.noside:not(.native) .top{padding-left:52px}
 #eps{flex:1;overflow-y:auto;padding:0 var(--sp-2)}
 .sec{font-size:var(--fs-xs);font-weight:500;color:var(--text-3);padding:var(--sp-3) var(--sp-3) var(--sp-1)}
@@ -919,7 +922,13 @@ const toggleSide=()=>setSide(document.documentElement.classList.contains('noside
 $('sidetg').onclick=toggleSide;
 document.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='s'&&e.metaKey&&e.ctrlKey){e.preventDefault();toggleSide()}});
 try{if(localStorage.getItem('shenpian.side')==='0')setSide(false)}catch(e){}
-window.shell={toggleSide,rail:()=>{const f=cur&&frameOf(cur);if(f&&f.contentWindow)f.contentWindow.postMessage({shenpian:'rail'},'*')},tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),dirty:dirtyPages,agent:agentOpen};   // dirty: the Swift app asks before quitting
+// 全屏 from a page (chat.py): the window goes fullscreen (Swift) and the app's own chrome hides, so the page fills it
+function pageFs(on){document.documentElement.classList.toggle('fsmode',on);
+  if(window.webkit&&webkit.messageHandlers&&webkit.messageHandlers.shell)webkit.messageHandlers.shell.postMessage({cmd:'fullscreen',on})}
+window.addEventListener('message',e=>{const d=e.data;if(d&&d.shenpian==='fs')pageFs(!!d.on)});
+function fsExited(){if(!document.documentElement.classList.contains('fsmode'))return;document.documentElement.classList.remove('fsmode');
+  document.querySelectorAll('.view iframe').forEach(f=>{try{f.contentWindow.postMessage({shenpian:'fsoff'},'*')}catch(e){}})}
+window.shell={toggleSide,fsExited,rail:()=>{const f=cur&&frameOf(cur);if(f&&f.contentWindow)f.contentWindow.postMessage({shenpian:'rail'},'*')},tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),dirty:dirtyPages,agent:agentOpen};   // dirty: the Swift app asks before quitting
 // 选这个 / 已选 · 撤销 (Q9): one APPROVALS.md line per click
 function cand(type,id,html){const P=EP.picks||{},on=type==='short'?(P.short||[]).includes(id):P[type]===id;
   return `<div class="cand${on?' on':''}">${html}<button data-t="${type}" data-c="${esc(id)}" data-u="${on?1:''}">${on?'已选 · 撤销':'选这个'}</button></div>`}
