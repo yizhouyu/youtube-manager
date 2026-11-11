@@ -4,7 +4,10 @@ The toolchain behind the travel-vlog channel 「Yizhou的一周」 (YouTube + Bi
 editing, packaging and publishing; the creator reviews in 「审片.app」 and approves.
 No editing software, no web dashboard: the procedure lives in [skills](.claude/skills/), and this code is what they call.
 
-![Pipeline](assets/readme/pipeline.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/pipeline-dark.png">
+  <img alt="Pipeline: footage → edit + QA → 审片.app → covers + titles → publish → follow-ups" src="assets/readme/pipeline-light.png">
+</picture>
 
 ## 审片.app
 
