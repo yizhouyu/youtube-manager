@@ -399,7 +399,7 @@ Use plain food words ("美食中心" for a food court, "牛肉" not a guessed cu
   - A US TV show most viewers don't know (Parks and Recreation) was cut entirely, line and picture.
   - Prefer references the audience knows; otherwise leave it out.
 - **No calendar dates on screen** (12月26日 etc.): not in titles, cards or route maps. A clock tag can stay.
-- **Clock tags are approximate** (creator 2026-11-11: 「时间太具体了…大概的时间就可以。以后的视频也都要这样」): 傍晚快6点 / 晚上7点半 / 8点多, never 5:51 or 7:26. Drop the time from a tag when the previous tag already says the same hour.
+- **Clock times are approximate everywhere** — tags, route-map stop labels and titles, notes (creator 2026-11-11: 「时间太具体了…大概的时间就可以。以后的视频也都要这样」): 傍晚快6点 / 晚上7点半 / 8点多, never 5:51 or 7:26. Drop the time from a tag when the previous tag already says the same hour.
 - **Music mood:** nothing eerie or mystical under a calm campus walk. Use light or bright tracks there.
 - **Pacing:**
   - Shorten drive-in or approach shots by 1–2 s.
