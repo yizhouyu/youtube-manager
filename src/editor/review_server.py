@@ -675,7 +675,7 @@ __QA_CSS__
       <span id="pcSpeeds" title="速度（数字键 1–4）"></span><button id="pcMute" title="静音"></button><button id="pcFs"></button></div>
     <div id="sbtip"><div class="im"></div><div class="tx"></div></div>
     <div id="nowrow"><span id="nowt"></span><span class="sp"></span>
-      <span class="keys"><span><kbd>空格</kbd> 播放/暂停</span><span><kbd>←</kbd><kbd>→</kbd> 5 秒</span><span><button id="fsHint" title="全屏时右边留着聊天（C 切换成悬浮）"><kbd>F</kbd> 全屏</button></span><span title="J 倒退 · K 暂停 · L 前进（再按加速 1×→2×→4×）· , . 逐帧 · C 写评论"><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd> <kbd>,</kbd><kbd>.</kbd> <kbd>C</kbd></span></span></div></div>
+      <span class="keys"><span><kbd>空格</kbd> 播放/暂停</span><span><kbd>←</kbd><kbd>→</kbd> 5 秒</span><span><kbd>↑</kbd><kbd>↓</kbd> 上/下一段</span><span><button id="fsHint" title="全屏时右边留着聊天（C 切换成悬浮）"><kbd>F</kbd> 全屏</button></span><span title="J 倒退 · K 暂停 · L 前进（再按加速 1×→2×→4×）· , . 逐帧 · C 写评论"><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd> <kbd>,</kbd><kbd>.</kbd> <kbd>C</kbd></span></span></div></div>
   <section id="edits" class="panel">
     <div id="edh" role="button" tabindex="0" aria-controls="edBody" title="逐段修改：删镜头、改开始/结束、改字幕">
       <span class="chev"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5L10.5 8 6 12.5"/></svg></span>
@@ -1029,6 +1029,12 @@ document.addEventListener('keydown',e=>{
   if(e.code==='Space'||e.key==='k'){e.preventDefault();e.stopPropagation(); v.paused?v.play():v.pause()}
   else if(e.key==='ArrowRight'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.min(v.duration||1e9,v.currentTime+5)}
   else if(e.key==='ArrowLeft'){e.preventDefault();e.stopPropagation(); v.currentTime=Math.max(0,v.currentTime-5)}
+  // ↑ / ↓ = start of the previous / next shot (creator 2026-11-11), whether playing or paused
+  else if((e.key==='ArrowUp'||e.key==='ArrowDown')&&D){e.preventDefault();e.stopPropagation();
+    const st=starts(), i=shotAt(v.currentTime||0), up=e.key==='ArrowUp';
+    let j=i; do{j+=up?-1:1}while(j>=0&&j<D.shots.length&&!isOn(D.shots[j]));
+    if(j<0) v.currentTime=0; else if(j<D.shots.length) v.currentTime=Math.min(st[j]+0.01,(v.duration||1e9)-0.05);
+    resumeFollow()}
   else if(e.key==='f'||e.key==='F'){e.preventDefault();e.stopPropagation();
     pvToggleFs()}
   else if(e.key>='1'&&e.key<='4'){e.preventDefault();e.stopPropagation(); pvSetSpeed(PV_SPEEDS[+e.key-1]);
