@@ -190,8 +190,32 @@ concrete; prune ones that the code now enforces. Newest learnings go at the bott
   visible stall, two unclear lines (both models unsure) and a 0.6 s tail fragment. Diffing caption→ASR misses them; diff
   ASR→captions too (every whisper segment that overlaps no caption). Then: caption it if it's his and clear, trim the
   shot if it's a restart or unclear, leave it if a stranger. 19 min of mix: Demucs ~2 min + whisper ~4 min, one lock.
+- **Drop his filler 「这个」 from captions wherever the meaning survives (creator, 124 审片 2026-11-10: 「我有一个通病，
+  就是喜欢写这个、说这个」).** 「南京东路步行街的这个牌子」 → 「南京东路步行街的牌子」, 「在这个国内生活」 → 「在国内生活」,
+  「穿这个马路」 → 「穿马路」. Keep it where it is the real demonstrative (「这个叫什么」, 「这边这个明星」). Do it in every
+  episode's caption pass (C7), not only where he points. Where the cut is clean, take it out of the audio too (a ~0.3 s
+  skip between 的 and the noun, test-joined and re-transcribed).
+- **A number stays whole on one line (124, 2026-11-10):** 「10块钱」, never 「…10块」 | 「钱…」 across two cues. When a
+  vendor's chant or a price is the point of the shot and he asks for it, caption it (「冰箱贴，10块钱，10块钱」), even
+  though background speakers are normally uncaptioned.
 
 ## Picking and cutting shots
+
+- **When he isn't talking, he is usually filming something on purpose (creator, 124 审片 2026-11-10: 「有时候我们不说话的
+  时候就是在拍这个风景…我是在拍这个上面的冰箱贴」).** A quiet 2–4 s stretch where the camera dwells on or tilts to a
+  subject (a wall of fridge magnets, a shop's food video, a stall, a restaurant front) is a shot, not dead air. In the
+  rough cut and the raw-restore pass, keep these quiet looks more often; cut only the walking-only gaps. On 124 he
+  restored six of them in one pass (lululemon front, the 上海冰箱贴 stall, a shop's food video, a bread shop's chant, the
+  magnets up top, more of the ice-cream show).
+- **Family off camera: sweep frame by frame, past his markers (124, 2026-11-10).** He marked his mother entering a Nanjing
+  Road shot at 17.6–20.8 s; a 0.2 s sweep found her from 10.0 s (small, walking past, then standing waiting) to 20.4 s.
+  Cover the whole visible span plus a margin with B-roll from neighbouring clips (`broll`; the speech runs on), then
+  sweep every raw clip at 1 fps with reference crops of her clothes and zoom on candidates at 0.2 s. That found one more:
+  a sleeve at the corner of an overhead dinner shot, fixed with a static `zoom` (1.13, x=1) that crops that corner.
+  Check the rendered preview at 0.2 s over each fix.
+- **Check his on-camera "corrections" before putting them on screen (124 #16).** He asked for a 口误 note saying 东方明珠
+  is one of the 三件套; sources (新民周刊, 澎湃) say the 三件套 are 金茂 / 环球金融中心 / 上海中心 only, so his original line
+  was right. Don't add a note that states a wrong fact; reply with the sources and let him decide.
 
 - **Use a fraction of the footage, by taste.** Drop silent + repetitive clips (sand-only underwater,
   lens covered by a finger, near-duplicate passes). Not every clip needs to appear.
