@@ -1,0 +1,29 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+:root{--bg:#ffffff;--card:#f6f7f9;--line:#e3e6ea;--ink:#1d1d1f;--sub:#6b7280;--num:#9aa1ad;--hi:#0071e3;--hi-soft:#eef5ff;--hi-line:#b9d6fb;--arrow:#c3c8cf}
+body.dark{--bg:#0d1117;--card:#161b22;--line:#30363d;--ink:#e6edf3;--sub:#8b949e;--num:#6e7681;--hi:#4c9aff;--hi-soft:#132339;--hi-line:#24456e;--arrow:#484f58}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);font-family:-apple-system,"SF Pro Text","PingFang SC","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased;width:1200px;padding:28px 24px 22px}
+.row{display:grid;grid-template-columns:repeat(6,1fr);gap:22px;position:relative}
+.step{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 16px 15px;position:relative;min-height:118px}
+.step:not(:last-child)::after{content:"";position:absolute;right:-17px;top:50%;width:12px;height:12px;border-top:2px solid var(--arrow);border-right:2px solid var(--arrow);transform:translateY(-50%) rotate(45deg)}
+.n{font:600 12px/1 "SF Mono",ui-monospace,Menlo,monospace;color:var(--num);letter-spacing:.04em}
+.t{font-size:17px;font-weight:650;color:var(--ink);margin:9px 0 7px;letter-spacing:-.01em;white-space:nowrap}
+.s{font-size:13px;line-height:1.45;color:var(--sub)}
+.step.hi{background:var(--hi-soft);border-color:var(--hi-line)}
+.step.hi .t,.step.hi .n{color:var(--hi)}
+.foot{margin-top:18px;text-align:center;font-size:12.5px;color:var(--sub);letter-spacing:.01em}
+.foot b{font-weight:600;color:var(--ink)}
+</style></head>
+<body>
+<div class="row">
+  <div class="step"><div class="n">01</div><div class="t">Footage</div><div class="s">new project<br>scan · ASR</div></div>
+  <div class="step"><div class="n">02</div><div class="t">Edit + QA</div><div class="s">EDL · render<br>reviewer panel</div></div>
+  <div class="step hi"><div class="n">03</div><div class="t">审片.app</div><div class="s">creator notes<br>→ re-render</div></div>
+  <div class="step"><div class="n">04</div><div class="t">Covers + titles</div><div class="s">retouch · feed sim<br>title debate</div></div>
+  <div class="step"><div class="n">05</div><div class="t">Publish</div><div class="s">YouTube · B站<br>Shorts · captions</div></div>
+  <div class="step"><div class="n">06</div><div class="t">Follow-ups</div><div class="s">pin · related<br>alerts</div></div>
+</div>
+<div class="foot">Agents do every step · checkpoints <b>C0–C14</b> / <b>P1–P13</b> · one heavy job at a time</div>
+</body></html>
