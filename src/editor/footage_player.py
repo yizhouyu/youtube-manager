@@ -156,6 +156,8 @@ def clip_list():
         for n in names:
             stem = os.path.splitext(n)[0]
             c = cache[n]
+            if not c["dur"] or c["dur"] < 0.1:
+                continue   # a broken stub (127's 0436: 1 KB, no streams) never loads, so playback stalled on it
             subs = parse_srt(srt_path(stem))
             ct = c["ctime"]
             # show the camera clock as written; no timezone conversion
@@ -675,7 +677,10 @@ function handoff(){
   v.addEventListener('ended',onEnded);
   // play / pause icon, controls, big ▶: all follow `cur` in tick() (the two elements swap roles)
   v.addEventListener('ratechange',()=>{if(v.playbackRate!==speed)v.playbackRate=speed});
-  v.addEventListener('error',()=>{if(v===cur&&v.getAttribute('src'))$('msg').textContent='这段播放失败（浏览器可能不支持此编码）'});
+  // a clip that can't play must not stall the whole trip: say so, then move on to the next one
+  v.addEventListener('error',()=>{if(v!==cur||!v.getAttribute('src'))return;
+    $('msg').textContent='这段播放失败（文件坏了或编码不支持），1.5 秒后跳到下一段';
+    const i=idx;if(i+1<clips.length)setTimeout(()=>{if(v===cur&&idx===i)show(i+1,0,true)},1500)});
 });
 
 function toggle(){if(cur.paused)cur.play().catch(()=>{});else cur.pause()}
