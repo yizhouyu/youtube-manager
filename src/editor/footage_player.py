@@ -653,9 +653,10 @@ function onEnded(e){if(e.target!==cur)return;
 // (~70 ms in Chrome, ~250 ms in the app's WebKit). So the preloaded next clip starts (muted, underneath) `lead` before
 // this one ends and takes over once it is ROLL s in (its first frames stutter while the decoder warms up), or when this
 // one ends, whichever comes first. `lead` is re-learnt at every hand-off; 'ended' stays the fallback (no rAF while the
-// page is hidden). The rolling clip plays with sound from its first sample, and the old one runs out with its own, so
-// for up to `lead` both are heard: muting the roll cost ~0.2 s at the start of every clip (creator 2026-11-15:
-// 「每一个 clip 播放的时候，好像开头都有 0.2 秒的声音被掐掉了」), mid-word when he starts talking right away.
+// page is hidden). The roll stays MUTED: an audible second <video> starting in WKWebView pauses the one playing
+// (macOS media-session interruption), which froze the player at every hand-off (creator 2026-11-15, 126 0250→0251).
+// So the first ~0.1–0.3 s of each clip's sound is still lost (creator 2026-11-15: 「开头都有 0.2 秒的声音被掐掉了」);
+// the old clip at least runs out with its own sound after a rolling hand-off.
 let lead=0.3;      // s of real time
 const ROLL=0.1;    // s of the next clip played underneath before it takes over
 let nxtGo=false, hand=0;   // the next clip is already rolling underneath; id of the current attempt
@@ -663,8 +664,7 @@ function handoff(){
   if(nxtIdx!==idx+1||nxt.readyState<2)return;
   const d=cur.duration;if(!d||!isFinite(d))return;
   const run=!cur.seeking&&(!cur.paused||cur.ended)&&(d-cur.currentTime)/speed<=lead;
-  if(run&&!nxtGo){nxtGo=true;if(nxt.playbackRate!==speed)nxt.playbackRate=speed;
-    if(nxt.volume!==cur.volume)nxt.volume=cur.volume;if(nxt.muted!==cur.muted)nxt.muted=cur.muted;
+  if(run&&!nxtGo){nxtGo=true;if(!nxt.muted)nxt.muted=true;if(nxt.playbackRate!==speed)nxt.playbackRate=speed;
     nxt.play().catch(()=>{});
     const v=nxt,id=++hand,t0=performance.now();
     if(v.requestVideoFrameCallback){const go=(now,m)=>{if(id!==hand)return;
