@@ -988,7 +988,9 @@ function pageFs(on){document.documentElement.classList.toggle('fsmode',on);
 window.addEventListener('message',e=>{const d=e.data;if(d&&d.shenpian==='fs')pageFs(!!d.on)});
 function fsExited(){if(!document.documentElement.classList.contains('fsmode'))return;document.documentElement.classList.remove('fsmode');
   document.querySelectorAll('.view iframe').forEach(f=>{try{f.contentWindow.postMessage({shenpian:'fsoff'},'*')}catch(e){}})}
-window.shell={toggleSide,fsExited,rail:()=>{const f=cur&&frameOf(cur);if(f&&f.contentWindow)f.contentWindow.postMessage({shenpian:'rail'},'*')},tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),dirty:dirtyPages,agent:agentOpen};   // dirty: the Swift app asks before quitting
+window.shell={toggleSide,fsExited,rail:()=>{const f=cur&&frameOf(cur);if(f&&f.contentWindow)f.contentWindow.postMessage({shenpian:'rail'},'*')},tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),dirty:dirtyPages,agent:agentOpen,
+  // ⌘R (显示 › 刷新当前页): reload only the open tab's page, e.g. after the agent changed the raw folder (creator 11/15)
+  reload:()=>{const f=cur&&frameOf(cur);if(!f)return;if(cur==='cut'&&dirtyPages()&&!confirm('成片页有没保存的修改，刷新会丢掉。确定刷新？'))return;f.src=f.src}};   // dirty: the Swift app asks before quitting
 // 选这个 / 已选 · 撤销 (Q9): one APPROVALS.md line per click
 function cand(type,id,html){const P=EP.picks||{},on=type==='short'?(P.short||[]).includes(id):P[type]===id;
   return `<div class="cand${on?' on':''}">${html}<button data-t="${type}" data-c="${esc(id)}" data-u="${on?1:''}">${on?'已选 · 撤销':'选这个'}</button></div>`}
