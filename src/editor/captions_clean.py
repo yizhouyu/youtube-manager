@@ -40,6 +40,27 @@ def _parse(path):
     return out
 
 
+def _context_terms(edit):
+    """Proper nouns from edit/asr_context.txt (the --context string handed to the ASR)."""
+    try:
+        txt = open(os.path.join(edit, "asr_context.txt"), encoding="utf-8").read()
+    except OSError:
+        return []
+    return [t.strip() for t in re.split(r"[,，、\n]", txt) if len(t.strip()) >= 2]
+
+
+def _leaked(text, terms):
+    """Share of a line's letters that are context terms: on a clip with no speech the ASR can read its own
+    context string back as a transcript (128's 0495: 「天地万圣节泡泡玛特Pop Mart…」, creator 11/15: 字幕错位)."""
+    core = re.sub(r"[\W_]", "", text)
+    if not core:
+        return 0.0
+    left = text
+    for t in sorted(terms, key=len, reverse=True):
+        left = left.replace(t, "")
+    return 1 - len(re.sub(r"[\W_]", "", left)) / len(core)
+
+
 def clean_project(project):
     try:
         from opencc import OpenCC
@@ -57,11 +78,17 @@ def clean_project(project):
     out_dir = os.path.join(edit, "scan", "srt_clean")
     os.makedirs(out_dir, exist_ok=True)
     n = 0
+    terms = _context_terms(edit)
     for path in sorted(glob.glob(os.path.join(edit, "scan", "srt", "*.srt"))):
         clip = os.path.basename(path)[:-4]
         subs = proofread.get(clip, [])
         cues = []
-        for c in _parse(path):
+        raw = _parse(path)
+        # the whole clip reads back the context string (≥ 4 distinct terms, mostly nothing else): no speech at all
+        joined = "".join(c["text"] for c in raw)
+        if terms and sum(t in joined for t in terms) >= 4 and _leaked(joined, terms) > 0.6:
+            raw = [c for c in raw if _leaked(c["text"], terms) < 0.5]
+        for c in raw:
             # prefer the edit's proofread lines that overlap this raw cue
             hits = [s for s in subs if min(s["t1"], c["t1"]) - max(s["t0"], c["t0"]) > 0.3 * (c["t1"] - c["t0"])]
             if hits:
