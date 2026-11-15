@@ -326,14 +326,30 @@ def covers(proj):
     return sorted(out, key=lambda c: not c["chosen"])
 
 
+def chosen_title(proj):
+    """The candidate id publish_prep/TITLE_CHOSEN names (first word), which the agent writes when he picks a
+    title in chat (125, 11/15: he typed his own). None when the file or that candidate is missing."""
+    try:
+        with open(os.path.join(edit_dir(proj), "publish_prep", "TITLE_CHOSEN"), encoding="utf-8") as f:
+            word = (f.readline().split() or [""])[0]
+    except OSError:
+        return None
+    return word if any(t["id"] == word for t in titles(proj)) else None
+
+
 def picks_now(proj):
-    """current() with the cover taken from thumbnail/CHOSEN, which the agent also writes (his choices in chat)."""
+    """current() with the cover taken from thumbnail/CHOSEN and, unless he clicked one, the title from
+    publish_prep/TITLE_CHOSEN; the agent writes both (his choices in chat)."""
     cur = current(proj)
     ch = chosen_cover(proj)
     if ch:
         cur["cover"] = ch
     else:
         cur.pop("cover", None)
+    if "title" not in cur:
+        tc = chosen_title(proj)
+        if tc:
+            cur["title"] = tc
     return cur
 
 
