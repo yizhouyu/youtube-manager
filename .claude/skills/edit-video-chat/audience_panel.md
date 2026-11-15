@@ -113,3 +113,7 @@ Final message: a 5-line summary plus the report path.
   - The director always checks the raw footage and proposes additions and craft ideas (effects, transitions, music).
   - The coordinator adopts additions, not only cuts.
   - Creator: 「不仅仅是采纳那些…应该剪什么片段进去…特效、转场…你可以更加 creative…一个是 YouTube，一个是你的同行导演」.
+- v12 2026-11-15 (128): both seats said they can't hear audio and judged narration/sfx only from numbers, and the viewer's
+  1 fps sheet missed a 7 s full-frame overlay (reported it "absent"). From now on the coordinator passes the narration
+  script with timeline times (or `edl.json` `voiceover`), and seats check any overlay they think is missing with a
+  640 px frame at its EDL time before reporting it. Seats should name the shot id with each timestamp.
