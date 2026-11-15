@@ -614,10 +614,11 @@ function show(i,t,autoplay){
   i=Math.max(0,Math.min(clips.length-1,i));
   const wasPlaying=autoplay!==undefined?autoplay:!cur.paused;let swapped=false;
   if(i===nxtIdx&&i!==idx&&nxt.getAttribute('src')){   // swap in the preloaded element: no gap
-    const old=cur;cur=nxt;nxt=old;nxtGo=false;
+    const old=cur,rolled=nxtGo;cur=nxt;nxt=old;nxtGo=false;
     // the old clip is left to run out by itself when it's that close to its end: in WebKit a pause() (or load()) on
-    // one <video> freezes the other one for ~100 ms, which was the remaining hitch right after every hand-off
-    if(!old.ended&&!((old.duration-old.currentTime)/speed<0.15)){swapping=true;old.pause();swapping=false}
+    // one <video> freezes the other one for ~100 ms, which was the remaining hitch right after every hand-off.
+    // After a rolling hand-off it always runs out (it has < lead left), so its last words aren't cut either.
+    if(!rolled&&!old.ended&&!((old.duration-old.currentTime)/speed<0.15)){swapping=true;old.pause();swapping=false}
     if(cur.muted!==old.muted)cur.muted=old.muted;  // carry the sound settings over; the preload ran muted
     if(cur.volume!==old.volume)cur.volume=old.volume;
     if(wasPlaying&&cur.paused)cur.play().catch(()=>{});   // start it before anything else, in the same frame as the flip
@@ -650,7 +651,9 @@ function onEnded(e){if(e.target!==cur)return;
 // (~70 ms in Chrome, ~250 ms in the app's WebKit). So the preloaded next clip starts (muted, underneath) `lead` before
 // this one ends and takes over once it is ROLL s in (its first frames stutter while the decoder warms up), or when this
 // one ends, whichever comes first. `lead` is re-learnt at every hand-off; 'ended' stays the fallback (no rAF while the
-// page is hidden). Costs the first ~0.1 s of each raw clip, which is camera-start fumble anyway.
+// page is hidden). The rolling clip plays with sound from its first sample, and the old one runs out with its own, so
+// for up to `lead` both are heard: muting the roll cost ~0.2 s at the start of every clip (creator 2026-11-15:
+// 「每一个 clip 播放的时候，好像开头都有 0.2 秒的声音被掐掉了」), mid-word when he starts talking right away.
 let lead=0.3;      // s of real time
 const ROLL=0.1;    // s of the next clip played underneath before it takes over
 let nxtGo=false, hand=0;   // the next clip is already rolling underneath; id of the current attempt
@@ -658,13 +661,14 @@ function handoff(){
   if(nxtIdx!==idx+1||nxt.readyState<2)return;
   const d=cur.duration;if(!d||!isFinite(d))return;
   const run=!cur.seeking&&(!cur.paused||cur.ended)&&(d-cur.currentTime)/speed<=lead;
-  if(run&&!nxtGo){nxtGo=true;if(!nxt.muted)nxt.muted=true;if(nxt.playbackRate!==speed)nxt.playbackRate=speed;
+  if(run&&!nxtGo){nxtGo=true;if(nxt.playbackRate!==speed)nxt.playbackRate=speed;
+    if(nxt.volume!==cur.volume)nxt.volume=cur.volume;if(nxt.muted!==cur.muted)nxt.muted=cur.muted;
     nxt.play().catch(()=>{});
     const v=nxt,id=++hand,t0=performance.now();
     if(v.requestVideoFrameCallback){const go=(now,m)=>{if(id!==hand)return;
       if(m.mediaTime>=ROLL){lead=Math.min(0.8,Math.max(0.1,(now-t0)/1000+0.02));if(nxtGo&&v===nxt)show(idx+1,null,true);return}
       v.requestVideoFrameCallback(go)};v.requestVideoFrameCallback(go)}}
-  else if(!run&&nxtGo&&!cur.ended){nxtGo=false;hand++;nxt.pause();nxt.currentTime=0}   // paused / sought back: rewind it
+  else if(!run&&nxtGo&&!cur.ended){nxtGo=false;hand++;nxt.pause();nxt.muted=true;nxt.currentTime=0}   // paused / sought back: rewind it
   else if(nxtGo&&!nxt.requestVideoFrameCallback&&nxt.currentTime>=ROLL)show(idx+1,null,true)}
 
 [$('va'),$('vb')].forEach(v=>{
