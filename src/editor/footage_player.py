@@ -375,7 +375,8 @@ main{display:flex;flex-direction:column;padding:16px;min-width:0;min-height:0}
 /* YouTube-style controls on the picture, the same look as the 成片 page (review_server.py #pvui): progress bar on top,
    then play + time + 在成片里 + clip line | speeds, volume, fullscreen, over a soft gradient that lets clicks through
    to the picture. Shown on mouse movement and while paused; after 2.5 s of stillness while playing they fade and (in
-   fullscreen) the cursor hides too — see fpPoke / tick. ?pin keeps them up all the time.
+   fullscreen) the cursor hides too — see fpPoke / tick. That fade is opt-in (?autohide): by default the bar stays up,
+   because its green 在成片里 segments are what 素材 review reads (creator 2026-11-15).
    z-index 5: under the 框选 veil/box (chat.py, 6–7) so a box can be drawn right down to the bottom edge. */
 #ui{position:absolute;left:0;right:0;bottom:0;z-index:5;padding:36px 12px 2px;display:none;color:#fff;pointer-events:none;
   background:linear-gradient(transparent,rgba(0,0,0,.22) 35%,rgba(0,0,0,.62));transition:opacity .25s}
@@ -766,8 +767,9 @@ ui.addEventListener('dblclick',e=>e.stopPropagation());
 // Controls show on mouse movement over the player (in fullscreen: anywhere on the video side) and while paused; after
 // 2.5 s of stillness while playing they fade, unless the pointer rests on them or a scrub is going on (tick sets
 // .stage.idle, and body.fpidle hides the cursor in fullscreen). A clip hand-off never touches this, so the bar doesn't
-// fold mid-click when the next clip starts. ?pin keeps them up all the time (the old behaviour, creator 2026-10-03).
-const PIN=new URLSearchParams(location.search).has('pin');
+// fold mid-click when the next clip starts. The bar stays up unless ?autohide: 素材 review reads its green 在成片里
+// segments all the time (creator 2026-11-15: 「这个是我要看哪些在成片里、哪些不在的」). The 成片 player still fades.
+const PIN=!new URLSearchParams(location.search).has('autohide');
 let actT=0, act=false, swapping=false;   // mouse moved in the last 2.5 s; clip hand-off in progress
 function fpPoke(){act=true;clearTimeout(actT);actT=setTimeout(()=>{act=false},2500)}
 function fpRest(){clearTimeout(actT);act=false}
