@@ -5,6 +5,7 @@ nothing here picks, approves, saves or renders — those are the creator's own c
 
     scripts/shenpian open 126 [--tab cut] [--t 83.5] [--clip DJI_..._D] [--background]
     scripts/shenpian open "/Volumes/YZY's drive/YouTube Channel/74 - Old Trip" --tab raw   # any folder: read-only
+    scripts/shenpian local ~/path/video.mp4 [--background]   # 本地视频: copy into ~/Movies/审片播放器 + play it
     scripts/shenpian status            # JSON: running, project, tab, playhead, ports, window id
     scripts/shenpian screenshot out.png   # the app window (screencapture -l), the app is not activated
     scripts/shenpian quit              # refuses while 成片 has unsaved edits
@@ -126,6 +127,37 @@ def cmd_open(a):
     sys.exit(0 if ok else 1)
 
 
+def cmd_local(a):
+    """A video that isn't an episode (e.g. a making-of render): copied into the 本地视频 folder like a drag, then shown."""
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+    from src.editor import local_player as LP
+    try:
+        r = LP.add(os.path.realpath(os.path.expanduser(a.file)), wait=True)
+    except ValueError as e:
+        sys.exit(str(e))
+    name = r["name"]
+    url = SCHEME + "://open?" + urllib.parse.urlencode(dict({"local": name}, **({"bg": "1"} if a.background else {})),
+                                                       quote_via=urllib.parse.quote)
+    if not server():   # start it as from the Dock (or off screen), then hand it the URL once its backend is up
+        if a.background:
+            subprocess.Popen([os.path.join(app_bundle(), "Contents", "MacOS", "Shenpian")], env=dict(os.environ, SHENPIAN_BACKGROUND="1"),
+                             start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            subprocess.run(["open", "-a", app_bundle()], check=True)
+        deadline = time.time() + a.wait
+        while time.time() < deadline and not (server() and state().get("port")):
+            time.sleep(0.5)
+    subprocess.run(["open"] + (["-g"] if a.background else []) + [url], check=True)
+    deadline, st = time.time() + a.wait, {}
+    while time.time() < deadline:
+        time.sleep(0.5)
+        st = state()
+        if st.get("local") == name or st.get("error"):
+            break
+    print(json.dumps(st, ensure_ascii=False, indent=1))
+    sys.exit(0 if st.get("local") == name and not st.get("error") else 1)
+
+
 def cmd_status(_):
     print(json.dumps(state(), ensure_ascii=False, indent=1))
 
@@ -167,12 +199,16 @@ def main():
     o.add_argument("--clip", help="raw clip name (raw tab)")
     o.add_argument("--background", action="store_true", help="never take focus (off-screen window if starting it)")
     o.add_argument("--wait", type=float, default=90, help="seconds to wait for the episode to show (default 90)")
+    lo = sub.add_parser("local", help="play any video file in the 本地视频 player (copied into ~/Movies/审片播放器)")
+    lo.add_argument("file")
+    lo.add_argument("--background", action="store_true", help="never take focus (off-screen window if starting it)")
+    lo.add_argument("--wait", type=float, default=90, help="seconds to wait for the player to show (default 90)")
     sub.add_parser("status", help="JSON: running, project, tab, playhead, ports, window id")
     s = sub.add_parser("screenshot", help="capture the app window without activating it")
     s.add_argument("out")
     sub.add_parser("quit", help="quit the app (refused while there are unsaved edits)")
     a = ap.parse_args()
-    {"open": cmd_open, "status": cmd_status, "screenshot": cmd_screenshot, "quit": cmd_quit}[a.cmd](a)
+    {"open": cmd_open, "local": cmd_local, "status": cmd_status, "screenshot": cmd_screenshot, "quit": cmd_quit}[a.cmd](a)
 
 
 if __name__ == "__main__":

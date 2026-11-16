@@ -80,6 +80,9 @@ forward and hands the real paths to `shell.localDrop`, which POSTs them to `/api
   WebKit knows its codecs, otherwise the page says so.
 - The server serves only regular files directly inside that folder (symlinks resolved, no `..`, no hidden files).
 
+Agent: `scripts/shenpian local <file> [--background]` does the same as a drag (copy in, then show it in the player);
+`shenpian://open?local=<name>` shows a video already in the folder; `status` reports it as `local`.
+
 ## Tabs (hidden when empty)
 
 | Tab | Page |

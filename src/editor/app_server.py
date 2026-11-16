@@ -527,7 +527,8 @@ def find_project(ep):
 
 def parse_agent_url(url):
     """shenpian://open?ep=126&tab=cut&t=83.5 (or path=<project>, clip=<raw clip> with t on the raw page)
-    -> {"action": "open", "path", "tab", "t", "clip"}; shenpian://quit -> {"action": "quit"}. Raises ValueError."""
+    -> {"action": "open", "path", "tab", "t", "clip"}; shenpian://open?local=<name> -> {"action": "local", "name"};
+    shenpian://quit -> {"action": "quit"}. Raises ValueError."""
     u = urllib.parse.urlsplit(url or "")
     if u.scheme != "shenpian":
         raise ValueError("not a shenpian:// URL")
@@ -537,6 +538,10 @@ def parse_agent_url(url):
     if action != "open":
         raise ValueError(f"unknown action {action!r} (only open / quit)")
     q = dict(urllib.parse.parse_qsl(u.query))
+    if q.get("local"):   # shenpian://open?local=<file name in ~/Movies/审片播放器> (scripts/shenpian local copies it there)
+        if not LP.known(q["local"]):
+            raise ValueError(f"no local video {q['local']!r}")
+        return {"action": "local", "name": q["local"], "bg": q.get("bg") in ("1", "true")}
     want = q.get("path") or q.get("ep")
     if not want:
         raise ValueError("ep= or path= is required")
@@ -575,7 +580,8 @@ def app_state():
     return {"running": True, "pid": os.getpid(), "app_pid": APP["parent_pid"], "port": APP["port"],
             "window_id": APP["window_id"], "project": proj, "name": info.get("name"), "label": info.get("label"),
             "read_only": info.get("ro"), "tab": SHOWN.get("tab"), "t": SHOWN.get("t"), "clip": SHOWN.get("clip"),
-            "dirty": bool(SHOWN.get("dirty")), "error": SHOWN.get("error"), "ports": ports, "updated": SHOWN.get("at")}
+            "local": SHOWN.get("local"), "dirty": bool(SHOWN.get("dirty")), "error": SHOWN.get("error"), "ports": ports,
+            "updated": SHOWN.get("at")}
 
 
 # ---------------------------------------------------------------- child servers
@@ -784,6 +790,7 @@ def api_app_state():
                      tab=b.get("tab") if b.get("tab") in PAGE_TABS else None,
                      t=round(float(t), 2) if isinstance(t, (int, float)) else None,
                      clip=str(b["clip"])[:200] if b.get("clip") else None, dirty=bool(b.get("dirty")),
+                     local=str(b["local"])[:255] if b.get("local") else None,
                      error=str(b["error"])[:300] if b.get("error") else None, at=time.strftime("%Y-%m-%d %H:%M:%S"))
         return jsonify({"ok": True})
     return jsonify(app_state())
@@ -1124,11 +1131,13 @@ let TIME={}, agentErr=null, repT=0;
 window.addEventListener('message',e=>{const d=e.data;if(!d||d.shenpian!=='time')return;
   const k=TABS.map(t=>t[0]).find(k=>{const f=frameOf(k);return f&&f.contentWindow===e.source});if(k){TIME[k]=d.here||{};if(k===cur)report()}});
 function report(){if(repT)return;repT=setTimeout(()=>{repT=0;const h=TIME[cur]||{};
-  post('/api/app/state',{project:EP&&EP.path,tab:EP?cur:null,t:h.cut_t!=null?h.cut_t:(h.clip_t!=null?h.clip_t:null),clip:h.clip||null,dirty:dirtyPages(),error:agentErr}).catch(()=>{})},300)}
+  post('/api/app/state',{project:EP&&EP.path,tab:EP?cur:null,t:h.cut_t!=null?h.cut_t:(h.clip_t!=null?h.clip_t:null),clip:h.clip||null,local:EP?null:LOCALCUR,dirty:dirtyPages(),error:agentErr}).catch(()=>{})},300)}
 // agent control (the Swift app forwards shenpian://open?... here): open / tab / seek only — never a pick, save or render
 async function agentOpen(url){agentErr=null;let r;
   try{r=await (await fetch('/api/app/parse?url='+encodeURIComponent(url))).json()}catch(e){r={ok:false,error:String(e)}}
   if(!r.ok){agentErr=r.error||'bad url';report();return r}
+  if(r.action==='local'){if(EP&&dirtyPages()){agentErr='成片有修改还没保存：没有换到本地视频（等他保存）';report();return {ok:false,error:agentErr}}
+    await refreshLocal();showLocal(r.name);return {ok:true}}
   if(r.action!=='open')return r;
   if(!EP||EP.path!==r.path){
     if(EP&&dirtyPages()){agentErr='成片有修改还没保存：没有换期（等他保存）';report();return {ok:false,error:agentErr}}
