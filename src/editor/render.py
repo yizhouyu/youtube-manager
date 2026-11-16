@@ -1238,13 +1238,27 @@ def music_bed(edl, total, workdir, out_wav):
     chain.append(f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=longest[mx]")
     cur = "mx"
     base, duck, r = edl.get("music_volume", 0.30), edl.get("music_duck", 0.08), 0.5
-    # smooth duck envelope: 1 inside speech windows, linear ramps of r seconds
-    terms = [f"clip(min((t-{a:.2f}+{r})/{r},({b:.2f}+{r}-t)/{r}),0,1)" for a, b in _speech_windows(edl)]
-    sp = "min(1," + "+".join(terms) + ")" if terms else "0"
-    vol = f"{base}-({base - duck})*{sp}"
-    # sample-count timestamps: with looped inputs amix can emit frames whose PTS make the
-    # per-frame duck expression evaluate to silence at random (seen as whole-bed dead air)
-    chain.append(f"[{cur}]atrim=0:{total:.3f},asetpts=N/SR/TB,volume='{vol}':eval=frame,"
+    # smooth duck envelope: 1 inside speech windows, linear ramps of r seconds. Sampled at 1 kHz into a raw
+    # file and multiplied in (amultiply): a volume expression with one term per window broke ffmpeg's filter
+    # parser on long, talk-heavy cuts (126 at 30 min, 11/15: "Error initializing filters")
+    import numpy as np
+    ER = 1000
+    tt = np.arange(int(total * ER) + 1, dtype=np.float64) / ER
+    sp = np.zeros_like(tt)
+    for a, b in _speech_windows(edl):
+        lo, hi = max(0, int((a - r) * ER)), min(len(tt), int((b + r) * ER) + 1)
+        seg = tt[lo:hi]
+        sp[lo:hi] += np.clip(np.minimum((seg - a + r) / r, (b + r - seg) / r), 0, 1)
+    env = (base - (base - duck) * np.minimum(sp, 1.0)).astype("<f4")
+    env_path = os.path.join(workdir, "music_duck.f32")
+    env.tofile(env_path)
+    ei = args.count("-i")
+    args += ["-f", "f32le", "-ar", str(ER), "-ac", "1", "-i", env_path]
+    # sample-count timestamps: with looped inputs amix can emit frames whose PTS drift (seen as whole-bed dead air)
+    chain.append(f"[{cur}]atrim=0:{total:.3f},asetpts=N/SR/TB[mt]")
+    chain.append(f"[{ei}:a]aresample={SR},aformat=sample_fmts=fltp:channel_layouts=stereo,"
+                 f"atrim=0:{total:.3f},asetpts=N/SR/TB[env]")
+    chain.append(f"[mt][env]amultiply,"
                  f"afade=t=in:st=0:d=1.5,afade=t=out:st={max(0, total - 5):.3f}:d=5[out]")
     script = os.path.join(workdir, "music_filter.txt")
     with open(script, "w") as f:
