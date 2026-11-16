@@ -1,6 +1,8 @@
 """Delete review previews of episodes that are already uploaded (creator, 2026-10-22: 「要保留那些所有能够还原这个影片的
 工程文件，但是 preview 应该是可以删」).
-Deletes ONLY `02 - Export/edit/preview.mp4` and `02 - Export/edit/previews/` (+ macOS ._ sidecars) — never the EDL,
+Deletes ONLY `02 - Export/edit/preview.mp4`, `02 - Export/edit/previews/` (+ macOS ._ sidecars) and the episode's render
+cache `/tmp/yt-editor/<NNN - name>/` (per-shot segments, up to ~60 GB for a 30-min 4K final; 124–128 had piled up to 89 GB on
+the Mac by 11/16; a later re-render just rebuilds it) — never the EDL,
 masters, captions, scripts, cards, music, sources or anything else needed to rebuild the film.
 An episode qualifies when `edit/publish_prep/youtube_ids.json` has a `long` id and YouTube reports that video as
 processed (public or scheduled). Scans ~/Desktop/<NNN - name> and, if mounted, the drive's YouTube Channel folder.
@@ -20,7 +22,8 @@ for root in ROOTS:
     if not os.path.isdir(root): continue
     for proj in sorted(glob.glob(os.path.join(root, "[0-9]*[0-9] - *"))):
         edit = os.path.join(proj, "02 - Export", "edit")
-        targets = [p for p in (os.path.join(edit, "preview.mp4"), os.path.join(edit, "previews")) if os.path.lexists(p)]
+        cache = os.path.join("/tmp/yt-editor", os.path.basename(proj))
+        targets = [p for p in (os.path.join(edit, "preview.mp4"), os.path.join(edit, "previews"), cache) if os.path.lexists(p)]
         if not targets: continue
         ids = os.path.join(edit, "publish_prep", "youtube_ids.json")
         vid = (json.load(open(ids)).get("long") if os.path.exists(ids) else None)
@@ -43,7 +46,7 @@ for proj, vid, targets in cands:
         continue
     for t in targets:
         n = size(t); total += n
-        print(f"{'DEL ' if apply else 'would'} {name}: {os.path.relpath(t, proj)} ({n / 1e6:.0f} MB)")
+        print(f"{'DEL ' if apply else 'would'} {name}: {t if t.startswith('/tmp/') else os.path.relpath(t, proj)} ({n / 1e6:.0f} MB)")
         if apply:
             side = os.path.join(os.path.dirname(t), "._" + os.path.basename(t))
             shutil.rmtree(t) if os.path.isdir(t) and not os.path.islink(t) else os.remove(t)
