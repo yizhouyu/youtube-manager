@@ -59,6 +59,27 @@ Every `~/Desktop/<N> - <name>` with `02 - Export/edit/`, newest first, with one 
 external drive) **read-only**: its servers run with `--read-only` (every POST refused, no storyboards, no caption
 proofreading) and pick buttons are hidden.
 
+## 本地视频 (any video, not an episode)
+
+Drag one or more videos anywhere onto the window (creator 11/16: QuickTime has no 2×). `DropWebView` in `main.swift`
+takes file drags itself (WebKit would otherwise navigate to the file; text/link drags stay WebKit's), brings the window
+forward and hands the real paths to `shell.localDrop`, which POSTs them to `/api/local/add` (`src/editor/local_player.py`).
+
+- Each file is **copied** into `~/Movies/审片播放器/` (created on first use); the original is never moved or changed.
+  Same APFS volume (Desktop, Downloads) = `clonefile`, instant and no extra space; another volume (external drive) =
+  a chunked copy with a progress line in the sidebar, and meanwhile the player plays the dropped original via
+  `/local/src/<job id>` (only that file, only while its copy runs), then switches to the copy at the same moment.
+  Same name + same size already there = no second copy; same name, other file = `name (2).mp4`.
+- Sidebar section 「本地视频」 (below the episodes) = whatever video is in that folder, newest first, so files put there
+  in Finder show up too. Hover a row: 「在 Finder 中显示」 and 「从列表移除」 (asks first; the copy goes to the Trash via
+  `FileManager.trashItem` in Swift, nothing is deleted outright).
+- The player (`/local/play`): the 成片 player's look (bar always visible; in fullscreen it fades after 2.5 s), speeds
+  0.75× / 1× / 1.25× / 1.5× / 2× / 3× (last one remembered), Space/K play-pause, ← → 5 s, J L 10 s, `[` `]` speed,
+  F fullscreen, M mute, Esc leaves fullscreen. Position per file is remembered (watched to the end = from the top next
+  time); both live in `~/Library/Application Support/审片/local_player.json`. mp4 / mov / m4v / webm; mkv only if
+  WebKit knows its codecs, otherwise the page says so.
+- The server serves only regular files directly inside that folder (symlinks resolved, no `..`, no hidden files).
+
 ## Tabs (hidden when empty)
 
 | Tab | Page |

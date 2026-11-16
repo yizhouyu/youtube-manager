@@ -11,12 +11,46 @@ final class DragStrip: NSView {
     }
 }
 
+/// The web view, but files dragged onto the window are taken here (creator 11/16, 「本地视频」): by default WebKit would
+/// navigate to a dropped file. File drags never reach the page; the real paths go to `onFiles` (the shell page copies
+/// them into ~/Movies/审片播放器 through app_server, see local_player.py). Other drags (text, links) stay WebKit's.
+final class DropWebView: WKWebView {
+    var onFiles: (([URL]) -> Void)?
+    var onHover: ((Bool) -> Void)?
+    func files(_ s: NSDraggingInfo) -> [URL] {
+        (s.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
+    }
+    override func draggingEntered(_ s: NSDraggingInfo) -> NSDragOperation {
+        if files(s).isEmpty { return super.draggingEntered(s) }
+        onHover?(true); return .copy
+    }
+    override func draggingUpdated(_ s: NSDraggingInfo) -> NSDragOperation {
+        files(s).isEmpty ? super.draggingUpdated(s) : .copy
+    }
+    override func draggingExited(_ s: NSDraggingInfo?) {
+        if let s = s, !files(s).isEmpty { onHover?(false); return }
+        super.draggingExited(s)
+    }
+    override func prepareForDragOperation(_ s: NSDraggingInfo) -> Bool {
+        files(s).isEmpty ? super.prepareForDragOperation(s) : true
+    }
+    override func performDragOperation(_ s: NSDraggingInfo) -> Bool {
+        let f = files(s)
+        if f.isEmpty { return super.performDragOperation(s) }
+        onHover?(false); onFiles?(f); return true
+    }
+    override func concludeDragOperation(_ s: NSDraggingInfo?) {
+        if let s = s, !files(s).isEmpty { return }
+        super.concludeDragOperation(s)
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKUIDelegate, WKNavigationDelegate {
     var window: NSWindow!
     var background = false
     var shellReady = false
     var pendingURLs: [String] = []
-    var web: WKWebView!
+    var web: DropWebView!
     var sideW: NSLayoutConstraint!, dragW: NSLayoutConstraint!   // sidebar + drag strip widths (0 when the sidebar is hidden)
     var server: Process?
     let portFile = NSTemporaryDirectory() + "shenpian-\(getpid()).port"
@@ -120,7 +154,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         cfg.userContentController.add(self, name: "shell")
         cfg.userContentController.addUserScript(WKUserScript(
             source: "document.documentElement.classList.add('native')", injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        web = WKWebView(frame: .zero, configuration: cfg)
+        web = DropWebView(frame: .zero, configuration: cfg)
+        web.onHover = { [weak self] on in self?.web.evaluateJavaScript("window.shell&&shell.dragHint&&shell.dragHint(\(on))") }
+        web.onFiles = { [weak self] urls in self?.dropped(urls.map { $0.path }) }
         web.setValue(false, forKey: "drawsBackground")   // transparent: the sidebar vibrancy shows through the page
         web.underPageBackgroundColor = Theme.bg
         web.uiDelegate = self
@@ -286,6 +322,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         }
     }
 
+    // MARK: 本地视频 (dragged-in videos, src/editor/local_player.py)
+
+    /// Where the copies live: $SHENPIAN_LOCAL (tests) or ~/Movies/审片播放器 (app_server uses the same rule).
+    var localDir: URL {
+        URL(fileURLWithPath: ProcessInfo.processInfo.environment["SHENPIAN_LOCAL"] ?? NSHomeDirectory() + "/Movies/审片播放器")
+    }
+
+    /// One item of that folder by its bare name; nil for anything else (a path, `..`, hidden files, missing).
+    func localItem(_ name: String) -> URL? {
+        guard !name.isEmpty, !name.contains("/"), !name.hasPrefix(".") else { return nil }
+        let u = localDir.appendingPathComponent(name)
+        guard u.deletingLastPathComponent().resolvingSymlinksInPath().path == localDir.resolvingSymlinksInPath().path,
+              (try? u.checkResourceIsReachable()) == true else { return nil }
+        return u
+    }
+
+    var pendingDrops: [String] = []
+    func dropped(_ paths: [String]) {
+        guard !paths.isEmpty else { return }
+        note("dropped \(paths.count) file(s)")
+        if !background { window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }   // keys go to the player
+        pendingDrops += paths
+        flushDrops(tries: 0)
+    }
+
+    func flushDrops(tries: Int) {
+        guard !pendingDrops.isEmpty else { return }
+        web.evaluateJavaScript("!!(window.shell&&shell.localDrop)") { r, _ in
+            guard (r as? Bool) == true else {   // the page is still starting
+                if tries < 120 { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.flushDrops(tries: tries + 1) } }
+                return
+            }
+            guard let d = try? JSONSerialization.data(withJSONObject: self.pendingDrops), let arr = String(data: d, encoding: .utf8) else { return }
+            self.pendingDrops.removeAll()
+            self.web.evaluateJavaScript("void shell.localDrop(\(arr))")
+        }
+    }
+
+    func localCommand(_ cmd: String, _ name: String) {
+        guard let u = localItem(name) else { note("local \(cmd): refused \(name)"); return }
+        if cmd == "localReveal" { NSWorkspace.shared.activateFileViewerSelecting([u]); return }
+        // 从列表移除 = this copy goes to the Trash (never deleted outright); the page asked him first
+        var err = ""
+        do { try FileManager.default.trashItem(at: u, resultingItemURL: nil) } catch { err = error.localizedDescription }
+        note("local trash \(name): \(err.isEmpty ? "ok" : err)")
+        guard let d = try? JSONSerialization.data(withJSONObject: [name, err]), let arr = String(data: d, encoding: .utf8) else { return }
+        web.evaluateJavaScript("window.shell&&shell.localRemoved(\(arr)[0],\(err.isEmpty),\(arr)[1])")
+    }
+
     // MARK: page -> app
 
     func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -302,6 +387,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
                 sideW.animator().constant = shown ? Theme.sidebarWidth : 0
                 dragW.animator().constant = shown ? Theme.sidebarWidth - Theme.dragLeading : 0
             }
+            return
+        }
+        if let cmd = body["cmd"] as? String, cmd == "localReveal" || cmd == "localTrash" {
+            if let name = body["name"] as? String { localCommand(cmd, name) }
             return
         }
         guard body["cmd"] as? String == "pickFolder" else { return }

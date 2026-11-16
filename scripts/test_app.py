@@ -247,6 +247,86 @@ with tempfile.TemporaryDirectory() as tmp:
         assert args[0] == "open" and args[1].startswith("shenpian://open?") and "t=83.5" in args[1]
         assert A.parse_agent_url(args[1])["path"] == os.path.realpath(proj), "the CLI's URL means what it says"
 
+    # 本地视频 (local_player.py): dragged-in videos are copied (never moved) into one folder, listed, served from there only
+    from src.editor import local_player as LP  # noqa: E402
+    os.environ["SHENPIAN_LOCAL"] = lv = os.path.join(tmp, "Movies", "审片播放器")
+    drops = os.path.join(tmp, "Downloads")
+    os.makedirs(drops)
+    def mk(path, data):
+        with open(path, "wb") as f:
+            f.write(data)
+        return path
+    src1 = mk(os.path.join(drops, "旅行 vlog.mp4"), b"MP4" * 1000)
+    lc = A.app.test_client()
+    r = lc.post("/api/local/add", json={"paths": [src1]}).get_json()
+    assert r["ok"] and r["items"] == [{"name": "旅行 vlog.mp4", "ready": True, "job": None, "dup": False}], r
+    assert open(os.path.join(lv, "旅行 vlog.mp4"), "rb").read() == b"MP4" * 1000, "a full copy (clonefile on APFS)"
+    assert open(src1, "rb").read() == b"MP4" * 1000 and os.path.isfile(src1), "the original stays where it was, unchanged"
+    r = lc.post("/api/local/add", json={"paths": [src1]}).get_json()
+    assert r["items"][0]["dup"] and r["items"][0]["name"] == "旅行 vlog.mp4" and len(os.listdir(lv)) == 1, "same name + size: no 2nd copy"
+    other_dir = os.path.join(tmp, "Other")
+    os.makedirs(other_dir)
+    src2 = mk(os.path.join(other_dir, "旅行 vlog.mp4"), b"x" * 10)   # same name, another file
+    assert LP.add(src2)["name"] == "旅行 vlog (2).mp4" and LP.add(src2)["dup"], "a different file with the same name gets (2)"
+    mk(os.path.join(other_dir, "notes.txt"), b"n")
+    r = lc.post("/api/local/add", json={"paths": [os.path.join(other_dir, "notes.txt"), drops, os.path.join(drops, "nope.mp4"), "rel.mp4"]}).get_json()
+    assert not r["ok"] and len(r["rejected"]) == 4 and "不是能播的视频" in r["rejected"][0]["error"] and "文件夹" in r["rejected"][1]["error"]
+    assert lc.post("/api/local/add", json={"paths": []}).status_code == 400
+    assert lc.post("/api/local/add", data="paths=" + src1).status_code == 415, "JSON only"
+    assert lc.post("/api/local/add", json={"paths": [src1]}, headers={"Origin": "http://evil.example"}).status_code == 403
+    # a chunked copy (another volume: no clonefile) runs in a thread; meanwhile the original plays via its job id
+    os.environ["SHENPIAN_NO_CLONE"] = "1"
+    src3 = mk(os.path.join(drops, "big.mov"), os.urandom(LP.CHUNK * 2 + 17))
+    r3 = LP.add(src3, wait=True)
+    assert r3["ready"] and r3["job"] and open(os.path.join(lv, "big.mov"), "rb").read() == open(src3, "rb").read()
+    assert not [n for n in os.listdir(lv) if n.startswith(".partial")], "temp file renamed into place"
+    rr = lc.get("/local/src/" + r3["job"])
+    assert rr.status_code == 302 and rr.headers["Location"].endswith("/local/v/big.mov"), "copy done: the copy, not the original"
+    LP.JOBS["j1"] = {"id": "j1", "name": "slow.mp4", "orig": "slow.mp4", "src": src1, "size": 3000, "copied": 5, "state": "copying",
+                     "error": None, "started": time.time(), "ended": None}
+    assert lc.get("/local/src/j1").get_data() == b"MP4" * 1000, "while copying: the dropped original"
+    assert lc.get("/api/local/state?name=slow.mp4&job=j1").get_json()["job"]["state"] == "copying", "player works before the copy is there"
+    assert lc.get("/api/local/list").get_json()["jobs"][0]["id"] in ("j1", r3["job"])
+    assert lc.get("/local/src/nojob").status_code == 404
+    del LP.JOBS["j1"]
+    os.environ.pop("SHENPIAN_NO_CLONE")
+    # the folder is the list: files put there in Finder appear; hidden / non-video files don't; newest first
+    time.sleep(0.05)
+    mk(os.path.join(lv, "finder.m4v"), b"m4v")
+    mk(os.path.join(lv, "readme.txt"), b"t")
+    mk(os.path.join(lv, ".partial-abc.mp4"), b"p")
+    secret = mk(os.path.join(tmp, "secret.mp4"), b"SECRET")
+    os.symlink(secret, os.path.join(lv, "link-out.mp4"))
+    names = [x["name"] for x in lc.get("/api/local/list").get_json()["items"]]
+    assert names[0] == "finder.m4v" and set(names) == {"finder.m4v", "big.mov", "旅行 vlog (2).mp4", "旅行 vlog.mp4"}, names
+    # serving: only regular files right inside the folder
+    rv = lc.get("/local/v/" + urllib.parse.quote("旅行 vlog.mp4"))
+    assert rv.status_code == 200 and rv.get_data() == b"MP4" * 1000 and rv.mimetype == "video/mp4"
+    rv = lc.get("/local/v/big.mov", headers={"Range": "bytes=0-3"})
+    assert rv.status_code == 206 and len(rv.get_data()) == 4 and rv.mimetype == "video/quicktime", "range requests (seeking)"
+    for bad in ("..%2Fsecret.mp4", "../secret.mp4", "%2E%2E/secret.mp4", "link-out.mp4", ".partial-abc.mp4", "readme.txt",
+                "x/../../secret.mp4", urllib.parse.quote(secret), "nope.mp4"):
+        rb = lc.get("/local/v/" + bad, follow_redirects=True)
+        assert rb.status_code == 404 and b"SECRET" not in rb.get_data(), (bad, rb.status_code)
+    assert LP.safe_path("../secret.mp4") is None and LP.safe_path(secret) is None and LP.safe_path("link-out.mp4") is None
+    # positions per file + the last speed
+    assert lc.post("/api/local/pos", json={"name": "big.mov", "t": 61.27, "dur": 300}).get_json()["ok"]
+    assert lc.post("/api/local/pos", json={"speed": 2}).get_json()["ok"]
+    st = lc.get("/api/local/state?name=big.mov").get_json()
+    assert (st["t"], st["dur"], st["done"], st["speed"]) == (61.3, 300, False, 2), st
+    lc.post("/api/local/pos", json={"name": "finder.m4v", "t": 298, "dur": 300})
+    st = lc.get("/api/local/state?name=finder.m4v").get_json()
+    assert st["t"] == 0 and st["done"], "watched to the end: next time from the top"
+    assert [x for x in lc.get("/api/local/list").get_json()["items"] if x["name"] == "big.mov"][0]["t"] == 61.3
+    assert lc.post("/api/local/pos", json={"speed": 7}).status_code == 400
+    assert lc.post("/api/local/pos", json={"name": "big.mov", "t": "x"}).status_code == 400
+    assert lc.post("/api/local/pos", json={"name": "../secret.mp4", "t": 1}).status_code == 404
+    assert lc.post("/api/local/pos", json={"speed": 1}, headers={"Origin": "http://evil.example"}).status_code == 403
+    assert lc.get("/api/local/state?name=link-out.mp4").status_code == 404
+    assert json.load(open(os.path.join(tmp, "local_player.json")))["speed"] == 2, "kept next to the ports memory"
+    assert lc.get("/local/play?name=big.mov").status_code == 200
+    assert set(os.listdir(drops)) == {"旅行 vlog.mp4", "big.mov"}, "originals untouched"
+
     # ports: never the live review ports, remembered per project
     p1 = A.pick_port(proj, "raw")
     assert p1 in A.port_range() and not 8748 <= p1 <= 8755
@@ -255,10 +335,11 @@ with tempfile.TemporaryDirectory() as tmp:
 # the page's script must parse: one quoting slip blanked the whole sidebar (11/11)
 import shutil, subprocess, tempfile
 if shutil.which("node"):
-    page = A.app.test_client().get("/").get_data(as_text=True)
-    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
-        f.write("\n".join(re.findall(r"<script>(.*?)</script>", page, re.S)))
-    r = subprocess.run(["node", "--check", f.name], capture_output=True, text=True)
-    assert r.returncode == 0, r.stderr[:600]
+    from src.editor import local_player as LP  # noqa: E402
+    for page in (A.app.test_client().get("/").get_data(as_text=True), LP.PAGE):   # the shell and the local player
+        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
+            f.write("\n".join(re.findall(r"<script>(.*?)</script>", page, re.S)))
+        r = subprocess.run(["node", "--check", f.name], capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr[:600]
 
 print("ok")

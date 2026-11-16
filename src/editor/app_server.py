@@ -13,6 +13,8 @@ The Swift app (app/Shenpian.swift) starts this, shows `/` in a WKWebView and sto
   * 「选这个」 / 「审片通过」 (Q9) append one line to sessions/APPROVALS.md, log {type, choice, at} in
     `edit/app_picks.json`, and for covers write thumbnail/CHOSEN like the agent does. A second click undoes
     (a 撤销 line is appended; lines are never deleted). Nothing here uploads or calls an agent.
+  * 「本地视频」 (creator 11/16): videos dragged onto the window are copied into ~/Movies/审片播放器/ and played
+    with the same player (0.75×–3×), see local_player.py; that folder is listed below the episodes.
 Folders opened with 「打开其他文件夹…」 (or anywhere outside the episodes root) are read-only: their servers run
 with --read-only and every pick is refused.
 
@@ -47,6 +49,7 @@ from . import chat as CHAT
 from . import checkpoint as CP
 from . import edl as E
 from . import questions as QS
+from . import local_player as LP
 from . import theme as THEME
 from .shorts_page import list_shorts
 
@@ -683,6 +686,7 @@ SERVERS = Servers()
 # ---------------------------------------------------------------- app
 
 app = Flask(__name__)
+LP.register(app)   # 本地视频: dragged-in videos, ~/Movies/审片播放器 (local_player.py)
 PAGE_TABS = ("cover", "raw", "cut", "shorts", "titles", "none")
 TOKENS = {}   # token -> project path (static routes for cover / feed_sim html)
 
@@ -909,6 +913,27 @@ html.noside:not(.native) .top{padding-left:52px}
 .cand .tx{display:flex;flex-direction:column;min-width:0;font-size:var(--fs-sm);color:var(--text-3)}
 .cand .tx b{font-size:var(--fs);line-height:1.4;color:var(--text);font-weight:600;max-width:300px;overflow:hidden;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-word}   /* a title must be readable to be picked */
+/* 本地视频 (local_player.py): rows below the episodes; hover = 「在 Finder 中显示」 / 「从列表移除」 */
+.ep .lm{grid-column:2;font-size:var(--fs-xs);line-height:16px;color:var(--text-3);font-variant-numeric:tabular-nums;margin-top:2px}
+.ep .la{grid-column:2;display:none;gap:4px;margin-top:5px}
+.ep.loc:hover .la,.ep.loc.on .la{display:flex}
+.ep .la button{height:22px;padding:0 7px;font-size:var(--fs-xs);border-radius:999px;border:1px solid var(--line-2);background:var(--surface);color:var(--text-2);white-space:nowrap}
+.ep .la button:hover{color:var(--text)}
+.ep .la button[data-a=trash]:hover{color:var(--danger);border-color:var(--danger)}
+.lhint{padding:2px var(--sp-3) 10px;font-size:var(--fs-xs);color:var(--text-3);line-height:1.7}
+.ljob{margin:2px var(--sp-3) 8px;padding-bottom:6px;font-size:var(--fs-xs);color:var(--text-2);font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  background:linear-gradient(var(--accent),var(--accent)) left bottom/var(--p,0%) 3px no-repeat,linear-gradient(var(--surface-3),var(--surface-3)) left bottom/100% 3px no-repeat}
+.ljob span{color:var(--text-3)}
+.ljob.err{color:var(--danger);white-space:normal;background:none}
+.ljob.ok{color:var(--st-pass);background:none}
+#drop{position:fixed;inset:10px;z-index:50;display:none;align-items:center;justify-content:center;border:2px dashed var(--accent);border-radius:16px;
+  background:var(--accent-soft);pointer-events:none}
+#drop.on{display:flex}
+#drop div{background:var(--surface);padding:18px 28px;border-radius:14px;box-shadow:var(--sh-2);text-align:center;font-size:var(--fs-md);line-height:1.8}
+#drop small{color:var(--text-3);font-size:var(--fs-sm)}
+#stoast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:60;max-width:560px;padding:10px 18px;border-radius:12px;
+  background:rgba(20,20,22,.9);color:#fff;font-size:var(--fs);line-height:1.7;white-space:pre-line;display:none}
+#stoast.on{display:block}
 .cand button{flex:none;height:28px;font-size:var(--fs-sm);border-radius:999px;background:var(--btn-sec-bg);border-color:var(--btn-sec-line);color:var(--btn-sec-ink)}
 .cand.on button{color:var(--st-pass);border-color:transparent;background:transparent}
 body.ro .cand button,body.ro #approve,body.ro #rawok{display:none}
@@ -921,8 +946,9 @@ body.ro .cand button,body.ro #approve,body.ro #rawok{display:none}
   <header class="top"><span id="ttlw"><span id="ttl"></span><span id="tmeta"></span></span><nav id="tabs"></nav>
     <span class="right"><span id="pacts"></span><button id="rawok" hidden title="撤销「素材审完」">素材 ✓</button><button id="approve" hidden title="这一期审片通过（只记下来，不会上传）">审片通过</button></span></header>
   <div id="note"></div>
-  <div class="views" id="views"><div class="view on" id="v-none"><div class="empty">左边点一期开始审片</div></div></div>
+  <div class="views" id="views"><div class="view on" id="v-none"><div class="empty">左边点一期开始审片<br>想看别的视频：直接拖进这个窗口</div></div></div>
 </section></div>
+<div id="drop"><div>松开就开始播放<br><small>会拷一份到「影片/审片播放器」，原文件不动</small></div></div><div id="stoast"></div>
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -936,11 +962,56 @@ function row(e){const n=/^\d+$/.test(e.label)?e.label:'';
 function tripRow(t){return `<div class="ep trip" data-t="${esc(t.name)}" title="${esc(t.path)}"><b></b><span class="nm">${esc(t.name)}</span><span class="chip todo">待整理 · ${t.clips} 个素材</span></div>`}
 async function list(){const [eps,trips]=await Promise.all([fetch('/api/episodes').then(r=>r.json()),fetch('/api/trips').then(r=>r.json()).catch(()=>[])]);
   const g=(t,a,f=row)=>a.length?`<div class="sec">${t}</div>`+a.map(f).join(''):'';
-  $('eps').innerHTML=g('待整理',trips,tripRow)+g('进行中',eps.filter(e=>e.chip!=='up'))+g('已完成',eps.filter(e=>e.chip==='up'))+g('其他文件夹',others);
-  $('eps').querySelectorAll('.ep:not(.trip)').forEach(el=>el.onclick=()=>openEp(el.dataset.p));
+  $('eps').innerHTML=g('待整理',trips,tripRow)+g('进行中',eps.filter(e=>e.chip!=='up'))+g('已完成',eps.filter(e=>e.chip==='up'))+g('其他文件夹',others)+'<div id="locsec"></div>';
+  renderLocal();refreshLocal();
+  $('eps').querySelectorAll('.ep:not(.trip):not(.loc)').forEach(el=>el.onclick=()=>openEp(el.dataset.p));
   $('eps').querySelectorAll('.ep.trip').forEach(el=>el.onclick=()=>showTrip(el.dataset.t))}
+// ---- 本地视频 (creator 11/16): videos he drags onto the window (the Swift app hands over the paths: shell.localDrop),
+// copied into ~/Movies/审片播放器 and played by /local/play (local_player.py). Not an episode: no tabs, picks or chat.
+let LOC={items:[],jobs:[]}, LOCALCUR=null, locT=0, stT=0;
+const native=()=>!!(window.webkit&&webkit.messageHandlers&&webkit.messageHandlers.shell);
+const gbs=n=>n>=1e9?(n/1e9).toFixed(1)+' GB':Math.max(1,Math.round(n/1e6))+' MB';
+const fmtT=t=>{t=Math.max(0,t||0);const h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=Math.floor(t%60);return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s).padStart(2,'0')};
+function flash(s){const t=$('stoast');t.textContent=s;t.classList.add('on');clearTimeout(stT);stT=setTimeout(()=>t.classList.remove('on'),6000)}
+function locRow(it){const meta=[gbs(it.size)];if(it.done)meta.push('看完了');else if(it.t>0)meta.push('看到 '+fmtT(it.t)+(it.dur?' / '+fmtT(it.dur):''));
+  return `<div class="ep loc${LOCALCUR===it.name?' on':''}" data-n="${esc(it.name)}" title="${esc(it.name)}"><b></b><span class="nm">${esc(it.name)}</span><span class="lm">${esc(meta.join(' · '))}</span>`
+    +`<span class="la"><button data-a="reveal" title="在 Finder 里选中这份拷贝">在 Finder 中显示</button><button data-a="trash" title="这份拷贝放进废纸篓（原文件不动）">从列表移除</button></span></div>`}
+function renderLocal(){const s=$('locsec');if(!s)return;const pct=j=>Math.floor(j.copied/Math.max(1,j.size)*100);
+  const jobs=(LOC.jobs||[]).map(j=>j.state==='copying'?`<div class="ljob" style="--p:${pct(j)}%" title="${esc(j.orig)}">拷贝中 ${pct(j)}% · ${esc(j.name)} <span>${gbs(j.copied)} / ${gbs(j.size)}</span></div>`
+    :j.state==='error'?`<div class="ljob err">${esc(j.orig)}：${esc(j.error||'拷贝失败')}</div>`:`<div class="ljob ok">拷好了 · ${esc(j.name)}</div>`).join('');
+  s.innerHTML='<div class="sec">本地视频</div>'+jobs+(LOC.items.length?LOC.items.map(locRow).join('')
+    :'<div class="lhint">把视频拖进这个窗口就能播，能调 2×。<br>会拷一份到「影片/审片播放器」，原文件不动。</div>');
+  s.querySelectorAll('.ep.loc').forEach(el=>el.onclick=e=>{const b=e.target.closest('button'),n=el.dataset.n;
+    if(!b){showLocal(n);return}e.stopPropagation();if(b.dataset.a==='reveal')locCmd('localReveal',n);else locTrash(n)})}
+async function refreshLocal(){let j;try{j=await (await fetch('/api/local/list')).json()}catch(e){return}LOC=j;renderLocal();
+  clearTimeout(locT);if((LOC.jobs||[]).length)locT=setTimeout(refreshLocal,LOC.jobs.some(x=>x.state==='copying')?700:3000)}
+function showLocal(n,job){if(EP&&dirtyPages()&&!confirm('成片里有修改还没保存，换走会丢掉这些修改。\n还是要换吗？'))return false;
+  EP=null;cur=null;ACTS={};acts();LOCALCUR=n;wantOpen=null;document.body.classList.remove('ro');document.title='审片 · '+n;
+  document.querySelectorAll('.ep').forEach(e=>e.classList.toggle('on',e.dataset.n===n));
+  $('ttl').innerHTML=`<i>本地视频</i><b>${esc(n)}</b>`;$('tmeta').textContent='';$('tabs').innerHTML='';$('approve').hidden=true;$('rawok').hidden=true;$('note').style.display='none';
+  $('views').innerHTML=`<div class="view on" id="v-local"><iframe src="/local/play?name=${encodeURIComponent(n)}${job?'&job='+encodeURIComponent(job):''}" allow="fullscreen; autoplay"></iframe></div>`;
+  setTimeout(()=>{const f=document.querySelector('#v-local iframe');if(f)f.focus()},80);report();return true}
+function clearLocal(){LOCALCUR=null;document.title='审片';$('ttl').innerHTML='';$('views').innerHTML='<div class="view on" id="v-none"><div class="empty">左边点一期开始审片<br>想看别的视频：直接拖进这个窗口</div></div>'}
+// the Swift app: files dropped anywhere on the window (real paths; the web view never navigates to them)
+async function localDrop(paths){dragHint(false);let j=null;
+  try{j=await post('/api/local/add',{paths})}catch(e){}
+  if(!j){flash('拖进来的视频没加上（后台没回应，日志在 ~/Library/Logs/审片/）');return}
+  const bad=(j.rejected||[]).map(r=>r.error);if(bad.length)flash(bad.join('\n'));
+  await refreshLocal();const f=(j.items||[])[0];if(f)showLocal(f.name,f.ready?null:f.job)}
+function dragHint(on){$('drop').classList.toggle('on',!!on)}
+function locCmd(cmd,name){if(native())webkit.messageHandlers.shell.postMessage({cmd,name});else flash('这个要在 审片.app 里用')}
+function locTrash(n){if(!confirm(`把「${n}」从列表移除？\n这份拷贝会放进废纸篓（还能从废纸篓拿回来），原文件不受影响。`))return;
+  if(LOCALCUR===n)clearLocal();   // the page saves where he was before the file goes
+  setTimeout(()=>locCmd('localTrash',n),150)}
+function localRemoved(n,ok,err){if(!ok)flash('没能移到废纸篓：'+(err||''));refreshLocal()}
+// keys pressed while the shell (not the player frame) has focus go to the player, e.g. after a click in the sidebar
+document.addEventListener('keydown',e=>{if(!LOCALCUR||e.metaKey||e.ctrlKey||e.altKey||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;
+  const f=document.querySelector('#v-local iframe');if(!f||!f.contentWindow)return;
+  if(e.code==='Space'||[' ','ArrowLeft','ArrowRight','j','J','k','K','l','L','[',']','【','】','f','F','m','M'].includes(e.key)){
+    e.preventDefault();f.contentWindow.postMessage({shenpian:'key',key:e.key,code:e.code},'*');f.focus()}});
+window.addEventListener('focus',()=>refreshLocal());   // files he put into the folder in Finder
 function showTrip(n){if(EP&&dirtyPages()&&!confirm('成片里有修改还没保存，换走会丢掉这些修改。\n还是要换吗？'))return;
-  EP=null;cur=null;ACTS={};acts();document.querySelectorAll('.ep').forEach(e=>e.classList.toggle('on',e.dataset.t===n));
+  EP=null;cur=null;LOCALCUR=null;ACTS={};acts();document.querySelectorAll('.ep').forEach(e=>e.classList.toggle('on',e.dataset.t===n));
   $('ttl').innerHTML=`<b>${esc(n)}</b>`;$('tmeta').textContent='';$('tabs').innerHTML='';$('approve').hidden=true;$('rawok').hidden=true;$('note').style.display='none';
   $('views').innerHTML=`<div class="view on" id="v-none"><div class="empty">这趟的素材还没分期。<br>在对话里跟 agent 说「整理 ${esc(n)}」，分好以后每一期会出现在「进行中」。</div></div>`}
 // Opening is one request at a time: quick clicks through the list open only the last one clicked (the server stops the
@@ -949,12 +1020,12 @@ let opening=false, wantOpen=null;
 const dirtyPages=()=>Object.values(ACTS).some(a=>(a.acts||[]).some(b=>b.dirty));
 async function openEp(p){
   if(EP&&p!==EP.path&&!opening&&dirtyPages()&&!confirm('成片里有修改还没保存，换一期会丢掉这些修改。\n还是要换吗？'))return;
-  wantOpen=p;document.querySelectorAll('.ep').forEach(e=>e.classList.toggle('on',e.dataset.p===p));
+  wantOpen=p;LOCALCUR=null;document.querySelectorAll('.ep').forEach(e=>e.classList.toggle('on',e.dataset.p===p));
   $('ttl').innerHTML='<i>启动中…</i>';$('tmeta').textContent='';$('tabs').innerHTML='';$('pacts').innerHTML='';$('approve').hidden=true;$('rawok').hidden=true;$('note').style.display='none';
   $('views').innerHTML='<div class="view on" id="v-none"><div class="empty">启动中…</div></div>';EP=null;cur=null;ACTS={};
   if(opening)return;opening=true;let j;
   try{while(wantOpen){const q=wantOpen;wantOpen=null;j=await post('/api/open',{path:q}).catch(()=>null);
-    if(!wantOpen){if(j)showEp(j);else{$('ttl').innerHTML='';$('views').innerHTML='<div class="view on" id="v-none"><div class="empty">这一期打不开（日志在 ~/Library/Logs/审片/）</div></div>'}}}}
+    if(!wantOpen&&!LOCALCUR){if(j)showEp(j);else{$('ttl').innerHTML='';$('views').innerHTML='<div class="view on" id="v-none"><div class="empty">这一期打不开（日志在 ~/Library/Logs/审片/）</div></div>'}}}}
   finally{opening=false}}
 function showEp(j){EP=j;cur=null;ACTS={};TIME={};acts();
   if(j.ro&&!others.some(o=>o.path===j.path)&&!document.querySelector('.ep[data-p="'+CSS.escape(j.path)+'"]'))others.push(j);
@@ -989,6 +1060,7 @@ window.addEventListener('message',e=>{const d=e.data;if(d&&d.shenpian==='fs')pag
 function fsExited(){if(!document.documentElement.classList.contains('fsmode'))return;document.documentElement.classList.remove('fsmode');
   document.querySelectorAll('.view iframe').forEach(f=>{try{f.contentWindow.postMessage({shenpian:'fsoff'},'*')}catch(e){}})}
 window.shell={toggleSide,fsExited,rail:()=>{const f=cur&&frameOf(cur);if(f&&f.contentWindow)f.contentWindow.postMessage({shenpian:'rail'},'*')},tab:n=>{const t=TABS[n-1];if(t)tab(t[0])},openPath:p=>openEp(p),dirty:dirtyPages,agent:agentOpen,
+  localDrop,dragHint,localRemoved,localRefresh:refreshLocal,
   // ⌘R (显示 › 刷新当前页): reload only the open tab's page, e.g. after the agent changed the raw folder (creator 11/15)
   reload:()=>{const f=cur&&frameOf(cur);if(!f)return;if(cur==='cut'&&dirtyPages()&&!confirm('成片页有没保存的修改，刷新会丢掉。确定刷新？'))return;f.src=f.src}};   // dirty: the Swift app asks before quitting
 // 选这个 / 已选 · 撤销 (Q9): one APPROVALS.md line per click
