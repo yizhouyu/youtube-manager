@@ -111,6 +111,17 @@ def clean_project(project):
                 continue  # glossary maps a known mishearing to "" = drop the line
             cues.append({"t0": c["t0"], "t1": c["t1"], "text": text})
         cues.sort(key=lambda x: x["t0"])
+        # the ASR cuts lines at ~16 characters, sometimes inside a word (「…跟上面的这 / 个动画同步」, creator 11/15:
+        # 「“这个”不要分在两行」): join a cue with the next when they touch and the first doesn't end a clause
+        merged = []
+        for c in cues:
+            p = merged[-1] if merged else None
+            if (p and c["t0"] - p["t1"] < 0.15 and p["text"][-1:] not in "，。！？、；：,.!?;:…"
+                    and len(p["text"]) + len(c["text"]) <= 26):
+                p["t1"], p["text"] = c["t1"], p["text"] + c["text"]
+            else:
+                merged.append(dict(c))
+        cues = merged
         with open(os.path.join(out_dir, clip + ".srt"), "w", encoding="utf-8") as f:
             f.write(E.to_srt(cues))
         n += 1
