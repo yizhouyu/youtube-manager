@@ -5,6 +5,7 @@ size of the output frame and composited with the `overlay` filter.
 """
 import hashlib
 import os
+import threading
 import re
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -245,7 +246,11 @@ def _cached(cache_dir, key, render):
     os.makedirs(cache_dir, exist_ok=True)
     path = os.path.join(cache_dir, hashlib.sha1(f"{VERSION}|{key}".encode()).hexdigest()[:16] + ".png")
     if not os.path.exists(path):
-        render().save(path)
+        # atomic: two render workers (or a preview and a final render) can ask for the same overlay at once, and the
+        # second one must never hand ffmpeg a half-written PNG (128 final render, 11/15: "Invalid data found")
+        tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp.png"
+        render().save(tmp)
+        os.replace(tmp, path)
     return path
 
 
