@@ -428,7 +428,7 @@ def _note_glass(text, w, h, pos, blur_bg=None):
 # under it is blurred through the same feathered mask (render.py: crop -> gblur -> alphamerge). The year
 # (1908年 / 1990年代 / 100年前) or the label before 「：」 is champagne; a label gets a champagne hairline
 # separator: 「广播 │ 不要停留，不要拍照」. Serif notes vs the sans speech captions = editor's voice vs his voice.
-TITLE_VERSION = 3       # bump when the title-note / title-tag look changes (part of the segment cache key)
+TITLE_VERSION = 4       # bump when the title-note / title-tag look changes (part of the segment cache key)
 TITLE_NOTE = {"size": 0.052, "track": 0.04, "grow": 0.0009, "top": 0.062, "max_w": 0.80, "lead": 1.42,
               "fg": (255, 251, 244), "accent": (244, 216, 164), "hair": (236, 206, 150),
               "sep_w": 1.0, "sep_h": 0.70, "hair_w": 0.0022,
@@ -463,20 +463,28 @@ def _title_width(d, chars, f, tr, sep_w):
 
 
 def _title_lines(d, chars, f, tr, max_w, sep_w):
-    """One line, or two balanced lines (prefer a break after ，、；/ the label separator)."""
+    """One line, or two balanced lines (prefer a break after ，、；/ the label separator). A "\n" in the text
+    forces the break."""
+    nl = next((i for i, c in enumerate(chars) if c[0] == "\n"), None)
+    if nl is not None:
+        return [chars[:nl], chars[nl + 1:]]
     if _title_width(d, chars, f, tr, sep_w) <= max_w or len(chars) < 8:
         return [chars]
     n, best, bi = len(chars), None, len(chars) // 2
+    latin = lambda c: c.isascii() and c.isalnum()
     for i in range(4, n - 3):
-        if chars[i][0] in "，、。；：！？”）" or (chars[i - 1][0].isdigit() and chars[i][0].isdigit()):
-            continue   # no line may start with closing punctuation; never split a number
-        score = abs(i - n / 2) - (6 if chars[i - 1][0] in "，、；" + _SEP else 0)
+        a, b = chars[i - 1][0], chars[i][0]
+        if b in "，、。；：！？”）" or (a.isdigit() and b.isdigit()) or (latin(a) and latin(b)):
+            continue   # no line may start with closing punctuation; never split a number or a Latin word (CD / S, 128)
+        score = abs(i - n / 2) - (6 if a in "，、；" + _SEP else 0) - (1 if b == " " else 0)
         if best is None or score < best:
             best, bi = score, i
-    second = chars[bi:]
-    if second and second[0][0] == _SEP:
+    first, second = chars[:bi], chars[bi:]
+    if second and second[0][0] in (_SEP, " "):
         second = second[1:]
-    return [chars[:bi], second]
+    while first and first[-1][0] == " ":
+        first = first[:-1]
+    return [first, second]
 
 
 def _ink_layers(mask, deco, colr, u, k, spec, scrim=None, scrim_alpha=None):
