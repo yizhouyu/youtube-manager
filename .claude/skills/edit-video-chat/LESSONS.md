@@ -719,3 +719,5 @@ A narrated explainer is a different job from a travel cut. What made 113 work, a
   with the tick as `sfx`; a state that would last < 0.25 s at a cut is skipped (the pop starts at the cut), and the pill
   ends where the closing headline takes the top of the frame. Script: 127 `edit/shorts/build_shorts.py`.
 - **Creator 2026-11-10 picked 片头字 note style** (`"note_style": "title"`, warm-white Songti, no plate) over the dark glass pane; it is the default for new projects (mocks + spec: 124 `edit/label_options/`).
+
+- **Demucs lives in `~/.venvs/dmx` (11/15).** CLI `~/.venvs/dmx/bin/demucs -n htdemucs --two-stems vocals -j 2 -o out src/<clip>.wav …` run from `edit/stems/` (sources: `ffmpeg -vn -ac 2 -ar 44100 -c:a pcm_s16le stems/src/<clip>.wav`), one batch under `render_lock.sh`; MPS ≈ 20 s of audio per second. When the creator asks to keep more of a shop / mall / street-performance clip, give the restored speech the voice stem (`audio_src`) — raw audio carries the shop's music (126: 97 stems made after a review restored ~40 shop clips). A stem whose music bed drops < 10 dB (126's 0388) may hold sung vocals: whisper-check it or mute.
