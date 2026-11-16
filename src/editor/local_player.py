@@ -121,7 +121,7 @@ def list_videos():
         st = os.stat(os.path.join(d, n))
         ps = pos.get(n) or {}
         rows.append({"name": n, "size": st.st_size, "added": st.st_ctime, "t": ps.get("t") or 0,
-                     "dur": ps.get("dur") or 0, "done": bool(ps.get("done"))})
+                     "dur": ps.get("dur") or 0, "done": bool(ps.get("done")), "notes": open_comments(n)})
     return sorted(rows, key=lambda r: (-r["added"], r["name"]))
 
 
@@ -172,6 +172,33 @@ def _copy(job, tmp):
 
 
 def add(path, wait=False):
+    """_add, and the copy remembers where it came from (批注 write a sidecar next to that original, local_comments.py)."""
+    r = _add(path, wait)
+    src = os.path.realpath(path)
+    if os.path.dirname(src) != folder():
+        remember_orig(r["name"], src)
+    return r
+
+
+def remember_orig(name, src, guessed=False):
+    with _state_lock:
+        s = load_state()
+        o = s.setdefault("orig", {})
+        if o.get(name, {}).get("path") != src or o.get(name, {}).get("guessed") != guessed:
+            o[name] = {"path": src, "guessed": guessed, "at": time.strftime("%Y-%m-%d %H:%M:%S")}
+            _save_state(s)
+
+
+def open_comments(name):
+    """How many unresolved 批注 a video has (the sidebar shows it)."""
+    try:
+        with open(os.path.join(folder(), ".comments", name + ".json"), encoding="utf-8") as f:
+            return sum(1 for c in json.load(f).get("comments") or [] if not c.get("resolved"))
+    except (OSError, ValueError, AttributeError):
+        return 0
+
+
+def _add(path, wait=False):
     """Copy one dropped file into the folder. -> {name, ready, job, dup}; ready = the copy can be played now.
     Raises ValueError with a message for him (not a video, a folder, missing, no space, ...)."""
     if not isinstance(path, str) or not path or not os.path.isabs(path) or "\0" in path:
@@ -309,6 +336,35 @@ def register(app):
         return send_file(j["src"], mimetype=EXTS[os.path.splitext(j["src"])[1].lower()] if
                          os.path.splitext(j["src"])[1].lower() in EXTS else "video/mp4", conditional=True, max_age=0)
 
+    from . import local_comments as LC   # 批注 (local_comments.py imports this module)
+
+    @app.get("/api/local/comments")
+    def api_local_comments():
+        name = request.args.get("name")
+        if not known(name):
+            abort(404)
+        return jsonify(LC.get(name))
+
+    @app.post("/api/local/comments")
+    def api_local_comments_change():
+        _same_origin()
+        b = request.get_json(silent=True) or {}
+        if not known(b.get("name")):
+            return jsonify({"ok": False, "error": "没有这个视频"}), 404
+        try:
+            return jsonify(dict(LC.change(b["name"], b.get("op"), b), ok=True))
+        except ValueError as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+
+    @app.get("/api/local/comments.md")
+    def api_local_comments_md():
+        """The md without image links (「复制全部批注」, for a session that can't see this Mac)."""
+        name = request.args.get("name")
+        if not known(name):
+            abort(404)
+        LC.get(name)
+        return Response(LC.markdown(name, images=None), mimetype="text/plain; charset=utf-8")
+
     @app.get("/local/play")
     def local_play():
         return Response(PAGE, mimetype="text/html")
@@ -321,8 +377,10 @@ PAGE = r"""<!doctype html>
 <style>
 __THEME_CSS__
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg);display:flex;flex-direction:column;user-select:none}
-.stage{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;padding:16px 24px 12px}
+body{background:var(--bg);user-select:none}
+.page{display:grid;grid-template-columns:minmax(0,1fr);height:100vh}
+html.notes .page{grid-template-columns:minmax(0,1fr) clamp(320px,27vw,420px)}
+.stage{min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;padding:16px 24px 12px}
 #wrap{--ar:1.7778;position:relative;width:min(100%,calc((100vh - 96px)*var(--ar)));flex:none}
 #pv{position:relative;width:100%;aspect-ratio:var(--ar);background:var(--stage);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-1)}
 #pv video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;cursor:pointer}
@@ -344,7 +402,7 @@ body{background:var(--bg);display:flex;flex-direction:column;user-select:none}
 #ui>*{pointer-events:auto}
 html.fs.idle #ui{opacity:0}
 html.fs.idle #ui>*{pointer-events:none}
-html.fs.idle,html.fs.idle *{cursor:none!important}
+html.fs.idle .stage,html.fs.idle .stage *{cursor:none!important}
 #bar{position:relative;height:24px;cursor:pointer;touch-action:none}
 #bar .tr{position:absolute;left:0;right:0;bottom:6px;height:4px;border-radius:2px;background:rgba(255,255,255,.26);overflow:hidden;transition:height .1s,bottom .1s}
 #bar:hover .tr,#bar.drag .tr{bottom:4px;height:8px}
@@ -393,15 +451,80 @@ html.fs #wrap{width:min(100%,calc(100vh*var(--ar)))}
 html.fs #pv{border-radius:0;box-shadow:none}
 html.fs #row{display:none}
 html.fs #ui{padding:48px 18px 6px}
-</style></head><body>
+/* ---- 批注 (local_comments.py): toggle in the control bar, a rail on the right; not a chat, nothing is sent anywhere */
+#bNotes{height:26px!important;width:auto!important;padding:0 10px!important;display:inline-flex!important;align-items:center;white-space:nowrap;margin-right:6px;border-radius:7px;font-size:12px;font-weight:600;
+  color:rgba(255,255,255,.88)!important;background:rgba(255,255,255,.14)!important;filter:none!important}
+#bNotes:hover{background:rgba(255,255,255,.24)!important}
+#bNotes.on{background:#fff!important;color:#111!important}
+#bNotes i{font-style:normal;font-variant-numeric:tabular-nums;margin-left:5px;opacity:.75}
+#bar .cmk{position:absolute;top:1px;width:0;height:0;margin-left:-5px;border-left:5px solid transparent;border-right:5px solid transparent;
+  border-top:8px solid var(--box);cursor:pointer;filter:drop-shadow(0 0 1px rgba(0,0,0,.7))}
+html:not(.notes) #bar .cmk{display:none}
+.bx{position:absolute;z-index:6;border:2px solid var(--box);border-radius:3px;pointer-events:none;display:none;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.bxdraw{position:absolute;z-index:7;cursor:crosshair;background:var(--box-veil)}
+#rail{display:none;flex-direction:column;min-height:0;background:var(--bg-rail);color:var(--text);border-left:1px solid var(--line);user-select:text;font-size:var(--fs)}
+html.notes #rail{display:flex}
+.rh{display:flex;align-items:center;gap:8px;padding:12px 12px 6px 16px;flex:none}
+.rh b{font-size:var(--fs-md);font-weight:600}
+.rh #rn{color:var(--text-3);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+.rh .sp{flex:1}
+.rh button{height:28px;padding:0 10px;font-size:var(--fs-sm);border-radius:999px;border:1px solid var(--btn-sec-line);background:var(--btn-sec-bg);color:var(--btn-sec-ink)}
+.rh button:hover{background:var(--surface-2)}
+#rsc{padding:0 16px 8px;font-size:var(--fs-xs);color:var(--text-3);line-height:1.6;flex:none;word-break:break-all}
+#rsc.warn{color:var(--q-ink)}
+#rlist{flex:1;min-height:0;overflow-y:auto;padding:4px 10px 10px;border-top:1px solid var(--line)}
+.rempty{color:var(--text-3);font-size:var(--fs-sm);text-align:center;padding:24px 12px;line-height:1.8}
+.rsec{font-size:var(--fs-xs);color:var(--text-3);padding:12px 6px 4px}
+.cm{padding:8px 8px 9px;border-radius:var(--r-sm);transition:background var(--dur-1) var(--ease)}
+.cm:hover{background:var(--surface-2)}
+.cm.on{background:var(--accent-soft)}
+.cm .ch{display:flex;align-items:center;gap:6px;font-size:var(--fs-xs);color:var(--text-3)}
+.cm .ct{color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer;font-size:var(--fs-sm)}
+.cm .ct:hover{text-decoration:underline}
+.cm .ch .sp{flex:1}
+.cm .ch button{border:0;background:transparent;color:var(--text-3);font-size:var(--fs-xs);height:22px;padding:0 6px;border-radius:6px;visibility:hidden}
+.cm:hover .ch button,.cm .ch button.res{visibility:visible}
+.cm .ch button:hover{background:var(--surface-3);color:var(--text)}
+.cm .ch button.del:hover{color:var(--danger)}
+.cm .ch button.res{width:22px;padding:0;border:1.5px solid var(--line-2);border-radius:50%;height:22px;color:transparent;font-weight:700}
+.cm .ch button.res:hover{border-color:var(--st-pass);color:var(--st-pass);background:transparent}
+.cm.done .ch button.res{background:var(--st-pass);border-color:var(--st-pass);color:#fff}
+.cm .cx{margin-top:3px;white-space:pre-wrap;word-break:break-word;line-height:1.55;color:var(--text)}
+.cm.done .cx{color:var(--text-3)}
+.cm.done .ct{color:var(--text-3)}
+.cm textarea,#rin{width:100%;resize:none;border:1px solid var(--line-2);border-radius:var(--r-sm);padding:7px 10px;font:inherit;line-height:1.45;
+  background:var(--surface);color:var(--text)}
+.cm textarea{margin-top:4px;min-height:54px;border-color:var(--accent-line)}
+#rform{flex:none;border-top:1px solid var(--line);padding:10px 12px 12px;display:flex;flex-direction:column;gap:7px}
+#rin{min-height:40px;max-height:140px}
+#rin:focus,.cm textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring)}
+.rrow{display:flex;align-items:center;gap:6px}
+.rrow .sp{flex:1}
+#rat{font-size:var(--fs-xs);color:var(--text-3);font-variant-numeric:tabular-nums}
+#rat b{color:var(--accent);font-weight:600}
+.rrow button{height:30px;padding:0 12px;font-size:var(--fs-sm);border-radius:var(--r-sm);border:1px solid var(--btn-sec-line);background:var(--btn-sec-bg);color:var(--btn-sec-ink)}
+.rrow button.on{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
+.rrow button.pri{background:var(--btn-pri-bg);border-color:var(--btn-pri-bg);color:var(--btn-pri-ink)}
+/* fullscreen keeps the rail, dark */
+html.fs #rail{background:#16171a;border-left-color:#26272b;color-scheme:dark;--surface:#232327;--surface-2:#1d1e21;--surface-3:#303035;--line:#2a2b30;
+  --line-2:#3a3b40;--text:#f5f5f7;--text-2:#c7c7cc;--text-3:#8e8e93;--accent-soft:rgba(10,132,255,.18);--btn-sec-bg:#2c2c30;--btn-sec-ink:#f5f5f7;
+  --btn-sec-line:#3a3b40;--q-ink:#ffc566;--accent:#4ca2ff}
+</style></head><body><div class="page">
 <main class="stage">
   <div id="wrap"><div id="pv"><video id="v" playsinline preload="auto"></video><div class="bigplay hide" id="big"></div><div id="msg"></div><div id="toast"></div>
     <div id="ui"><div id="bar"><div class="tr"><div class="bf"></div><div class="pl"></div></div><div class="ph"></div><div id="tip"></div></div>
       <div id="ctl"><button id="bPlay" title="播放 / 暂停（空格）"></button><span id="time"></span><span class="sp"></span>
-        <span id="speeds" title="速度（[ 慢一档 · ] 快一档）"></span><span id="vol"><button id="bMute"></button><span id="volS" title="音量"><i></i></span></span><button id="bFs"></button></div></div></div></div>
+        <button id="bNotes" title="批注：边看边记，存下来给做这个视频的 session（C）">批注</button><span id="speeds" title="速度（[ 慢一档 · ] 快一档）"></span><span id="vol"><button id="bMute"></button><span id="volS" title="音量"><i></i></span></span><button id="bFs"></button></div></div></div></div>
   <div id="row"><span id="nm"></span><span id="cp"></span><span class="sp"></span>
-    <span id="keys"><span><kbd>空格</kbd> 播放/暂停</span><span><kbd>←</kbd><kbd>→</kbd> 5 秒</span><span><kbd>J</kbd><kbd>L</kbd> 10 秒</span><span><kbd>[</kbd><kbd>]</kbd> 速度</span><span><kbd>F</kbd> 全屏</span><span><kbd>M</kbd> 静音</span></span></div>
+    <span id="keys"><span><kbd>空格</kbd> 播放/暂停</span><span><kbd>←</kbd><kbd>→</kbd> 5 秒</span><span><kbd>J</kbd><kbd>L</kbd> 10 秒</span><span><kbd>[</kbd><kbd>]</kbd> 速度</span><span><kbd>F</kbd> 全屏</span><span><kbd>M</kbd> 静音</span><span><kbd>C</kbd> 批注</span></span></div>
 </main>
+<aside id="rail">
+  <div class="rh"><b>批注</b><span id="rn"></span><span class="sp"></span><button id="bCopy" title="复制成 Markdown（不带图），可以贴给别的 session">复制全部批注</button></div>
+  <div id="rsc"></div>
+  <div id="rlist" class="scroll"></div>
+  <form id="rform"><textarea id="rin" rows="2" placeholder="写批注…（自动记下当前时间；回车存，Shift+回车换行）"></textarea>
+    <div class="rrow"><span id="rat"></span><span class="sp"></span><button type="button" id="bBox" title="在画面上拖一个框，跟这条批注一起存（Esc 取消）">框选</button><button type="submit" class="pri" id="bAdd">存</button></div></form>
+</aside></div>
 <script>
 const $=id=>document.getElementById(id), v=$('v');
 const Q=new URLSearchParams(location.search), NAME=Q.get('name')||'', JOB=Q.get('job')||'';
@@ -429,7 +552,7 @@ const playPause=()=>{if(v.error)return;v.paused?v.play().catch(()=>{}):v.pause()
 const seekBy=d=>{v.currentTime=Math.max(0,Math.min((v.duration||1e9)-0.05,v.currentTime+d));poke()};
 // ---- fullscreen: in the app the window goes fullscreen and the shell hides its chrome (same as the episode pages)
 let FS=false;
-function applyFs(on){FS=on;document.documentElement.classList.toggle('fs',on);$('bFs').innerHTML=on?IC_FSX:IC_FS;$('bFs').title=on?'退出全屏（F / Esc）':'全屏（F）';tick()}
+function applyFs(on){FS=on;document.documentElement.classList.toggle('fs',on);setTimeout(()=>window.BOX&&BOX.redraw(),60);$('bFs').innerHTML=on?IC_FSX:IC_FS;$('bFs').title=on?'退出全屏（F / Esc）':'全屏（F）';tick()}
 function toggleFs(){if(inApp){applyFs(!FS);try{parent.postMessage({shenpian:'fs',on:FS},'*')}catch(e){}return}
   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});else document.documentElement.requestFullscreen().catch(()=>applyFs(!FS))}
 document.addEventListener('fullscreenchange',()=>applyFs(!!document.fullscreenElement));
@@ -500,13 +623,16 @@ setInterval(tick,100);['play','pause','volumechange','seeked','loadedmetadata'].
 applyFs(false);
 // ---- keys: Space / K play-pause, ← → 5 s, J L 10 s, [ ] speed, F fullscreen, M mute, Esc leaves fullscreen
 function key(e){const k=e.key;
+  if(e.target&&(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||e.target.isContentEditable))return false;   // typing a note
   if(e.code==='Space'||k===' '||k==='k'||k==='K')playPause();
   else if(k==='ArrowRight')seekBy(5);else if(k==='ArrowLeft')seekBy(-5);
   else if(k==='l'||k==='L')seekBy(10);else if(k==='j'||k==='J')seekBy(-10);
   else if(k===']'||k==='】')stepSpeed(1);else if(k==='['||k==='【')stepSpeed(-1);
   else if(k==='f'||k==='F')toggleFs();
   else if(k==='m'||k==='M'){v.muted=!v.muted;toast(v.muted?'静音':'有声');poke()}
+  else if(k==='Escape'&&BOX.drawing())return false;
   else if(k==='Escape'&&FS)toggleFs();
+  else if(k==='c'||k==='C'){if(!NOTES.on)setNotes(true);setTimeout(()=>$('rin').focus(),30)}
   else return false;
   return true}
 document.addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;if(key(e)){e.preventDefault();e.stopPropagation()}},true);
@@ -518,6 +644,93 @@ addEventListener('message',e=>{const d=e.data;if(!d)return;
   if(d.shenpian==='key')key({key:d.key,code:d.code});
   else if(d.shenpian==='pause')v.pause();
   else if(d.shenpian==='fsoff'&&FS)applyFs(false)});
+// ---- 批注 (local_comments.py): one click turns it on for this video; each note keeps the media time (speed doesn't
+// matter) and an optional 框选 box; ✓ = resolved. Saved in the app and, next to the original file, <stem>.comments.md.
+let NOTES={on:false,comments:[],sidecar:{}}, noteT=null, wasPlaying=false, editing=0;
+const fmtN=t=>{const k=Math.round((t||0)*10);return String(Math.floor(k/600)).padStart(2,'0')+':'+(k%600/10).toFixed(1).padStart(4,'0')};
+// 框选: drag a rectangle on the picture (same as the episode pages' box notes in chat.py)
+window.BOX=null;const BOX=window.BOX=(function(){let pend=null,ov=null,hideT=0,shown=null;const pv=$('pv');
+  function frame(){const P=pv.getBoundingClientRect(),vw=v.videoWidth||16,vh=v.videoHeight||9,k=Math.min(P.width/vw,P.height/vh),w=vw*k,h=vh*k;
+    return {x:(P.width-w)/2,y:(P.height-h)/2,w,h}}
+  function el(){let e=pv.querySelector(':scope>.bx');if(!e){e=document.createElement('div');e.className='bx';pv.appendChild(e)}return e}
+  function draw(b){shown=b;const f=frame(),e=el();Object.assign(e.style,{left:f.x+b[0]*f.w+'px',top:f.y+b[1]*f.h+'px',width:b[2]*f.w+'px',height:b[3]*f.h+'px',display:'block'})}
+  function hide(){shown=null;const e=pv.querySelector('.bx');if(e)e.style.display='none'}
+  function mark(){$('bBox').classList.toggle('on',!!pend);$('bBox').textContent=pend?'已框选 ✕':'框选'}
+  function stop(b){if(ov){ov.remove();ov=null}document.removeEventListener('keydown',esc,true);
+    if(b&&b[2]>0.01&&b[3]>0.01){pend=b.map(x=>Math.round(x*10000)/10000);draw(pend);$('rin').focus();toast('框好了 · 写批注')}else{pend=null;hide()}mark()}
+  const esc=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();stop(null)}};
+  function start(){if(!v.videoWidth){toast('没有画面可以框');return}grab();hide();const f=frame();ov=document.createElement('div');ov.className='bxdraw';
+    Object.assign(ov.style,{left:f.x+'px',top:f.y+'px',width:f.w+'px',height:f.h+'px'});pv.appendChild(ov);toast('在画面上拖一个框');
+    let p0=null;const at=e=>{const r=ov.getBoundingClientRect();return [Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))]};
+    const rect=(a,b)=>[Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.abs(a[0]-b[0]),Math.abs(a[1]-b[1])];
+    document.addEventListener('keydown',esc,true);['click','dblclick','mousedown'].forEach(n=>ov.addEventListener(n,e=>e.stopPropagation()));
+    ov.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();p0=at(e);ov.setPointerCapture(e.pointerId)});
+    ov.addEventListener('pointermove',e=>{if(p0)draw(rect(p0,at(e)))});
+    ov.addEventListener('pointerup',e=>{if(p0)stop(rect(p0,at(e)))})}
+  $('bBox').onclick=e=>{e.stopPropagation();if(pend){pend=null;hide();mark()}else start()};
+  v.addEventListener('play',()=>{if(!pend)hide()});
+  return {take:()=>pend,drawing:()=>!!ov,clear(){pend=null;hide();mark()},
+    show(b){const go=()=>{draw(b);clearTimeout(hideT);hideT=setTimeout(()=>{if(!pend&&v.paused===false)hide()},6000)};v.videoWidth?go():v.addEventListener('loadedmetadata',go,{once:true})},
+    redraw(){const b=pend||shown;if(b)draw(b)}}})();
+addEventListener('resize',()=>BOX.redraw());
+// the moment a note is about: when he starts it (first key / 框选), the video pauses there; saving resumes it
+function grab(){if(noteT!=null)return;noteT=v.currentTime||0;wasPlaying=!v.paused;v.pause();$('rat').innerHTML='记在 <b>'+fmtN(noteT)+'</b>'}
+function release(resume){noteT=null;$('rat').textContent='';if(resume&&wasPlaying)v.play().catch(()=>{});wasPlaying=false}
+$('rin').addEventListener('input',()=>{if($('rin').value.trim())grab()});
+$('rin').addEventListener('keydown',e=>{e.stopPropagation();
+  if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault();saveNote()}
+  else if(e.key==='Escape'){e.preventDefault();$('rin').blur();if(!$('rin').value.trim()){BOX.clear();release(true)}}});
+$('rform').onsubmit=e=>{e.preventDefault();saveNote()};
+async function saveNote(){const text=$('rin').value.trim();if(!text){toast('先写点什么');return}
+  const t=noteT!=null?noteT:v.currentTime||0;const j=await noteOp('add',{t,text,box:BOX.take(),dur:v.duration||null});
+  if(!j)return;$('rin').value='';BOX.clear();release(true)}
+async function noteOp(op,b){let j=null;
+  try{const r=await fetch('/api/local/comments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({name:NAME,op},b))});j=await r.json()}catch(e){}
+  if(!j||!j.ok){toast((j&&j.error)||'没存上，再试一次');return null}
+  NOTES=j;renderNotes();return j}
+async function loadNotes(){if(editing)return;try{const r=await fetch('/api/local/comments?name='+enc(NAME));if(r.ok)NOTES=await r.json()}catch(e){return}renderNotes()}
+function setNotes(on){document.documentElement.classList.toggle('notes',on);if(!!NOTES.on!==on){NOTES.on=on;noteOp('toggle',{on})}renderNotes();
+  setTimeout(()=>{BOX.redraw();tick()},50)}
+$('bNotes').onclick=e=>{e.stopPropagation();setNotes(!NOTES.on)};
+function renderNotes(){const on=!!NOTES.on,cs=NOTES.comments||[],open=cs.filter(c=>!c.resolved),done=cs.filter(c=>c.resolved);
+  document.documentElement.classList.toggle('notes',on);$('bNotes').classList.toggle('on',on);
+  $('bNotes').innerHTML='批注'+(open.length?`<i>${open.length}</i>`:'');
+  $('rn').textContent=cs.length?`${open.length} 条待处理`+(done.length?` · ${done.length} 条已解决`:''):'';
+  const sc=NOTES.sidecar||{};$('rsc').classList.toggle('warn',!sc.ok);
+  $('rsc').textContent=sc.ok?'同步写在原文件旁边：'+sc.md.split('/').pop()+(sc.guessed?'（原文件是按名字和大小找到的）':''):(sc.why||'');$('rsc').title=sc.md||sc.orig||'';
+  const item=c=>`<div class="cm${c.resolved?' done':''}" data-id="${c.id}"><div class="ch"><button class="res" data-a="res" title="${c.resolved?'改回待处理':'标为已解决'}">✓</button>`
+    +`<span class="ct" data-a="go" title="跳到这里">${fmtN(c.t)}</span>${c.box?'<span title="有框选">▭</span>':''}<span class="sp"></span>`
+    +`<button data-a="edit">编辑</button><button class="del" data-a="del">删除</button></div><div class="cx">${esc(c.text)}</div></div>`;
+  $('rlist').innerHTML=cs.length?open.map(item).join('')+(done.length?`<div class="rsec">已解决 ${done.length}</div>`+done.map(item).join(''):'')
+    :'<div class="rempty">还没有批注。<br>看到要改的地方，直接在下面写，<br>会自动记下时间；要指画面就先点「框选」。</div>';
+  const d=v.duration||0,bar=$('bar');bar.querySelectorAll('.cmk').forEach(x=>x.remove());
+  if(d)open.forEach(c=>{const m=document.createElement('i');m.className='cmk';m.style.left=(c.t/d*100)+'%';m.title=fmtN(c.t)+' '+c.text;
+    m.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();goNote(c)});bar.appendChild(m)})}
+v.addEventListener('loadedmetadata',()=>renderNotes());
+function goNote(c){v.pause();v.currentTime=c.t;if(c.box)BOX.show(c.box);
+  document.querySelectorAll('.cm').forEach(x=>x.classList.toggle('on',+x.dataset.id===c.id));poke()}
+$('rlist').addEventListener('click',async e=>{const a=e.target.closest('[data-a]'),row=e.target.closest('.cm');if(!a||!row)return;
+  const c=(NOTES.comments||[]).find(x=>x.id===+row.dataset.id);if(!c)return;
+  if(a.dataset.a==='go')goNote(c);
+  else if(a.dataset.a==='res')noteOp('resolve',{id:c.id,resolved:!c.resolved});
+  else if(a.dataset.a==='del'){if(confirm('删除这条批注？\n'+c.text.slice(0,80)))noteOp('delete',{id:c.id})}
+  else if(a.dataset.a==='edit'){const cx=row.querySelector('.cx');if(row.querySelector('textarea'))return;editing++;
+    const ta=document.createElement('textarea');ta.value=c.text;cx.style.display='none';cx.after(ta);ta.focus();
+    const close=()=>{ta.remove();cx.style.display='';editing=Math.max(0,editing-1)};
+    ta.addEventListener('keydown',async ev=>{ev.stopPropagation();
+      if(ev.key==='Enter'&&!ev.shiftKey&&!ev.isComposing&&ev.keyCode!==229){ev.preventDefault();const t=ta.value.trim();if(!t)return;close();if(t!==c.text)await noteOp('edit',{id:c.id,text:t})}
+      else if(ev.key==='Escape'){ev.preventDefault();close()}});
+    ta.addEventListener('blur',()=>setTimeout(()=>{if(ta.isConnected)close()},150))}});
+$('rlist').addEventListener('dblclick',e=>{const row=e.target.closest('.cm');if(row&&e.target.classList.contains('cx')){const b=row.querySelector('[data-a=edit]');if(b)b.click()}});
+// 复制全部批注: the same md as the sidecar, without image links (for a session that can't see this Mac)
+async function copyText(t){try{await navigator.clipboard.writeText(t);return true}catch(e){}
+  const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();
+  let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();return ok}
+$('bCopy').onclick=async e=>{e.stopPropagation();let md='';try{md=await (await fetch('/api/local/comments.md?name='+enc(NAME))).text()}catch(x){}
+  if(!md){toast('没取到批注');return}const n=(NOTES.comments||[]).length;toast(await copyText(md)?`已复制 ${n} 条批注（Markdown）`:'没复制成功')};
+// ticks an agent made in the md come back while the rail is open
+setInterval(()=>{if(NOTES.on&&!document.hidden&&noteT==null)loadNotes()},10000);
+loadNotes();
 init();
 </script></body></html>
 """

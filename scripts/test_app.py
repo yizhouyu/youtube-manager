@@ -327,6 +327,109 @@ with tempfile.TemporaryDirectory() as tmp:
     assert lc.get("/local/play?name=big.mov").status_code == 200
     assert set(os.listdir(drops)) == {"旅行 vlog.mp4", "big.mov"}, "originals untouched"
 
+    # 批注 on a 本地视频 (local_comments.py): app store + a sidecar md / frames next to the ORIGINAL, nothing else
+    import shutil as _sh
+    import subprocess as _sp
+    from src.editor import local_comments as LC  # noqa: E402
+    os.environ["SHENPIAN_NO_SPOTLIGHT"] = "1"
+    rtmp = os.path.realpath(tmp)   # /var -> /private/var: paths as the code records them
+    proj_x = os.path.join(rtmp, "AIProj", "03 - Making-of", "export")
+    os.makedirs(proj_x)
+    clip = os.path.join(proj_x, "春风 v7.mp4")
+    has_ff = bool(_sh.which("ffmpeg"))
+    if has_ff:   # a silent 2 s test picture (no audio track at all)
+        _sp.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=25", "-t", "2", "-an",
+                 "-pix_fmt", "yuv420p", clip], check=True)
+    else:
+        mk(clip, b"not really a video")
+    vid = LP.add(clip)["name"]
+    assert LP.load_state()["orig"][vid]["path"] == os.path.realpath(clip), "the copy remembers its original"
+    def snap():
+        return {os.path.join(r, f): os.stat(os.path.join(r, f)).st_mtime for r, _, fs in os.walk(rtmp) for f in fs}
+    before = snap()
+    C_ = lambda **b: lc.post("/api/local/comments", json=dict(b, name=vid))   # noqa: E731
+    r = C_(op="add", t=1.2, text="字幕太快", box=[0.1, 0.2, 0.3, 0.4], dur=2.0).get_json()
+    assert r["ok"] and r["on"] and r["comments"][0]["id"] == 1 and r["comments"][0]["box"] == [0.1, 0.2, 0.3, 0.4] and r["sidecar"]["ok"]
+    md_p, fr_d = os.path.join(proj_x, "春风 v7.comments.md"), os.path.join(proj_x, "春风 v7.comments")
+    assert r["sidecar"]["md"] == md_p
+    md = open(md_p, encoding="utf-8").read()
+    frame_link = " [画面](<春风 v7.comments/c1.jpg>)" if has_ff else ""
+    assert "- [ ] [00:01.2] 字幕太快（框选 0.10,0.20,0.30,0.40）" + frame_link + " <!-- id:1 -->" in md, md
+    assert "原文件：" + os.path.realpath(clip) in md and "## 待处理" in md and "## 已解决" in md
+    if has_ff:
+        jpg = open(os.path.join(fr_d, "c1.jpg"), "rb").read()
+        assert jpg[:2] == b"\xff\xd8", "a JPEG frame next to the md"
+    r = C_(op="add", t=0.5, text="开头\n太长").get_json()
+    assert [c["id"] for c in r["comments"]] == [2, 1], "sorted by time"
+    assert "- [ ] [00:00.5] 开头 / 太长" in open(md_p, encoding="utf-8").read()
+    assert C_(op="edit", id=1, text="字幕太快了").get_json()["comments"][1]["text"] == "字幕太快了"
+    r = C_(op="resolve", id=2, resolved=True).get_json()
+    md = open(md_p, encoding="utf-8").read()
+    assert "- [x] [00:00.5]" in md and md.index("## 已解决") < md.index("- [x] [00:00.5]") and "字幕太快了" in md
+    assert LP.open_comments(vid) == 1 and [x for x in LP.list_videos() if x["name"] == vid][0]["notes"] == 1
+    # an agent ticks the md -> the app reads the resolved flag back (only that), then rewrites the md
+    with open(md_p, encoding="utf-8") as f:
+        md = f.read()
+    with open(md_p, "w", encoding="utf-8") as f:
+        f.write(md.replace("- [ ] [00:01.2] 字幕太快了", "- [x] [00:01.2] 改掉的文字不算").replace("- [x] [00:00.5]", "- [ ] [00:00.5]"))
+    os.utime(md_p, (time.time() + 5, time.time() + 5))
+    r = lc.get("/api/local/comments?name=" + urllib.parse.quote(vid)).get_json()
+    got = {c["id"]: (c["resolved"], c["text"]) for c in r["comments"]}
+    assert got == {1: (True, "字幕太快了"), 2: (False, "开头\n太长")}, got
+    md = open(md_p, encoding="utf-8").read()
+    assert "- [x] [00:01.2] 字幕太快了" in md and "改掉的文字不算" not in md, "md rewritten from the json"
+    assert "待处理 1 条 · 已解决 1 条" in md
+    # clipboard md: no image links
+    cp = lc.get("/api/local/comments.md?name=" + urllib.parse.quote(vid)).get_data(as_text=True)
+    assert "字幕太快了" in cp and "[画面]" not in cp and "<!-- id:1 -->" in cp
+    # delete: the line and its frame go
+    r = C_(op="delete", id=1).get_json()
+    assert [c["id"] for c in r["comments"]] == [2] and "id:1 " not in open(md_p, encoding="utf-8").read()
+    assert not os.path.exists(os.path.join(fr_d, "c1.jpg"))
+    # bad requests
+    assert C_(op="add", t=1, text="  ").status_code == 400 and C_(op="edit", id=99, text="x").status_code == 400
+    assert C_(op="add", t=-1, text="x").status_code == 400 and C_(op="nope").status_code == 400
+    assert lc.post("/api/local/comments", json={"name": "../x.mp4", "op": "add", "t": 1, "text": "x"}).status_code == 404
+    assert lc.get("/api/local/comments?name=..%2Fx.mp4").status_code == 404
+    assert C_(op="add", t=1, text="x").status_code == 200 and lc.post("/api/local/comments", json={"name": vid, "op": "add", "t": 1, "text": "x"},
+                                                                     headers={"Origin": "http://evil.example"}).status_code == 403
+    assert not C_(op="toggle", on=False).get_json()["on"] and not LC.load(vid)["on"], "the 批注 switch is remembered per video"
+    # nothing written outside the app store and the sidecar next to the original; the videos themselves untouched
+    after = snap()
+    allowed = (os.path.join(LP.folder(), ".comments") + os.sep, md_p, fr_d + os.sep, os.path.join(rtmp, "local_player.json"))
+    new_or_changed = [p for p in after if before.get(p) != after[p]]
+    assert all(p.startswith(allowed) or p in allowed for p in new_or_changed), new_or_changed
+    assert before[clip] == after[clip] and before[os.path.join(LP.folder(), vid)] == after[os.path.join(LP.folder(), vid)]
+    # no sidecar: unknown original (put in the folder by hand), unwritable folder, original gone, a symlink in the way
+    r = lc.post("/api/local/comments", json={"name": "finder.m4v", "op": "add", "t": 1, "text": "x"}).get_json()
+    assert r["ok"] and not r["sidecar"]["ok"] and "不知道原文件" in r["sidecar"]["why"] and r["comments"][0]["text"] == "x"
+    ro_dir = os.path.join(tmp, "RO")
+    os.makedirs(ro_dir)
+    ro_clip = mk(os.path.join(ro_dir, "ro.mp4"), b"ro" * 50)
+    ro_name = LP.add(ro_clip)["name"]
+    os.chmod(ro_dir, 0o555)
+    try:
+        r = lc.post("/api/local/comments", json={"name": ro_name, "op": "add", "t": 1, "text": "x"}).get_json()
+        assert r["ok"] and not r["sidecar"]["ok"] and "不能写" in r["sidecar"]["why"] and os.listdir(ro_dir) == ["ro.mp4"]
+    finally:
+        os.chmod(ro_dir, 0o755)
+    os.symlink(os.path.join(tmp, "elsewhere.md"), os.path.join(ro_dir, "ro.comments.md"))
+    r = lc.post("/api/local/comments", json={"name": ro_name, "op": "add", "t": 2, "text": "y"}).get_json()
+    assert not r["sidecar"]["ok"] and not os.path.exists(os.path.join(tmp, "elsewhere.md")), "never writes through a symlink"
+    os.remove(os.path.join(ro_dir, "ro.comments.md"))
+    os.remove(ro_clip)   # the original went away (a temp file of this test)
+    assert "不在原来的地方" in lc.get("/api/local/comments?name=ro.mp4").get_json()["sidecar"]["why"]
+    assert len(LC.load(ro_name)["comments"]) == 2, "kept in the app store"
+    # scripts/shenpian comments: by the original's path, by name; unknown -> error
+    env = dict(os.environ)
+    sh = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shenpian")
+    out = _sp.run([sh, "comments", clip], capture_output=True, text=True, env=env)
+    assert out.returncode == 0 and out.stdout.startswith("# 批注 · " + vid) and "开头 / 太长" in out.stdout, out.stderr
+    if has_ff:
+        assert os.path.join(fr_d, "c2.jpg") in out.stdout, "absolute frame paths in the terminal"
+    assert _sp.run([sh, "comments", vid], capture_output=True, text=True, env=env).stdout == out.stdout
+    assert _sp.run([sh, "comments", os.path.join(tmp, "nothing.mp4")], capture_output=True, text=True, env=env).returncode != 0
+
     # ports: never the live review ports, remembered per project
     p1 = A.pick_port(proj, "raw")
     assert p1 in A.port_range() and not 8748 <= p1 <= 8755

@@ -980,7 +980,7 @@ const native=()=>!!(window.webkit&&webkit.messageHandlers&&webkit.messageHandler
 const gbs=n=>n>=1e9?(n/1e9).toFixed(1)+' GB':Math.max(1,Math.round(n/1e6))+' MB';
 const fmtT=t=>{t=Math.max(0,t||0);const h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=Math.floor(t%60);return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s).padStart(2,'0')};
 function flash(s){const t=$('stoast');t.textContent=s;t.classList.add('on');clearTimeout(stT);stT=setTimeout(()=>t.classList.remove('on'),6000)}
-function locRow(it){const meta=[gbs(it.size)];if(it.done)meta.push('看完了');else if(it.t>0)meta.push('看到 '+fmtT(it.t)+(it.dur?' / '+fmtT(it.dur):''));
+function locRow(it){const meta=[gbs(it.size)];if(it.done)meta.push('看完了');else if(it.t>0)meta.push('看到 '+fmtT(it.t)+(it.dur?' / '+fmtT(it.dur):''));if(it.notes)meta.push(it.notes+' 条批注');
   return `<div class="ep loc${LOCALCUR===it.name?' on':''}" data-n="${esc(it.name)}" title="${esc(it.name)}"><b></b><span class="nm">${esc(it.name)}</span><span class="lm">${esc(meta.join(' · '))}</span>`
     +`<span class="la"><button data-a="reveal" title="在 Finder 里选中这份拷贝">在 Finder 中显示</button><button data-a="trash" title="这份拷贝放进废纸篓（原文件不动）">从列表移除</button></span></div>`}
 function renderLocal(){const s=$('locsec');if(!s)return;const pct=j=>Math.floor(j.copied/Math.max(1,j.size)*100);

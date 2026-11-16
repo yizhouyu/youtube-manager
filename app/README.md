@@ -83,6 +83,33 @@ forward and hands the real paths to `shell.localDrop`, which POSTs them to `/api
 Agent: `scripts/shenpian local <file> [--background]` does the same as a drag (copy in, then show it in the player);
 `shenpian://open?local=<name>` shows a video already in the folder; `status` reports it as `local`.
 
+### 批注 on a 本地视频 (and 「address comments」)
+
+The 「批注」 button in the player's control bar (or C) opens a notes rail for that video (off by default, remembered
+per video). Not a chat: nothing is announced, no agent is involved. A note keeps the media time where he started
+typing (the video pauses there; Enter saves and plays on), an optional 「框选」 box (x, y, w, h as 0–1 of the frame),
+and can be edited, deleted or ticked ✓ (resolved). Clicking its time (or its yellow mark on the progress bar) seeks
+there and draws the box. 「复制全部批注」 copies the markdown below without image links, for a cloud session.
+Code: `src/editor/local_comments.py`.
+
+Where it is written (nowhere else; the video files are never touched):
+- `~/Movies/审片播放器/.comments/<video name>.json`: the app's store and the source of truth for text, time, box.
+- Next to the ORIGINAL file the video was dragged in from (`local_player` remembers it; for copies made before that,
+  a Spotlight file with the same name and size): `<stem>.comments.md` and `<stem>.comments/c<id>.jpg` (the frame,
+  ~1280 wide, box drawn). Rewritten on every add / edit / resolve / delete. Original gone or folder not writable =
+  only the app store, and the rail says so.
+
+**For a session told 「address comments」 about a video:** read `<stem>.comments.md` next to that video (frames in
+`<stem>.comments/`), or run `scripts/shenpian comments <video path or name>` (same markdown, absolute frame paths).
+Open items look like
+
+    - [ ] [01:23.4] 字幕太快（框选 0.25,0.50,0.20,0.10） [画面](<春风又绿_幕后_v7.comments/c3.jpg>) <!-- id:3 -->
+
+Fix them, then mark each one done by changing its `- [ ]` to `- [x]` in the md (only the checkbox; keep the
+`<!-- id:N -->`). The app reads the ticks back the next time it reads that video's notes (opening it, or every 10 s
+while the rail is open) and rewrites the md from its json (resolved items move under 「已解决」); edits to the text in
+the md are not read back.
+
 ## Tabs (hidden when empty)
 
 | Tab | Page |

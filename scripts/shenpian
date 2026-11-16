@@ -6,6 +6,7 @@ nothing here picks, approves, saves or renders — those are the creator's own c
     scripts/shenpian open 126 [--tab cut] [--t 83.5] [--clip DJI_..._D] [--background]
     scripts/shenpian open "/Volumes/YZY's drive/YouTube Channel/74 - Old Trip" --tab raw   # any folder: read-only
     scripts/shenpian local ~/path/video.mp4 [--background]   # 本地视频: copy into ~/Movies/审片播放器 + play it
+    scripts/shenpian comments <video path or name>   # 本地视频 批注 as markdown (reads md ticks back first)
     scripts/shenpian status            # JSON: running, project, tab, playhead, ports, window id
     scripts/shenpian screenshot out.png   # the app window (screencapture -l), the app is not activated
     scripts/shenpian quit              # refuses while 成片 has unsaved edits
@@ -158,6 +159,14 @@ def cmd_local(a):
     sys.exit(0 if st.get("local") == name and not st.get("error") else 1)
 
 
+def cmd_comments(a):
+    """The 批注 he left on a 本地视频 (local_comments.py), as markdown with absolute frame paths. Read-only for the
+    video; ticks an agent made in <stem>.comments.md are read back first."""
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+    from src.editor import local_comments as LC
+    LC.main([a.video])
+
+
 def cmd_status(_):
     print(json.dumps(state(), ensure_ascii=False, indent=1))
 
@@ -203,12 +212,14 @@ def main():
     lo.add_argument("file")
     lo.add_argument("--background", action="store_true", help="never take focus (off-screen window if starting it)")
     lo.add_argument("--wait", type=float, default=90, help="seconds to wait for the player to show (default 90)")
+    c = sub.add_parser("comments", help="print the 批注 of a 本地视频 (name in ~/Movies/审片播放器, its path, or the original's path)")
+    c.add_argument("video")
     sub.add_parser("status", help="JSON: running, project, tab, playhead, ports, window id")
     s = sub.add_parser("screenshot", help="capture the app window without activating it")
     s.add_argument("out")
     sub.add_parser("quit", help="quit the app (refused while there are unsaved edits)")
     a = ap.parse_args()
-    {"open": cmd_open, "local": cmd_local, "status": cmd_status, "screenshot": cmd_screenshot, "quit": cmd_quit}[a.cmd](a)
+    {"open": cmd_open, "local": cmd_local, "comments": cmd_comments, "status": cmd_status, "screenshot": cmd_screenshot, "quit": cmd_quit}[a.cmd](a)
 
 
 if __name__ == "__main__":
