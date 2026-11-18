@@ -6,7 +6,9 @@ Run it after every upload chain (whichever agent ran it) and before moving a pro
 Usage:
   venv/bin/python scripts/episode_audit.py 120                 # episode number → ~/Desktop/120 - *
   venv/bin/python scripts/episode_audit.py "~/Desktop/120 - X" # or a project dir
-  venv/bin/python scripts/episode_audit.py --all               # every ~/Desktop/NNN - * with a youtube_ids.json
+  venv/bin/python scripts/episode_audit.py --all               # every ~/Desktop/NNN - * with a youtube_ids.json,
+                                                               # plus FOLLOWUPS episodes already moved to the drive
+                                                               # (ids from STATE.md "CHAIN DONE", API checks only)
   add --json for machine output. Exit 0 only when every audited episode is READY FOR DRIVE.
 
 Sources (all read-only): <proj>/02 - Export/edit/publish_prep/youtube_ids.json, sessions/upload_chains/epNNNpub/config.json
@@ -24,6 +26,7 @@ sys.path.insert(0, REPO)
 DESKTOP = os.path.expanduser("~/Desktop")
 CHAINS = os.path.join(REPO, "sessions", "upload_chains")
 FOLLOWUPS = os.path.join(REPO, "sessions", "FOLLOWUPS.json")
+STATE = os.path.join(REPO, "sessions", "STATE.md")
 SHORTS_PL_NAME = "短视频 | Shorts"
 ET, BJ = ZoneInfo("America/New_York"), ZoneInfo("Asia/Shanghai")
 OK, BAD, PEND, UNK = "✓", "✗", "…", "?"
@@ -98,11 +101,28 @@ def load_json(p):
         return None
 
 
-def audit(proj):
+def chain_done_ids():
+    """ep -> ids dict from the last "· NNN · CHAIN DONE (verified): {...}" line in STATE.md (for projects on the drive)."""
+    out = {}
+    try:
+        for line in open(STATE, encoding="utf-8"):
+            m = re.match(r"- \S+ \S+ · (\d{3}) · CHAIN DONE \(verified\): (\{.*\})\s*$", line)
+            if m:
+                try:
+                    out[m.group(1)] = json.loads(m.group(2))
+                except ValueError:
+                    pass
+    except OSError:
+        pass
+    return out
+
+
+def audit(proj, drive_ids=None):
+    """drive_ids: the project is no longer on the Desktop (moved to the drive) — audit YouTube/B站 from these ids, skip local."""
     name = os.path.basename(proj)
     ep = name[:3]
     edit = os.path.join(proj, "02 - Export", "edit")
-    ids = load_json(os.path.join(edit, "publish_prep", "youtube_ids.json")) or {}
+    ids = drive_ids if drive_ids is not None else (load_json(os.path.join(edit, "publish_prep", "youtube_ids.json")) or {})
     cfg = load_json(os.path.join(CHAINS, f"ep{ep}pub", "config.json")) or {}
     if not cfg.get("playlist"):  # pre-config chains (≤119) hard-code it: PLAYLIST = "PL…"   # 夏威夷 | Hawaii (…)
         try:
@@ -249,13 +269,17 @@ def audit(proj):
         add("bili", "B站 BV + dtime", BAD, f"bili={bv or '-'} dtime={dtime or '-'}")
     add("bili_season", "B站 合集", OK if ids.get("bili_season") else BAD, ids.get("bili_season") or "未记录")
 
-    # --- local
-    left = [p for p in ("preview.mp4", "previews") if os.path.lexists(os.path.join(edit, p))]
-    add("preview", "预览已删", BAD if left else OK, ("还在: " + ", ".join(left)) if left else "")
-    sha = ids.get("master_sha256")
-    add("master_sha", "母版 sha256", OK if sha else BAD, (sha[:12] + "…") if sha else "ids 里没有 master_sha256")
+    # --- local (skipped once the project is on the drive: move_to_drive.sh already checked it)
+    if drive_ids is None:
+        left = [p for p in ("preview.mp4", "previews") if os.path.lexists(os.path.join(edit, p))]
+        add("preview", "预览已删", BAD if left else OK, ("还在: " + ", ".join(left)) if left else "")
+        sha = ids.get("master_sha256")
+        add("master_sha", "母版 sha256", OK if sha else BAD, (sha[:12] + "…") if sha else "ids 里没有 master_sha256")
 
     notdone = [r["label"] for r in rows if r["status"] != OK]
+    if drive_ids is not None:
+        return {"ep": ep, "project": proj, "ready": not notdone, "items": rows,
+                "verdict": "ON DRIVE — API checks OK" if not notdone else "ON DRIVE — NOT DONE: " + ", ".join(notdone)}
     return {"ep": ep, "project": proj, "ready": not notdone, "items": rows,
             "verdict": "READY FOR DRIVE" if not notdone else "NOT DONE: " + ", ".join(notdone)}
 
@@ -272,6 +296,13 @@ def main():
     else:
         sys.exit(__doc__)
     res = [audit(p) for p in projs]
+    if "--all" in a:  # FOLLOWUPS episodes whose project already went to the drive
+        here = {os.path.basename(p)[:3] for p in projs}
+        done = chain_done_ids()
+        for it in (load_json(FOLLOWUPS) or {}).get("items", []):
+            ep = str(it.get("ep"))
+            if ep not in here and ep in done:
+                res.append(audit(f"{ep} - (on the drive)", drive_ids=done[ep]))
     if as_json:
         print(json.dumps(res, ensure_ascii=False, indent=1))
     else:
