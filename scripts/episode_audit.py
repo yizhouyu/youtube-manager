@@ -269,7 +269,7 @@ def audit(proj, drive_ids=None):
         add("bili", "B站 BV + dtime", BAD, f"bili={bv or '-'} dtime={dtime or '-'}")
     add("bili_season", "B站 合集", OK if ids.get("bili_season") else BAD, ids.get("bili_season") or "未记录")
 
-    # --- local (skipped once the project is on the drive: move_to_drive.sh already checked it)
+    # --- local (skipped once the project is on the drive; move_to_drive.sh checks these, a manual Finder move does not)
     if drive_ids is None:
         left = [p for p in ("preview.mp4", "previews") if os.path.lexists(os.path.join(edit, p))]
         add("preview", "预览已删", BAD if left else OK, ("还在: " + ", ".join(left)) if left else "")
