@@ -149,6 +149,7 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
 - Shorts views don't count toward long-form watch-time thresholds. Subscribers from Shorts
   do count. Judge Shorts by **subscribers gained** and **related-video clicks**, not
   views. [S24]
+- **Our data (2026-11-19):** open-loop "rest is in the full video" Shorts sent ~0.1% of their viewers to the long video over 6 weeks. A teaser alone doesn't move people; the link has to be set and the Short has to earn the subscribe on its own. Test complete-payoff Shorts against open loops, and confirm in Studio that every Short has its Related video before blaming the cut.
 
 ## Cadence, series, and binge chains
 

@@ -238,6 +238,7 @@ see LESSONS.md for sources). Treat them as the bar every cut must clear:
     - **Make the two different:** one a moment (an animal, a reaction, a reveal), the other a question the long video answers.
     - **Name the series and city on screen** (「中国之旅 · 上海」), never an episode number: each Short stands alone (creator 2026-11-10).
     - The success number is Related-video clicks, not views.
+    - **2026-11-19 data: the open loop alone didn't work.** After 6 weeks of open-loop Shorts, 33k Shorts views sent 29 views to long videos (0.09%). Long videos convert about 7× better per view (3.2 vs 0.45 subs per 1k). So **cut one of the two Shorts as a complete payoff** (a self-contained story that ends satisfied) and one as an open loop. Log which is which in `02 - Export/shorts/README.md`, so the ~12/10 re-check can compare subs per 1k and related clicks.
     Leave ~3 s after the last spoken line of each moment: `scripts/make_short.py`'s CTA (creator,
     2026-10-04) sends viewers to the long video through the Short's bottom-left Related-video link
     (「完整版👇 点左下角的链接」 + an arrow at that link, a bell, and the spoken 「完整版在左下角，点进去看」).
@@ -270,6 +271,12 @@ Source: `sessions/research/2026-10-08/retention.md`. The samples are small (11�
    - End screens sent 1 view to 81–99.
 6. **Keep the freeze-frame question cards; use them as mid-video re-hooks.** They show bumps and never drops.
 7. **Mid-video talk length shows no measurable effect.** Spend trimming effort on the first minute.
+
+**Re-check 2026-11-19 (9 long videos, 10/10–11/13).** The median keeps 80% at 0:15, 55% at 0:30 and 43% at 1:00. Relative retention at the halfway point is 0.26–0.5, all below YouTube's median for similar videos, and 13-min cuts average 9–20% viewed. One episode fell to 17% by 0:30. The first 30 s is still where we lose the most, so:
+- **First 5 s:** the strongest live moment of the episode, plus one plain line saying what this video delivers (the cover/title promise).
+- **Before 0:30:** live content only. Route maps go at the end of a day as a recap. No title card, setup talk or drive.
+- **Making-of and AI episodes convert 3–10× better** than place diaries (≈10 vs 0–3 subs per 1k views). Make the "why subscribe" promise visible: say what the series is.
+- Long cuts stay (the creator's no-runtime-cap rule). Spend trimming effort on the first minute and on dead middle stretches. For cuts past ~15 min, tell him the trade-off and add chapters.
 
 ### 2b+. Craft rules from the 2026-10-01 research (Chinese and English creators, retention, audio)
 Sources and evidence: `docs/`-style reports kept locally (zh-creators, en-creators, retention-packaging,
