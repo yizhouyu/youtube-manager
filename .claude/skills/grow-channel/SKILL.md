@@ -55,6 +55,7 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
     No all-caps or emoji spam.
 - **Thumbnail**: one focal subject, big readable text (≤6 CJK chars), and it must read at
   phone size. Of the best-performing videos, 90% use custom thumbnails. [S9]
+- **Judge the cover at Suggested size (our data, 2026-11-19).** 76% of our long-video impressions come from Suggested, at about 1% click-through. Search clicks at ~10% but is small. Look at the cover at ~168 px wide next to a typical travel video: one clear subject, a few big characters. The title's first ~15 characters must carry the hook; trailing keyword lists don't help there.
 - **Test & Compare**: upload 2–3 *meaningfully different* options (a title, a thumbnail, or
   both). The winner is chosen by **watch-time share**, not CTR. A test takes days to 2 weeks.
   It isn't available for Shorts. [S11]
