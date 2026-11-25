@@ -1,0 +1,7 @@
+#!/bin/sh
+# Shared by the hooks: Pillow lives in the venv, so prefer it.
+root=$(git rev-parse --show-toplevel) || exit 2
+py="$root/venv/bin/python"
+[ -x "$py" ] || py="$(git rev-parse --path-format=absolute --git-common-dir)/../venv/bin/python"  # worktree
+[ -x "$py" ] || py=$(command -v python3) || { echo "✋ 没有 python，提交已停下" >&2; exit 2; }
+exec "$py" "$root/scripts/privacy_check.py" "$@"

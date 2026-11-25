@@ -33,6 +33,7 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 uv venv -p 3.12 asrvenv && uv pip install -p asrvenv/bin/python mlx-qwen3-asr opencc-python-reimplemented
 brew install ffmpeg whisper-cpp
 app/build.sh --install                       # 审片.app
+git config core.hooksPath .githooks          # block commits with personal info (scripts/privacy_check.py)
 ```
 
 - `models/`: whisper.cpp ggml models + Silero VAD. `.tools/` (optional): `mlx-audio`, `rife`.
