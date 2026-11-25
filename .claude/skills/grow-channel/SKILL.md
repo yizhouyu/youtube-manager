@@ -55,7 +55,7 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
     No all-caps or emoji spam.
 - **Thumbnail**: one focal subject, big readable text (≤6 CJK chars), and it must read at
   phone size. Of the best-performing videos, 90% use custom thumbnails. [S9]
-- **Judge the cover at Suggested size (our data, 2026-11-19).** 76% of our long-video impressions come from Suggested, at about 1% click-through. Search clicks at ~10% but is small. Look at the cover at ~168 px wide next to a typical travel video: one clear subject, a few big characters. The title's first ~15 characters must carry the hook; trailing keyword lists don't help there.
+- **Judge the cover at Suggested size (2026-11-19).** Most long-video impressions come from Suggested, where click-through is lowest. Look at the cover at ~168 px wide next to a typical travel video: one clear subject, a few big characters. The title's first ~15 characters must carry the hook. When comparing click-through between videos, use the same days-since-publish window and traffic source.
 - **Test & Compare**: upload 2–3 *meaningfully different* options (a title, a thumbnail, or
   both). The winner is chosen by **watch-time share**, not CTR. A test takes days to 2 weeks.
   It isn't available for Shorts. [S11]
@@ -150,7 +150,7 @@ logs in a **private, gitignored** folder (e.g. `sessions/growth/`), never in thi
 - Shorts views don't count toward long-form watch-time thresholds. Subscribers from Shorts
   do count. Judge Shorts by **subscribers gained** and **related-video clicks**, not
   views. [S24]
-- **Our data (2026-11-19):** open-loop "rest is in the full video" Shorts sent ~0.1% of their viewers to the long video over 6 weeks. A teaser alone doesn't move people; the link has to be set and the Short has to earn the subscribe on its own. Test complete-payoff Shorts against open loops, and confirm in Studio that every Short has its Related video before blaming the cut.
+- **Our experience (2026-11-19):** open-loop "rest is in the full video" Shorts sent almost nobody to the long video, even with the Related video set on every one. The Short has to earn the subscribe on its own; test complete-payoff Shorts against open loops.
 
 ## Cadence, series, and binge chains
 
